@@ -4,17 +4,17 @@
 
 # Tput
 
-Tput is a library capable of managing terminal/console screen on ideally every terminal.
+Tput is a low-level component for building term/console applications in Crystal.
 
 It is closely related to shard [Terminfo](https://github.com/crystallabs/terminfo).
 Terminfo parses terminfo files into instances of `Terminfo::Data` or custom classes.
 
-Tput builds on this basic functionality. It detects the terminal program and its
+Tput builds on this basic functionality to provide a fully-functional environment.
+In addition to using the Terminfo data, it also detects the terminal program and its
 known bugs or quirks, and configures itself for outputting the correct escape sequences.
+
 It also provides sensible generic defaults in the case that using Terminfo data is not
 desired or appropriate terminfo file cannot be found.
-
-Altogether, Tput is a complete low-level component for building term/console programs.
 
 It is implemented natively and does not depend on ncurses or other external library.
 
@@ -61,8 +61,8 @@ Tput can also output string capabilities. Most of the string capabilities are
 non-parametric and simply output fixed sequences appropriate for current terminal.
 However, some also accept integer arguments, such as color pairs or cursor position.
 
-Tput wraps string capabilities into callable Procs. These Procs can be called at three
-levels of abstraction. From lowest to highest:
+Tput wraps all string capabilities into callable Procs. These Procs can be called at
+three levels of abstraction. From lowest to highest:
 
 Directly, returning the escape sequence as a string:
 
@@ -77,13 +77,13 @@ print my.methods["cursor_position"].call 10i16, 20i16
 Via `#put()`, automatically outputting the sequence to the terminal:
 
 ```crystal
-my.put("bell")
-my.put("cr")
-my.put("cursor_address", 10, 20)
+my.put "bell"
+my.put "cr"
+my.put "cursor_address", 10, 20
 puts "Hi!"
 ```
 
-Via object methods, taking into account terminal's specifics and state:
+Via object methods, taking into account terminal specifics and state:
 
 ```crystal
 # Invoke string capabilities via predefined methods (high-level)
@@ -93,9 +93,9 @@ my.cup 10, 20
 ```
 
 All the methods and capability names have many aliases. For example,
-`cursor_position` can be accessed as any full and aliased names and
+`cursor_position` can be accessed under all full and aliased names and
 terminfo and termcap capability names: `cursor_position`, `cursor_pos`,
-`cursor_address`, `cup`, `cm`, `pos`.
+`cursor_address`, `cup`, `cm`, and `pos`.
 
 ## API documentation
 
@@ -117,4 +117,4 @@ Also, see examples in the directory `examples/`.
 
 List of interesting or similar projects in no particular order:
 
-- https://github.com/crystallabs/crysterm - Console/term toolkit for Crystal
+- https://github.com/crystallabs/crysterm - Term/console toolkit for Crystal
