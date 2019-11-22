@@ -83,7 +83,7 @@ my.put "cursor_address", 10, 20
 puts "Hi!"
 ```
 
-Via object methods, taking into account terminal specifics and state:
+Via object methods, taking into account terminal specifics, state, buffering, etc.:
 
 ```crystal
 # Invoke string capabilities via predefined methods (high-level)
@@ -96,9 +96,6 @@ All the methods and capability names have many aliases. For example,
 `cursor_position` can be accessed under all full and aliased names and
 terminfo and termcap capability names: `cursor_position`, `cursor_pos`,
 `cursor_address`, `cup`, `cm`, and `pos`.
-
-Currently, around 125 different string capabilities are supported.
-Please see the full list in `src/methods.cr` or in the API documentation.
 
 ## API documentation
 
