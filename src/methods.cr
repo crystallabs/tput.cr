@@ -18,7 +18,8 @@ module Tput
     #end
 
     def _owrite(text)
-      return unless @output.writable?
+      # TODO
+      #return unless @output.writable?
       @output.write text.to_slice
     end
     alias_previous write
@@ -1939,6 +1940,44 @@ module Tput
       _write "\x1b[" + arguments.join(';') + " ~"
     end
     alias_previous decdc
+
+    # Returns number of columns.
+    def cols
+      ::Tput::Methods.cols
+    end
+    alias_previous columns
+
+    # Returns number of lines.
+    def lines
+      ::Tput::Methods.lines
+    end
+    alias_previous rows
+
+    # Returns number of columns.
+    #
+    # Currently this uses ENV variables. For it to work, variable COLUMNS must be
+    # exposed to environment with `declare -X COLUMNS` or `export COLUMNS`.
+    # As such, it is effectively broken.
+    #
+    # Maybe it could issue `stty size` or `tput cols/lines`.
+    # Or do something like https://github.com/crystal-lang/crystal/issues/2061
+    def self.cols
+      ENV["COLUMNS"]?.try &.to_i || 1
+    end
+    alias_previous columns
+
+    # Returns number of lines.
+    #
+    # Currently this uses ENV variables. For it to work, variable LINES must be
+    # exposed to environment with `declare -X LINES` or `export LINES`.
+    # As such, it is effectively broken.
+    #
+    # Maybe it could issue `stty size` or `tput cols/lines`.
+    # Or do something like https://github.com/crystal-lang/crystal/issues/2061
+    def self.lines
+      ENV["LINES"]?.try &.to_i || 1
+    end
+    alias_previous rows
 
   end
 end

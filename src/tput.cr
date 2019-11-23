@@ -156,23 +156,23 @@ module Tput
 
   getter x : Int32 = 0
   getter y : Int32 = 0
-  getter rows : Int32 = 0
-  getter cols : Int32 = 0
   getter saved_x : Int32 = 0
   getter saved_y : Int32 = 0
-  getter scroll_top : Int32 = 0
-  getter scroll_bottom : Int32 = 0
+  getter scroll_top : Int32
+  getter scroll_bottom : Int32
   
   # Don't write to term but return what would be written
   @ret = false
 
   def initialize(
-    term = nil,
-    terminfo = nil,
-    builtin = nil,
+    term : String? = nil,
+    terminfo : String? = nil,
+    builtin : String? = nil,
 
     use_padding = false,
     extended = true,
+    use_buffer = true,
+    zero_based = true,
     use_cache = ::Tput.use_cache?,
     #printf
     #force_unicode = 
@@ -191,6 +191,14 @@ module Tput
     else
       ::Terminfo::Data.new
     end
+
+    # TODO have it here like this or always read real value?
+    # What happens when we receive WINCH?
+    @columns = ::Tput::Methods.cols
+    @lines   = ::Tput::Methods.lines
+
+    @scroll_top = 0
+    @scroll_bottom = @lines - 1
       
     # if error
     # if use_padding
