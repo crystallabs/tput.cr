@@ -219,9 +219,6 @@ module Tput
 
     @scroll_top = 0
     @scroll_bottom = @lines - 1
-      
-    # if error
-    # if use_padding
 
     @booleans = @terminfo.booleans.merge @terminfo.extended_booleans
     @numbers  = @terminfo.numbers.merge  @terminfo.extended_numbers
@@ -261,6 +258,10 @@ module Tput
     @use_padding      = use_padding || detect_padding
     @setbuf           = detect_setbuf # Not used
     @acsc, @acscr     = parse_acs
+
+    if @use_padding
+      warn "Padding has been enabled."
+    end
 
     #write = _write.bind
   end
