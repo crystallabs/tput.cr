@@ -23,14 +23,18 @@ module Tput
       @iterm2  = (term_program == "iTerm.app") || to_bool(ENV["ITERM_SESSION_ID"]?)
 
       @xfce = !!((ENV["COLORTERM"]?||"") =~ /xfce/i)
+
       @terminator = to_bool(ENV["TERMINATOR_UUID"]?)
-      @lxde = false # TODO missing check
+
       # NOTE: lxterminal does not provide an env var to check for.
+      @lxde = false # TODO missing check
+
       # NOTE: gnome-terminal and sakura use a later version of VTE which provides VTE_VERSION as well as supports SGR events.
       @vte = to_bool(ENV["VTE_VERSION"]?) || @xfce || @terminator || @lxde
 
       # XXX These two could be more complete
       @rxvt  = !!((ENV["COLORTERM"]?||"") =~ /rxvt/i)
+
       @xterm = !!((ENV["XTERM_VERSION"]?||"") =~ /^XTerm/i)
 
       @tmux = to_bool(ENV["TMUX"]?)

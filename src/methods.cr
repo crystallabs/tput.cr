@@ -3,20 +3,6 @@ require "./macros"
 module Tput
   module Methods
 
-    # Checks whether terminal feature exists.
-    def has(name)
-      if @booleans.has_key? name
-        @booleans[name]
-      elsif @numbers.has_key? name
-        @numbers[name] != -1
-      else
-        !!@strings[name]?
-      end
-    end
-    #def has(name)
-    #  (@tput.try &.has(name)) || false
-    #end
-
     def _owrite(text)
       # TODO
       #return unless @output.writable?

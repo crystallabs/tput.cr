@@ -1,4 +1,5 @@
 require "terminfo"
+require "timer"
 
 require "./macros"
 require "./helpers"
@@ -108,11 +109,15 @@ module Tput
   # Instance of `Terminfo::Data`
   getter terminfo : ::Terminfo::Data
   # Does the terminal use unicode?
-  getter? unicode      : Bool
+  getter? use_unicode  : Bool
+  # Use sprintf?
+  property? use_printf : Bool
+  property? use_buffer : Bool
+  property? zero_based : Bool
   # Is ACS broken?
-  getter? broken_acs   : Bool
-  getter? pcrom_set    : Bool
-  getter? magic_cookie : Bool
+  getter? has_broken_acs   : Bool
+  getter? has_pcrom_set    : Bool
+  getter? has_magic_cookie : Bool
   # Use padding?
   getter? use_padding  : Bool
   # Use setbuf?
@@ -135,8 +140,6 @@ module Tput
   getter methods  : Hash(String, Proc(Array(Int16), String))
 
   property? use_cache : Bool = true
-  property? use_buffer : Bool = true
-  property? zero_based : Bool = true
   getter? cursor_hidden : Bool = false
   getter? alt_screen : Bool = false
 
@@ -164,32 +167,49 @@ module Tput
   # Don't write to term but return what would be written
   @ret = false
 
+  delegate name, names, description, to: @terminfo
+
   def initialize(
     term : String? = nil,
     terminfo : String? = nil,
     builtin : String? = nil,
 
-    use_padding = false,
+    use_padding = nil,
     extended = true,
-    use_buffer = true,
-    zero_based = true,
-    use_cache = ::Tput.use_cache?,
-    #printf
+    @use_buffer = true,
+    @zero_based = true,
+    @use_cache = ::Tput.use_cache?,
+    use_unicode = nil,
+    @use_printf = true,
     #force_unicode = 
     @input = STDIN,
     @output = STDOUT,
    )
 
+    # This tries to detect the actual terminal emulator program,
+    # not the term/terminfo type.
     detect_term_program
 
-    @terminfo = if terminfo
-      ::Terminfo::Data.new path: terminfo
-    elsif term
-      ::Terminfo::Data.new term: term
-    elsif builtin
-      ::Terminfo::Data.new builtin: builtin
-    else
-      ::Terminfo::Data.new
+    @terminfo = begin
+      if terminfo
+        ::Terminfo::Data.new path: terminfo, extended: extended
+      elsif term
+        ::Terminfo::Data.new term: term, extended: extended
+      elsif builtin
+        ::Terminfo::Data.new builtin: builtin, extended: extended
+      else
+        ::Terminfo::Data.new extended: extended
+      end
+    rescue
+      begin
+        if term
+          ::Terminfo::Data.new builtin: term, extended: extended
+        else
+          raise Exception.new
+        end
+      rescue
+        ::Terminfo::Data.new builtin: "xterm", extended: extended
+      end
     end
 
     # TODO have it here like this or always read real value?
@@ -202,15 +222,6 @@ module Tput
       
     # if error
     # if use_padding
-
-    @unicode      = detect_unicode
-    @broken_acs   = detect_broken_acs
-    @pcrom_set    = detect_pcrom_set
-    @magic_cookie = detect_magic_cookie
-    @use_padding  = detect_padding && use_padding
-    @setbuf       = detect_setbuf
-
-    @acsc, @acscr = parse_acs
 
     @booleans = @terminfo.booleans.merge @terminfo.extended_booleans
     @numbers  = @terminfo.numbers.merge  @terminfo.extended_numbers
@@ -236,11 +247,20 @@ module Tput
       @strings[name] = "" unless @strings.has_key? name
       # Reverse is here so that terminfo names would override termcap names,
       # in (any?) rare case of naming conflicts.
-      ::Terminfo::Alias::Strings[name]?.try &.reverse.each do |short|
+      ::Terminfo::Alias::Strings[name]?.try &.reverse_each do |short|
         @strings[short] = @strings[name]
         @methods[short] = @methods[name]
       end
     end
+
+    # Terminal specifics:
+    @use_unicode      = use_unicode.nil? ? detect_unicode : use_unicode
+    @has_broken_acs   = detect_broken_acs
+    @has_pcrom_set    = detect_pcrom_set
+    @has_magic_cookie = detect_magic_cookie
+    @use_padding      = use_padding || detect_padding
+    @setbuf           = detect_setbuf # Not used
+    @acsc, @acscr     = parse_acs
 
     #write = _write.bind
   end
@@ -291,6 +311,17 @@ module Tput
     }
   end
 
+  # Checks whether terminal feature exists.
+  def has(name)
+    if @booleans.has_key? name
+      @booleans[name]
+    elsif @numbers.has_key? name
+      @numbers[name] != -1
+    else
+      @strings[name] != ""
+    end
+  end
+
   # Returns term/console escape sequence for *name* and any arguments.
   def put(name, *arguments)
     if @use_cache
@@ -327,8 +358,8 @@ module Tput
       return acsc, acscr
     end
 
+    acs_chars = @terminfo.strings["acs_chars"]? || ""
     Acsc.each do |ch, _|
-      acs_chars = @terminfo.strings["acs_chars"]? || ""
       i = acs_chars.index ch
 
       if i.nil?
@@ -373,14 +404,8 @@ module Tput
     if to_bool ENV["NCURSES_FORCE_UNICODE"]?
       return true
     end
-
-    # TODO
-    #if (this.options.forceUnicode != null) {
-    #  return this.options.forceUnicode;
-    #}
-
     str = [ ENV["LANG"]?, ENV["LANGUAGE"]?, ENV["LC_ALL"]?, ENV["LC_CTYPE"]? ].join ':'
-    str =~ /utf\-?8/ ? true : false # TODO || (get_console_cp == 65001)
+    str =~ /utf\-?8/i ? true : false # TODO || (get_console_cp == 65001)
   end
 
   # Detects whether terminal has broken ACS.
@@ -398,44 +423,27 @@ module Tput
     # ~/ncurses/ncurses/tinfo/lib_setup.c
 
     # ncurses-compatible env variable.
-    if to_bool ENV["NCURSES_NO_UTF8_ACS"]?, true
+    if to_bool ENV["NCURSES_NO_UTF8_ACS"]?, false
       return true
     end
 
-    # TODO
-    ## If the terminal supports unicode, we don't need ACS.
-    #if (info.numbers.U8 >= 0)
-    #  return !!info.numbers.U8
-    #end
+    # If the terminal supports unicode, we don't need ACS.
+    if @numbers["U8"]?.try &.>= 0
+      return to_bool @numbers["U8"]
+    end
 
     # The linux console is just broken for some reason.
     # Apparently the Linux console does not support ACS,
     # but it does support the PC ROM character set.
-    if (info.name == "linux")
+    if name == "linux"
       return true
     end
 
     # PC alternate charset
     # if (acsc.indexOf('+\x10,\x11-\x18.\x190') === 0) {
-    if (detect_pcrom_set(info))
+    if detect_pcrom_set
       return true
     end
-
-    # TODO
-    ## screen termcap is bugged?
-    #if (#@termcap && # TODO
-    #    ( info.name.index("screen") == 0 ) &&
-    #    ( ENV["TERMCAP"]? ) &&
-    #    ( ENV["TERMCAP"].index("screen") ) &&
-    #    ( ENV["TERMCAP"].index("hhII00"))
-    #)
-    #  if info.strings.enter_alt_charset_mode.index("\x0e") ||
-    #      info.strings.enter_alt_charset_mode.index("\x0f") ||
-    #      info.strings.set_attributes.index("\x0e") ||
-    #      info.strings.set_attributes.index("\x0f")
-    #    return true
-    #  end
-    #end
 
     false
   end
@@ -446,7 +454,7 @@ module Tput
     # See: ~/ncurses/ncurses/tinfo/lib_acs.c
 
     s = info.strings
-    if (s["enter_pc_charset_mode"] && s["enter_alt_charset_mode"] &&
+    if (s["enter_pc_charset_mode"] != "" && s["enter_alt_charset_mode"] != "" &&
         (s["enter_pc_charset_mode"] == s["enter_alt_charset_mode"]) &&
         (s["exit_pc_charset_mode"] == s["exit_alt_charset_mode"]))
       return true
@@ -455,15 +463,15 @@ module Tput
   end
 
   def detect_magic_cookie(info=@terminfo)
-    to_bool ENV["NCURSES_NO_MAGIC_COOKIE"]?, true
+    to_bool ENV["NCURSES_NO_MAGIC_COOKIE"]?, false
   end
 
   def detect_padding(info=@terminfo)
-    to_bool ENV["NCURSES_NO_PADDING"]?, true
+    to_bool ENV["NCURSES_NO_PADDING"]?, false
   end
 
   def detect_setbuf(info=@terminfo)
-    to_bool ENV["NCURSES_NO_SETBUF"]?, true
+    to_bool ENV["NCURSES_NO_SETBUF"]?, false
   end
 
   # Prints to terminal.
@@ -474,7 +482,7 @@ module Tput
     done = done || ->noop
 
     if !@use_padding
-      prnt.try &.call code
+      prnt.call code
       return done.call
     end
 
@@ -495,7 +503,7 @@ module Tput
       #affect;
 
       if padding.nil?
-        prnt.try &.call part
+        prnt.call part
         return nxt.call
       end
 
@@ -507,38 +515,41 @@ module Tput
       # delay of the given number of milliseconds even on devices for which xon
       # is present to indicate flow control.
       if xon && !suffix.index('/')
-        prnt.try &.call part
+        prnt.call part
         return nxt.call
       end
 
-      # A `*' indicates that the padding required is proportional to the number
-      # of lines affected by the operation, and  the amount  given  is the
-      # per-affected-unit padding required.  (In the case of insert character,
-      # the factor is still the number of lines affected.) Normally, padding is
-      # advisory if the device has the xon capability; it is used for cost
-      # computation but does not trigger delays.
-      if suffix.index('*')
-        #amount = amount
-        # XXX Disable this for now.
-        ## if (affect = /\x1b\[(\d+)[LM]/.exec(part)) {
-        ##   amount *= +affect[1];
-        ## }
-        ## The above is a huge workaround. In reality, we need to compile
-        ## `_print` into the string functions and check the cap name and
-        ## params.
-        ## if (cap === 'insert_line' || cap === 'delete_line') {
-        ##   amount *= params[0];
-        ## }
-        ## if (cap === 'clear_screen') {
-        ##   amount *= process.stdout.rows;
-        ## }
-      end
+      ## A `*' indicates that the padding required is proportional to the number
+      ## of lines affected by the operation, and  the amount  given  is the
+      ## per-affected-unit padding required.  (In the case of insert character,
+      ## the factor is still the number of lines affected.) Normally, padding is
+      ## advisory if the device has the xon capability; it is used for cost
+      ## computation but does not trigger delays.
+      #if suffix.index('*')
+      #  #amount = amount
+      #  # XXX Disable this for now.
+      #  ## if (affect = /\x1b\[(\d+)[LM]/.exec(part)) {
+      #  ##   amount *= +affect[1];
+      #  ## }
+      #  ## The above is a huge workaround. In reality, we need to compile
+      #  ## `_print` into the string functions and check the cap name and
+      #  ## params.
+      #  ## if (cap === 'insert_line' || cap === 'delete_line') {
+      #  ##   amount *= params[0];
+      #  ## }
+      #  ## if (cap === 'clear_screen') {
+      #  ##   amount *= process.stdout.rows;
+      #  ## }
+      #end
 
-      # TODO
-      #return setTimeout(function() {
-      #  print(part);
-      #  return next();
-      #}, amount);
+      raise Exception.new "Not implemented yet"
+      return Timer.new(amount) {
+        # TODO
+        # This print should be executed with:
+        # padding: true, needs_xon_xoff: true, xon_xoff: false
+        prnt.call part
+        return nxt.call
+      }
     }
     nxt.call
   end
