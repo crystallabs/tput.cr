@@ -21,7 +21,7 @@ require "./methods"
 
 # Class for outputting appropriate terminal escape sequences
 module Tput
-  VERSION = "0.1.0"
+  VERSION = "0.2.0"
 
   include ::Tput::Terminal
   include ::Tput::Methods
@@ -157,6 +157,9 @@ module Tput
   @_buf = ""
   @_title = ""
 
+  # TODO
+  #_flush = flush func
+
   getter x : Int32 = 0
   getter y : Int32 = 0
   getter saved_x : Int32 = 0
@@ -164,6 +167,9 @@ module Tput
   getter scroll_top : Int32
   getter scroll_bottom : Int32
   
+  @cols : Int32
+  @rows : Int32
+
   # Don't write to term but return what would be written
   @ret = false
 
@@ -214,11 +220,11 @@ module Tput
 
     # TODO have it here like this or always read real value?
     # What happens when we receive WINCH?
-    @columns = ::Tput::Methods.cols
-    @lines   = ::Tput::Methods.lines
+    @cols = ::Tput.cols
+    @rows = ::Tput.rows
 
     @scroll_top = 0
-    @scroll_bottom = @lines - 1
+    @scroll_bottom = @rows - 1
 
     @booleans = @terminfo.booleans.merge @terminfo.extended_booleans
     @numbers  = @terminfo.numbers.merge  @terminfo.extended_numbers
@@ -260,7 +266,7 @@ module Tput
     @acsc, @acscr     = parse_acs
 
     if @use_padding
-      warn "Padding has been enabled."
+      STDERR.puts "Padding has been enabled."
     end
 
     #write = _write.bind
@@ -294,8 +300,8 @@ module Tput
             when '%'
               s << '%'
             when 'i'
-              arguments[0] += 1
-              arguments[1] += 1
+              arguments[0] += 1 if arguments[0]?
+              arguments[1] += 1 if arguments[1]?
             when 'p'
               stack.push arguments[data[i+2].to_i-1]
               len += 1
@@ -323,7 +329,67 @@ module Tput
     end
   end
 
-  # Returns term/console escape sequence for *name* and any arguments.
+  ##########################
+
+  def _owrite(text)
+    # TODO
+    #return unless @output.writable?
+    @output.write text.to_slice
+  end
+  alias_previous write
+
+  def _write(text)
+    return text if @ret
+    return _buffer(text) if @use_buffer
+    _owrite text
+  end
+
+  # Example: `DCS tmux; ESC Pt ST`
+  # Real: `DCS tmux; ESC Pt ESC \`
+  def _twrite(data)
+    iterations = 0
+    timer = nil
+
+    if false # TODO @is_tmux
+      # Replace all STs with BELs so they can be nested within the DCS code.
+      data = data.gsub /\x1b\\/, "\x07"
+
+      # Wrap in tmux forward DCS:
+      data = "\x1bPtmux;\x1b" + data + "\x1b\\"
+
+      # If we've never even flushed yet, it means we're still in
+      # the normal buffer. Wait for alt screen buffer.
+      # TODO
+      #if @output.bytes_written == 0
+      #  timer = setInterval(function() {
+      #    if (self.output.bytesWritten > 0 || ++iterations == 50) {
+      #      clearInterval(timer)
+      #      self.flush()
+      #      self._owrite(data)
+      #    end
+      #  }, 100);
+      #  return true
+      #end
+
+      # NOTE: Flushing the buffer is required in some cases.
+      # The DCS code must be at the start of the output.
+      flush
+
+      # Write out raw now that the buffer is flushed.
+      _owrite data
+    end
+
+    _write data
+  end
+
+  def print(txt, attr=nil)
+    attr ? _write(text(txt, attr)) : _write(txt)
+  end
+  alias_previous echo
+
+  ##########################
+
+  # Prints term/console escape sequence *name* invoked with any *arguments*.
   def put(name, *arguments)
     if @use_cache
       hash = {name, arguments}.hash
@@ -348,6 +414,33 @@ module Tput
 
     write ret
   end
+
+  def _buffer(text)
+    if @_exiting
+      flush
+      _owrite(text)
+      return
+    end
+
+    #if @_buf
+    #  @_buf += text
+    #  return
+    #end
+
+    #@_buf = text
+    #flush
+    true
+  end
+
+  def flush
+    if (!@_buf)
+      return
+    end
+    _owrite(@_buf)
+    @_buf = ""
+  end
+
+  ##########################
 
   # Parses terminal's ACS characters and returns
   # ASCII->ACS and ACS->ASCII mappings.
@@ -563,4 +656,33 @@ module Tput
     include ::Tput
   end
 
+  # Returns number of columns.
+  #
+  # Currently this uses ENV variables. For it to work, variable COLUMNS must be
+  # exposed to environment with `declare -X COLUMNS` or `export COLUMNS`.
+  # As such, it is effectively broken.
+  #
+  # Maybe it could issue `stty size` or `tput cols/lines`.
+  # Or do something like https://github.com/crystal-lang/crystal/issues/2061
+  def self.cols
+    ENV["COLUMNS"]?.nil? ?
+      (raise Exception.new "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting.") :
+      (ENV["COLUMNS"].to_i || 1)
+  end
+  alias_method columns, cols
+
+  # Returns number of lines.
+  #
+  # Currently this uses ENV variables. For it to work, variable LINES must be
+  # exposed to environment with `declare -X LINES` or `export LINES`.
+  # As such, it is effectively broken.
+  #
+  # Maybe it could issue `stty size` or `tput cols/lines`.
+  # Or do something like https://github.com/crystal-lang/crystal/issues/2061
+  def self.rows
+    ENV["LINES"]?.nil? ?
+      (raise Exception.new "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting.") :
+      (ENV["LINES"].to_i || 1)
+  end
+  alias_method lines, rows
 end

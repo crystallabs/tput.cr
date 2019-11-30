@@ -9,7 +9,7 @@ Tput is a low-level component for building term/console applications in Crystal.
 It is closely related to shard [Terminfo](https://github.com/crystallabs/terminfo).
 Terminfo parses terminfo files into instances of `Terminfo::Data` or custom classes.
 
-Tput builds on this basic functionality to provide a fully-functional environment.
+Tput builds on this basic functionality to provide a more functional environment.
 In addition to using the Terminfo data, it also detects the terminal program and its
 known bugs or quirks, and configures itself for outputting the correct escape sequences.
 
@@ -26,12 +26,13 @@ Add the dependency to `shard.yml`:
 dependencies:
   tput:
     github: crystallabs/tput
-    version: 0.1.0
+    version: 0.2.0
 ```
 
 ## Usage in a nutshell
 
-Here is a basic example that initializes Tput and checks some of the boolean and numeric capabilities.
+Here is a basic example that initializes Tput, checks some of the boolean and numeric capabilities,
+and then moves the cursor 10 times diagonally.
 
 ```crystal
 require "tput"
@@ -40,10 +41,10 @@ require "tput"
 class MyClass
   include Tput
 end
-my = MyClass.new
+my = MyClass.new(use_buffer: false)
 
 # With built-in class
-my = Tput::Data.new
+my = Tput::Data.new(use_buffer: false)
 
 # Check whether we are running under an XTerm:
 p my.xterm?
@@ -55,6 +56,12 @@ p my.booleans["over_strike"]    # Same as ["os"]
 # Print a couple numeric values
 p my.numbers["columns"]         # Same as ["cols"] or ["co"]
 p my.numbers["lines"]           # Same as ["lines"] or ["li"]
+
+10.times do |i|
+  my.rmove 1, -1
+  my.print i.to_s
+  sleep 0.5
+end
 ```
 
 Tput can also output string capabilities. Most of the string capabilities are
@@ -117,4 +124,5 @@ Also, see examples in the directory `examples/`.
 
 List of interesting or similar projects in no particular order:
 
-- https://github.com/crystallabs/crysterm - Term/console toolkit for Crystal
+- https://github.com/crystallabs/term_app - Basic app environment on top of tput
+- https://github.com/crystallabs/crysterm - Complete term/console toolkit for Crystal

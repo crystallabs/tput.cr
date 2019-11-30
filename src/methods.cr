@@ -3,87 +3,6 @@ require "./macros"
 module Tput
   module Methods
 
-    def _owrite(text)
-      # TODO
-      #return unless @output.writable?
-      @output.write text.to_slice
-    end
-    alias_previous write
-
-    def _buffer(text)
-      if @_exiting
-        flush
-        _owrite(text)
-        return
-      end
-
-      if @_buf
-        @_buf += text
-        return
-      end
-
-      @_buf = text
-      flush
-      true
-    end
-
-    def flush
-      if (!@_buf)
-        return
-      end
-      _owrite(@_buf)
-      @_buf = ""
-    end
-
-    def _write(text)
-      return text if @ret
-      return _buffer(text) if @use_buffer
-      _owrite text
-    end
-
-    # Example: `DCS tmux; ESC Pt ST`
-    # Real: `DCS tmux; ESC Pt ESC \`
-    def _twrite(data)
-      iterations = 0
-      timer = nil
-
-      if false # TODO @is_tmux
-        # Replace all STs with BELs so they can be nested within the DCS code.
-        data = data.gsub /\x1b\\/, "\x07"
-
-        # Wrap in tmux forward DCS:
-        data = "\x1bPtmux;\x1b" + data + "\x1b\\"
-
-        # If we've never even flushed yet, it means we're still in
-        # the normal buffer. Wait for alt screen buffer.
-        # TODO
-        #if @output.bytes_written == 0
-        #  timer = setInterval(function() {
-        #    if (self.output.bytesWritten > 0 || ++iterations == 50) {
-        #      clearInterval(timer)
-        #      self.flush()
-        #      self._owrite(data)
-        #    end
-        #  }, 100);
-        #  return true
-        #end
-
-        # NOTE: Flushing the buffer is required in some cases.
-        # The DCS code must be at the start of the output.
-        flush
-
-        # Write out raw now that the buffer is flushed.
-        _owrite data
-      end
-
-      _write data
-    end
-
-    def print(txt, attr)
-      attr ? _write(text(txt, attr)) : _write(txt)
-    end
-    alias_previous echo
-
     def _ncoords
       if @x<0
         @x=0
@@ -331,7 +250,7 @@ module Tput
     alias_previous carriage_return # TODO can't alias 'return'
 
     def feed
-      if @terminfo && @bools["eat_newline_glitch"] && (@x >= @cols)
+      if @terminfo && @booleans["eat_newline_glitch"] && (@x >= @cols)
         return
       end
       @x = 0
@@ -339,7 +258,12 @@ module Tput
       _ncoords
       (has("nel")) ? (put "nel") : _write("\n")
     end
-    alias_previous nel, newline
+    alias_previous nel, newline, line_feed, lf
+
+    def crlf
+      cr
+      lf
+    end
 
     # Esc
 
@@ -609,12 +533,12 @@ module Tput
       end
       _write("\x1b[" + (param || "").to_s + "A")
     end
-    alias_method cuu, up
+    alias_previous cuu, up
 
     # CSI Ps B
     # Cursor Down Ps Times (default = 1) (CUD).
-    def cursor_down(param)
-      @y += param || 1
+    def cursor_down(param = 1)
+      @y += param
       _ncoords
       if @terminfo
         if !@strings["parm_down_cursor"]
@@ -1081,7 +1005,7 @@ module Tput
       end
 
       @x = param
-      @y = 0
+      #@y = 0 # Bug in blessed
       _ncoords
 
       @terminfo ? put("hpa", param) : _write("\x1b[" + (param + 1).to_s + 'G')
@@ -1151,14 +1075,10 @@ module Tput
     # CSI Pm d
     # Line Position Absolute  [row] (default = [1,column]) (VPA).
     # NOTE: Can't find in terminfo, no idea why it has multiple params.
-    def line_pos_absolute(param)
-      @y = param || 1
+    def line_pos_absolute(*arguments)
+      @y = arguments[0]? || 1
       _ncoords()
-      # TODO verify this
-      return(put "vpa", param) if @terminfo
-      
-      param = arguments.join ';'
-      _write("\x1b[" + param.to_s + 'd')
+      @terminfo ? put("vpa", *arguments) : _write("\x1b[" + arguments.join(';').to_s + 'G')
     end
     alias_previous vpa
 
@@ -1929,39 +1849,13 @@ module Tput
 
     # Returns number of columns.
     def cols
-      ::Tput::Methods.cols
+      @cols ||= ::Tput.cols
     end
     alias_previous columns
 
     # Returns number of lines.
     def lines
-      ::Tput::Methods.lines
-    end
-    alias_previous rows
-
-    # Returns number of columns.
-    #
-    # Currently this uses ENV variables. For it to work, variable COLUMNS must be
-    # exposed to environment with `declare -X COLUMNS` or `export COLUMNS`.
-    # As such, it is effectively broken.
-    #
-    # Maybe it could issue `stty size` or `tput cols/lines`.
-    # Or do something like https://github.com/crystal-lang/crystal/issues/2061
-    def self.cols
-      ENV["COLUMNS"]?.try &.to_i || 1
-    end
-    alias_previous columns
-
-    # Returns number of lines.
-    #
-    # Currently this uses ENV variables. For it to work, variable LINES must be
-    # exposed to environment with `declare -X LINES` or `export LINES`.
-    # As such, it is effectively broken.
-    #
-    # Maybe it could issue `stty size` or `tput cols/lines`.
-    # Or do something like https://github.com/crystal-lang/crystal/issues/2061
-    def self.lines
-      ENV["LINES"]?.try &.to_i || 1
+      @rows ||= ::Tput.lines
     end
     alias_previous rows
 
