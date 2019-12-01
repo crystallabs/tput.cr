@@ -1234,7 +1234,7 @@ module Tput
       set_mode "?47"
       set_mode "?1049"
     end
-    alias_previous smcup, alternate
+    alias_previous smcup, alternate, alternate_screen
 
     # CSI Pm l  Reset Mode (RM).
     #     Ps = 2  -> Keyboard Action Mode (AM).
