@@ -21,7 +21,7 @@ require "./methods"
 
 # Class for outputting appropriate terminal escape sequences
 module Tput
-  VERSION = "0.2.0"
+  VERSION = "0.3.0"
 
   include ::Tput::Terminal
   include ::Tput::Methods
