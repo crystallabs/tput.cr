@@ -106,6 +106,104 @@ module Tput
     "\u00b7" => "*"  # "·"
   }
 
+  Angles = {
+    "\u2518": true, # "┘"
+    "\u2510": true, # "┐"
+    "\u250c": true, # "┌"
+    "\u2514": true, # "└"
+    "\u253c": true, # "┼"
+    "\u251c": true, # "├"
+    "\u2524": true, # "┤"
+    "\u2534": true, # "┴"
+    "\u252c": true, # "┬"
+    "\u2502": true, # "│"
+    "\u2500": true  # "─"
+  }
+
+  Langles = {
+    "\u250c": true, # "┌"
+    "\u2514": true, # "└"
+    "\u253c": true, # "┼"
+    "\u251c": true, # "├"
+    "\u2534": true, # "┴"
+    "\u252c": true, # "┬"
+    "\u2500": true  # "─"
+  }
+
+  Uangles = {
+    "\u2510": true, # "┐"
+    "\u250c": true, # "┌"
+    "\u253c": true, # "┼"
+    "\u251c": true, # "├"
+    "\u2524": true, # "┤"
+    "\u252c": true, # "┬"
+    "\u2502": true  # "│"
+  }
+
+  Rangles = {
+    "\u2518": true, # "┘"
+    "\u2510": true, # "┐"
+    "\u253c": true, # "┼"
+    "\u2524": true, # "┤"
+    "\u2534": true, # "┴"
+    "\u252c": true, # "┬"
+    "\u2500": true  # "─"
+  }
+
+  Dangles = {
+    "\u2518": true, # "┘"
+    "\u2514": true, # "└"
+    "\u253c": true, # "┼"
+    "\u251c": true, # "├"
+    "\u2524": true, # "┤"
+    "\u2534": true, # "┴"
+    "\u2502": true  # "│"
+  }
+
+  Cdangles = {
+    "\u250c": true  # "┌"
+  }
+
+  # Every ACS angle character can be
+  # represented by 4 bits ordered like this:
+  # [langle][uangle][rangle][dangle]
+  AngleTable = {
+    "0000": "", # ?
+    "0001": "\u2502", # "│" # ?
+    "0010": "\u2500", # "─" # ??
+    "0011": "\u250c", # "┌"
+    "0100": "\u2502", # "│" # ?
+    "0101": "\u2502", # "│"
+    "0110": "\u2514", # "└"
+    "0111": "\u251c", # "├"
+    "1000": "\u2500", # "─" # ??
+    "1001": "\u2510", # "┐"
+    "1010": "\u2500", # "─" # ??
+    "1011": "\u252c", # "┬"
+    "1100": "\u2518", # "┘"
+    "1101": "\u2524", # "┤"
+    "1110": "\u2534", # "┴"
+    "1111": "\u253c", # "┼"
+    # Same as above, but as keys as ints.
+    # XXX I think the above ones aren't even needed.
+    "0": "", # ?
+    "1": "\u2502", # "│" # ?
+    "2": "\u2500", # "─" # ??
+    "3": "\u250c", # "┌"
+    "4": "\u2502", # "│" # ?
+    "5": "\u2502", # "│"
+    "6": "\u2514", # "└"
+    "7": "\u251c", # "├"
+    "8": "\u2500", # "─" # ??
+    "9": "\u2510", # "┐"
+    "10": "\u2500", # "─" # ??
+    "11": "\u252c", # "┬"
+    "12": "\u2518", # "┘"
+    "13": "\u2524", # "┤"
+    "14": "\u2534", # "┴"
+    "15": "\u253c", # "┼"
+  }
+
   # Instance of `Terminfo::Data`
   getter terminfo : ::Terminfo::Data
   # Does the terminal use unicode?
