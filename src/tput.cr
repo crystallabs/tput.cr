@@ -154,7 +154,7 @@ module Tput
   @cache = Hash(UInt64,String).new
 
   @_exiting = false
-  @_buf = ""
+  @_buf : String? = nil
   @_title = ""
 
   # TODO
@@ -166,7 +166,7 @@ module Tput
   getter saved_y : Int32 = 0
   getter scroll_top : Int32
   getter scroll_bottom : Int32
-  
+
   @cols : Int32
   @rows : Int32
 
@@ -187,7 +187,7 @@ module Tput
     @use_cache = ::Tput.use_cache?,
     use_unicode = nil,
     @use_printf = true,
-    #force_unicode = 
+    #force_unicode =
     @input = STDIN,
     @output = STDOUT,
    )
@@ -350,7 +350,7 @@ module Tput
     iterations = 0
     timer = nil
 
-    if false # TODO @is_tmux
+    if tmux?
       # Replace all STs with BELs so they can be nested within the DCS code.
       data = data.gsub /\x1b\\/, "\x07"
 
@@ -361,14 +361,12 @@ module Tput
       # the normal buffer. Wait for alt screen buffer.
       # TODO
       #if @output.bytes_written == 0
-      #  timer = setInterval(function() {
-      #    if (self.output.bytesWritten > 0 || ++iterations == 50) {
-      #      clearInterval(timer)
-      #      self.flush()
-      #      self._owrite(data)
+      #  50.times do
+      #    sleep 0.1
+      #    if @output.bytes_written > 0
+      #      break
       #    end
-      #  }, 100);
-      #  return true
+      #  end
       #end
 
       # NOTE: Flushing the buffer is required in some cases.
@@ -376,7 +374,7 @@ module Tput
       flush
 
       # Write out raw now that the buffer is flushed.
-      _owrite data
+      return _owrite data
     end
 
     _write data
@@ -422,22 +420,27 @@ module Tput
       return
     end
 
-    #if @_buf
-    #  @_buf += text
+    # TODO
+    if text.is_a? Slice(UInt8)
+      p "TEXT IS SLICE"
+    end
+    #@_buf.try do |buf|
+    #  buf += text
     #  return
     #end
 
     #@_buf = text
-    #flush
+    #flush # XXX _flush
+
     true
   end
 
   def flush
-    if (!@_buf)
-      return
+    @_buf.try do |buf|
+      return if buf.empty? # XXX Needed?
+      _owrite(buf)
+      @_buf = nil
     end
-    _owrite(@_buf)
-    @_buf = ""
   end
 
   ##########################
@@ -665,9 +668,10 @@ module Tput
   # Maybe it could issue `stty size` or `tput cols/lines`.
   # Or do something like https://github.com/crystal-lang/crystal/issues/2061
   def self.cols
-    ENV["COLUMNS"]?.nil? ?
-      (raise Exception.new "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting.") :
-      (ENV["COLUMNS"].to_i || 1)
+    if ENV["COLUMNS"]?.nil?
+      STDERR.puts "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting."
+    end
+    (ENV["COLUMNS"].to_i || 1)
   end
   alias_method columns, cols
 
@@ -680,9 +684,10 @@ module Tput
   # Maybe it could issue `stty size` or `tput cols/lines`.
   # Or do something like https://github.com/crystal-lang/crystal/issues/2061
   def self.rows
-    ENV["LINES"]?.nil? ?
-      (raise Exception.new "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting.") :
-      (ENV["LINES"].to_i || 1)
+    if ENV["LINES"]?.nil?
+      STDERR.puts "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting."
+    end
+    (ENV["LINES"].to_i || 1)
   end
   alias_method lines, rows
 end

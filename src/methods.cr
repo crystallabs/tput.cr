@@ -16,69 +16,56 @@ module Tput
       end
     end
 
-    def setx(x)
-      # char_pos_absolute(x)
-      cursor_char_absolute x
-    end
-
-    def sety(y)
-      line_pos_absolute y
-    end
-
-    def move(x, y)
-      cursor_pos(y, x)
-    end
-
     # TODO: Fix cud and cuu calls.
     def omove(x, y)
-      if (!@zero_based)
+      if !@zero_based
         x = (x || 1) - 1
         y = (y || 1) - 1
       else
         x = x || 0
         y = y || 0
       end
-      
+
       if (y == @y && x == @x)
         return
       end
-      
-      if (y == @y)
+
+      if y == @y
         if (x > @x)
           cuf(x - @x)
         elsif (x < @x)
           cub(@x - x)
         end
-        
-      elsif (x == @x)
+
+      elsif x == @x
         if (y > @y)
           cud(y - @y)
         elsif (y < @y)
           cuu(@y - y)
         end
-        
+
       else
-        if (!@zero_based)
+        if !@zero_based
           x+=1
           y+=1
         end
-        cup(y, x)
+        cup y, x
       end
     end
 
     def rsetx(x)
       # return h_position_relative(x)
-      if (!x)
-        return
-      end
+      #if (!x)
+      #  return
+      #end
       x > 0 ? forward(x) : back(-x)
     end
 
     def rsety(y)
       # return v_position_relative(y)
-      if (!y)
-        return
-      end
+      #if (!y)
+      #  return
+      #end
       y > 0 ? up(y) : down(-y)
     end
 
@@ -98,14 +85,14 @@ module Tput
       str.to_s * i
     end
 
-    # Specific to iTerm2, but I think it's really cool.
+    # Specific to iTerm2
     # Example:
     #  unless copy_to_clipboard text
     #    exec_clipboard_program text
     #  end
     def copy_to_clipboard(text)
-      if false #isiTerm2
-        _twrite("\x1b]50;CopyToCliboard=" + text + "\x07")
+      if iterm2?
+        _twrite "\x1b]50;CopyToCliboard=" + text + "\x07"
         return true
       end
       false
@@ -115,25 +102,26 @@ module Tput
 
     # Only XTerm and iTerm2. If you know of any others, post them.
     def cursor_shape(shape, blink)
-      if false # If isiTerm2
+      if iterm2?
         case shape
+          # XXX move to symbols?
           when "block"
             if !blink
-              _twrite("\x1b]50;CursorShape=0;BlinkingCursorEnabled=0\x07")
+              _twrite "\x1b]50;CursorShape=0;BlinkingCursorEnabled=0\x07"
             else
-              _twrite("\x1b]50;CursorShape=0;BlinkingCursorEnabled=1\x07")
+              _twrite "\x1b]50;CursorShape=0;BlinkingCursorEnabled=1\x07"
             end
           when "underline"
             if !blink
-              # _twrite("\x1b]50;CursorShape=n;BlinkingCursorEnabled=0\x07")
+              # _twrite "\x1b]50;CursorShape=n;BlinkingCursorEnabled=0\x07"
             else
-              # _twrite("\x1b]50;CursorShape=n;BlinkingCursorEnabled=1\x07")
+              # _twrite "\x1b]50;CursorShape=n;BlinkingCursorEnabled=1\x07"
             end
           when "line"
             if !blink
-              _twrite("\x1b]50;CursorShape=1;BlinkingCursorEnabled=0\x07")
+              _twrite "\x1b]50;CursorShape=1;BlinkingCursorEnabled=0\x07"
             else
-              _twrite("\x1b]50;CursorShape=1;BlinkingCursorEnabled=1\x07")
+              _twrite "\x1b]50;CursorShape=1;BlinkingCursorEnabled=1\x07"
             end
         end
         return true
@@ -142,21 +130,21 @@ module Tput
         case shape
           when "block"
             if !blink
-              _twrite("\x1b[0 q")
+              _twrite "\x1b[0 q"
             else
-              _twrite("\x1b[1 q")
+              _twrite "\x1b[1 q"
             end
           when "underline"
             if !blink
-              _twrite("\x1b[2 q")
+              _twrite "\x1b[2 q"
             else
-              _twrite("\x1b[3 q")
+              _twrite "\x1b[3 q"
             end
           when "line"
             if !blink
-              _twrite("\x1b[4 q")
+              _twrite "\x1b[4 q"
             else
-              _twrite("\x1b[5 q")
+              _twrite "\x1b[5 q"
             end
         end
         return true
@@ -180,13 +168,14 @@ module Tput
         _twrite("\x1b[0 q")
         _twrite("\x1b]112\x07")
         # urxvt doesnt support OSC 112
-        _twrite("\x1b]12white\x07")
+        _twrite("\x1b]12;white\x07")
         return true
       end
       false
     end
     alias_previous cursor_reset
 
+    # TODO - waiting for functional response()
     # getCursorColor, getTextParams
 
     ##########
@@ -229,17 +218,13 @@ module Tput
     end
     alias_previous ht
 
-    # TODO... all of these if()s above and below; if IF is true
-    # then the code is expected to return() the function it calls,
-    # not proceed down to _write
-
     def shift_out
-      # if (has("S2")) put.S2()
+      # if (has("S2")) return put "S2"
       _write("\x0e")
     end
 
     def shift_in
-      # if (has("S3")) put.S3()
+      # if (has("S3")) return put "S3"
       _write("\x0f")
     end
 
@@ -250,7 +235,7 @@ module Tput
     alias_previous carriage_return # TODO can't alias 'return'
 
     def feed
-      if @terminfo && @booleans["eat_newline_glitch"] && (@x >= @cols)
+      if @terminfo && has("eat_newline_glitch") && (@x >= @cols)
         return
       end
       @x = 0
@@ -258,7 +243,7 @@ module Tput
       _ncoords
       (has("nel")) ? (put "nel") : _write("\n")
     end
-    alias_previous nel, newline, line_feed, lf
+    alias_previous nel, newline, line_feed, linefeed, lf
 
     def crlf
       cr
@@ -312,7 +297,7 @@ module Tput
     end
 
     # ESC 7 Save Cursor (DECSC).
-    def save_cursor(key)
+    def save_cursor(key=nil)
       if key
         return lsave_cursor(key)
       end
@@ -323,7 +308,7 @@ module Tput
     alias_previous sc
 
     # ESC 8 Restore Cursor (DECRC).
-    def restore_cursor(key, hide)
+    def restore_cursor(key=nil, hide=false)
       if key
         return lrestore_cursor(key, hide)
       end
@@ -334,43 +319,44 @@ module Tput
     alias_previous rc
 
     # Save Cursor Locally
-    def lsave_cursor(key)
+    def lsave_cursor(key=nil)
+      # XXX there is a weird behavior. In functions calling this, if key
+      # is not specified, the cursor will be saved to saved_x/saved_y.
+      # So theoretically this can't be called without a key. Yet here
+      # key is set to 'local' if unspecified. Maybe unify this behavior
+      # by getting rid of saved_x/saved_y, and simply saving unnamed
+      # positions into 'local'?
       key = key || "local"
       @_saved[key] = { x: @x, y: @y, hidden: @cursor_hidden }
     end
 
     # Restore Cursor Locally
-    def lrestore_cursor(key, hide)
+    def lrestore_cursor(key=nil, hide=false)
+      # XXX same note as above
       key = key || "local"
-      if (!@_saved || !@_saved[key])
-        return
-      end
-      pos = @_saved[key]
-      #delete @_saved[key]
-      cup(pos[:y], pos[:x])
-      if hide && pos[:hidden] != @cursor_hidden
-        if pos[:hidden]
-          hide_cursor
-        else
-          show_cursor
+      @_saved[key]?.try do |pos|
+        #delete @_saved[key]
+        cup(pos[:y], pos[:x])
+        if hide && pos[:hidden] != @cursor_hidden
+          pos[:hidden] ? hide_cursor : show_cursor
         end
       end
     end
 
     # ESC # 3 DEC line height/width
     def line_height
-      _write("\x1b#")
+      _write "\x1b#"
     end
 
     # ESC (,),*,+,-,. Designate G0-G2 Character Set.
+    #
+    # See also:
+    # acs_chars / acsc / ac
+    # enter_alt_charset_mode / smacs / as
+    # exit_alt_charset_mode / rmacs / ae
+    # enter_pc_charset_mode / smpch / S2
+    # exit_pc_charset_mode / rmpch / S3
     def charset(val, level = 0)
-
-      # See also:
-      # acs_chars / acsc / ac
-      # enter_alt_charset_mode / smacs / as
-      # exit_alt_charset_mode / rmacs / ae
-      # enter_pc_charset_mode / smpch / S2
-      # exit_pc_charset_mode / rmpch / S3
 
       case (level)
         when 0
@@ -383,7 +369,7 @@ module Tput
           level = '+'
       end
 
-      name = val.is_a?(String) ? val.downcase : val
+      name = val.is_a?(String) ? val.downcase : val.to_s
 
       case (name)
         when "acs", "scld" # DEC Special Character and Line Drawing Set.
@@ -430,7 +416,7 @@ module Tput
           val = "B"
       end
 
-      _write("\x1b(" + val)
+      _write "\x1b(" + val
     end
 
     def smacs
@@ -487,13 +473,14 @@ module Tput
 
       # if (term?("screen")) {
       #   # Tmux pane
-      #   # if (tmux) {
-      #   #   _write("\x1b]2;" + title + "\x1b\\")
+      #   # if (tmux?) {
+      #   #   _write "\x1b]2;" + title + "\x1b\\"
       #   # end
-      #   _write("\x1bk" + title + "\x1b\\")
+      #   _write "\x1bk" + title + "\x1b\\"
       # end
+      _twrite "\x1b]0;" + title + "\x07"
 
-      _twrite("\x1b]0;" + title + "\x07")
+      @_title
     end
 
     # OSC Ps ; Pt ST
@@ -508,30 +495,30 @@ module Tput
     # OSC Ps ; Pt BEL
     #   Change dynamic colors
     def dynamic_colors(param)
-      (has("Cs")) ? (put "Cs", param) : _twrite("\x1b]12;" + param.to_s + "\x07")
+      (has("Cs")) ? (put "Cs", param) : _twrite("\x1b]12;" + param + "\x07")
     end
 
     # OSC Ps ; Pt ST
     # OSC Ps ; Pt BEL
     #   Sel data
     def sel_data(a,b)
-      (has("Ms")) ? (put "ms", a, b) : _twrite("\x1b]52;" + a.to_s + ';' + b.to_s + "\x07")
+      (has("Ms")) ? (put "ms", a, b) : _twrite("\x1b]52;" + a + ';' + b.to_s + "\x07")
     end
 
     # CSI
 
     # CSI Ps A
     # Cursor Up Ps Times (default = 1) (CUU).
-    def cursor_up(param)
-      @y -= param || 1
+    def cursor_up(param=1)
+      @y -= param
       _ncoords
       if @terminfo
-        if !@strings["parm_up_cursor"]
-          return _write(repeat("cuu1", param))
+        if !has("parm_up_cursor")
+          return _write(repeat(@methods.call("cuu1", NO_ARGS), param))
         end
         return put "cuu", param
       end
-      _write("\x1b[" + (param || "").to_s + "A")
+      _write("\x1b[" + param + "A")
     end
     alias_previous cuu, up
 
@@ -541,27 +528,27 @@ module Tput
       @y += param
       _ncoords
       if @terminfo
-        if !@strings["parm_down_cursor"]
-          return _write(repeat("cud1", param))
+        if !has("parm_down_cursor")
+          return _write(repeat(@methods.call("cud1", NO_ARGS), param))
         end
         return put "cud", param
       end
-      _write("\x1b[" + (param || "").to_s + "B")
+      _write("\x1b[" + param + "B")
     end
     alias_previous cud, down
 
     # CSI Ps C
     # Cursor Forward Ps Times (default = 1) (CUF).
-    def cursor_forward(param)
-      @x += param || 1
+    def cursor_forward(param=1)
+      @x += param
       _ncoords
       if @terminfo
-        if !@strings["parm_right_cursor"]
-          return _write(repeat("cuf1", param))
+        if !has("parm_right_cursor")
+          return _write(repeat(@methods.call("cuf1", NO_ARGS), param))
         end
         return put "cuf", param
       end
-      _write("\x1b[" + (param || "").to_s + "C")
+      _write("\x1b[" + param + "C")
     end
     alias_previous cuf, right, forward
 
@@ -571,8 +558,8 @@ module Tput
       @x -= param || 1
       _ncoords
       if @terminfo
-        if !@strings["parm_left_cursor"]
-          return _write(repeat("cub1", param))
+        if !has("parm_left_cursor")
+          return _write(repeat(@methods.call("cub1", NO_ARGS), param))
         end
         return put "cub", param
       end
@@ -597,7 +584,7 @@ module Tput
       @terminfo ? (put "cup", row, col) :
         _write("\x1b[" + (row + 1).to_s + ";" + (col + 1).to_s + "H")
     end
-    alias_previous cup, pos, cursor_address
+    alias_previous cup, pos, cursor_address, setxy, move
 
     # CSI Ps J  Erase in Display (ED).
     #     Ps = 0  -> Erase Below (default).
@@ -896,6 +883,7 @@ module Tput
         else
           # 256-color fg and bg
           if param[0] == "#"
+            raise Exception.new "Not implemented yet; use less than 256colors+#ccc, or implement this."
             # TODO This requires color functions as separate shard
             #param = param.sub(/#(?:[0-9a-f]{3}){1,2}/i) { |s| color_match s }
           end
@@ -960,7 +948,8 @@ module Tput
     alias_previous bg
 
     # TODO
-    # restoreReportedCursor etc.
+    # deviceStatus
+    # restoreReportedCursor
 
     #
     # Additions
@@ -1010,7 +999,7 @@ module Tput
 
       @terminfo ? put("hpa", param) : _write("\x1b[" + (param + 1).to_s + 'G')
     end
-    alias_previous cha
+    alias_previous cha, setx
 
     # CSI Ps L
     # Insert Ps Line(s) (default = 1) (IL).
@@ -1046,8 +1035,7 @@ module Tput
       @x = param || 0
       _ncoords
 
-      # TODO verify put hpa
-      # TODO not applicable when we only accept param
+      # XXX not applicable when we only accept param
       #param = arguments.join ';'
       @terminfo ? (put "hpa", param) : _write("\x1b[" + param.to_s + '`')
     end
@@ -1056,15 +1044,15 @@ module Tput
     # 141 61 a * HPR -
     # Horizontal Position Relative
     # reuse CSI Ps C ?
-    def h_position_relative(param=nil)
+    def h_position_relative(param=1)
       if (@terminfo)
         return cuf(param)
       end
 
-      @x += param || 1
+      @x += param
       _ncoords
       # Does not exist:
-      # if (@terminfo) put "hpr", param
+      # if (@terminfo) return put "hpr", param
       _write("\x1b[" + param.to_s + 'a')
     end
     alias_previous hpr
@@ -1075,23 +1063,23 @@ module Tput
     # CSI Pm d
     # Line Position Absolute  [row] (default = [1,column]) (VPA).
     # NOTE: Can't find in terminfo, no idea why it has multiple params.
-    def line_pos_absolute(*arguments)
-      @y = arguments[0]? || 1
+    def line_pos_absolute(param=1)
+      @y = param
       _ncoords()
-      @terminfo ? put("vpa", *arguments) : _write("\x1b[" + arguments.join(';').to_s + 'G')
+      @terminfo ? put("vpa", param) : _write("\x1b[" + param.to_s + 'G')
     end
-    alias_previous vpa
+    alias_previous vpa, sety
 
     # 145 65 e * VPR - Vertical Position Relative
     # reuse CSI Ps B ?
-    def v_position_relative(param)
+    def v_position_relative(param=1)
       return cud(param) if @terminfo
 
-      @y += param || 1
+      @y += param
       _ncoords
 
       # Does not exist:
-      # put "vpr", param
+      # if (@terminfo) return put "vpr", param
       _write("\x1b[" + param.to_s + 'e')
     end
     alias_previous vpr
@@ -1208,6 +1196,8 @@ module Tput
     end
     alias_previous sm
 
+    # TODO sendDeviceAttributes
+
     def decset(*arguments)
       param = arguments.join ';'
       set_mode "?" + param
@@ -1218,12 +1208,10 @@ module Tput
       # NOTE: In xterm terminfo:
       # cnorm stops blinking cursor
       # cvvis starts blinking cursor
-      return(put "cnorm") if @terminfo
-
       #if (@terminfo) return put "cvvis"
       # return _write("\x1b[?12l\x1b[?25h"); // cursor_normal
       # return _write("\x1b[?12;25h"); // cursor_visible
-      set_mode "?25"
+      @terminfo ? return(put "cnorm") : set_mode "?25"
     end
     alias_previous dectcem, cnorm, cvvis
 
@@ -1391,6 +1379,7 @@ module Tput
 
     # CSI Ps I
     #   Cursor Forward Tabulation Ps tab stops (default = 1) (CHT).
+    # TODO ability to control tab width
     def cursor_forward_tab(param=1)
       @x += 8
       _ncoords
@@ -1430,6 +1419,7 @@ module Tput
     end
 
     # CSI Ps Z  Cursor Backward Tabulation Ps tab stops (default = 1) (CBT).
+    # TODO ability to control tab width
     def cursor_backward_tab(param=1)
       @x -= 8
       _ncoords
@@ -1542,7 +1532,7 @@ module Tput
     def soft_reset
       #if (tput) put.init_2string()
       #if (tput) put.reset_2string()
-      @terminfo ? (put "rs2") : 
+      @terminfo ? (put "rs2") :
       #_write('\x1b[!p')
       #_write('\x1b[!p\x1b[?3;4l\x1b[4l\x1b>') # init
       _write("\x1b[!p\x1b[?3;4l\x1b[4l\x1b>") # reset
@@ -1670,7 +1660,7 @@ module Tput
       _write("\x1b[?" + arguments.join(';') + 's')
     end
 
-    # TODO getWindowSize manipulateWindow 
+    # TODO getWindowSize manipulateWindow
 
     # CSI Pt; Pl; Pb; Pr; Ps$ t
     #   Reverse Attributes in Rectangular Area (DECRARA), VT400 and
@@ -1829,7 +1819,7 @@ module Tput
     end
     alias_previous decsera
 
-    # decrqlp
+    # TODO decrqlp
 
     # CSI P m SP }
     # Insert P s Column(s) (default = 1) (DECIC), VT420 and up.
