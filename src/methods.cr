@@ -1196,6 +1196,15 @@ module Tput
     end
     alias_previous sm
 
+    def restore_reported_cursor
+      @_rx.try do |rx|
+        @_ry.try do |ry|
+          cup ry, rx
+          # return put "nel"
+        end
+      end
+    end
+
     # TODO sendDeviceAttributes
 
     def decset(*arguments)
