@@ -514,7 +514,7 @@ module Tput
       _ncoords
       if @terminfo
         if !has("parm_up_cursor")
-          return _write(repeat(@methods.call("cuu1", NO_ARGS), param))
+          return _write(repeat(@methods["cuu1"].call(NO_ARGS), param))
         end
         return put "cuu", param
       end
@@ -529,7 +529,7 @@ module Tput
       _ncoords
       if @terminfo
         if !has("parm_down_cursor")
-          return _write(repeat(@methods.call("cud1", NO_ARGS), param))
+          return _write(repeat(@methods["cud1"].call(NO_ARGS), param))
         end
         return put "cud", param
       end
@@ -544,11 +544,11 @@ module Tput
       _ncoords
       if @terminfo
         if !has("parm_right_cursor")
-          return _write(repeat(@methods.call("cuf1", NO_ARGS), param))
+          return _write(repeat(@methods["cuf1"].call(NO_ARGS), param))
         end
         return put "cuf", param
       end
-      _write("\x1b[" + param + "C")
+      _write("\x1b[" + param.to_s + "C")
     end
     alias_previous cuf, right, forward
 
@@ -559,7 +559,7 @@ module Tput
       _ncoords
       if @terminfo
         if !has("parm_left_cursor")
-          return _write(repeat(@methods.call("cub1", NO_ARGS), param))
+          return _write(repeat(@methods["cub1"].call(NO_ARGS), param))
         end
         return put "cub", param
       end

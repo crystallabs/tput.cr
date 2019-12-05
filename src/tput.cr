@@ -265,8 +265,8 @@ module Tput
   getter scroll_top : Int32
   getter scroll_bottom : Int32
 
-  @cols : Int32
-  @rows : Int32
+  getter cols : Int32
+  getter rows : Int32
 
   # Don't write to term but return what would be written
   @ret = false
