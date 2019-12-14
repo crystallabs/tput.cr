@@ -11,7 +11,7 @@ license: MIT
 dependencies:
   terminfo:
     github: crystallabs/terminfo
-    version: 0.7.0
+    version: 0.7.1
   timer:
     github: vladfaust/timer.cr
     version: ~> 0.1.0
