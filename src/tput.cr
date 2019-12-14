@@ -21,7 +21,7 @@ require "./methods"
 
 # Class for outputting appropriate terminal escape sequences
 module Tput
-  VERSION = "0.3.0"
+  VERSION = "0.3.1"
 
   include ::Tput::Terminal
   include ::Tput::Methods
@@ -769,7 +769,7 @@ module Tput
     if ENV["COLUMNS"]?.nil?
       STDERR.puts "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting."
     end
-    (ENV["COLUMNS"].to_i || 1)
+    (ENV["COLUMNS"]?.try(&.to_i) || 1)
   end
   alias_method columns, cols
 
@@ -785,7 +785,7 @@ module Tput
     if ENV["LINES"]?.nil?
       STDERR.puts "For now, please run 'export LINES COLUMNS' or 'declare -x LINES COLUMNS' before starting."
     end
-    (ENV["LINES"].to_i || 1)
+    (ENV["LINES"]?.try(&.to_i) || 1)
   end
   alias_method lines, rows
 end

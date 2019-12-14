@@ -26,7 +26,7 @@ Add the dependency to `shard.yml`:
 dependencies:
   tput:
     github: crystallabs/tput
-    version: 0.3.0
+    version: 0.3.1
 ```
 
 ## Usage in a nutshell
