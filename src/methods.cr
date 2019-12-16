@@ -495,7 +495,7 @@ module Tput
     # OSC Ps ; Pt BEL
     #   Change dynamic colors
     def dynamic_colors(param)
-      (has("Cs")) ? (put "Cs", param) : _twrite("\x1b]12;" + param + "\x07")
+      (has("Cs")) ? (put "Cs", param) : _twrite("\x1b]12;" + param.to_s + "\x07")
     end
 
     # OSC Ps ; Pt ST
@@ -518,7 +518,7 @@ module Tput
         end
         return put "cuu", param
       end
-      _write("\x1b[" + param + "A")
+      _write("\x1b[" + param.to_s + "A")
     end
     alias_previous cuu, up
 
@@ -533,7 +533,7 @@ module Tput
         end
         return put "cud", param
       end
-      _write("\x1b[" + param + "B")
+      _write("\x1b[" + param.to_s + "B")
     end
     alias_previous cud, down
 
@@ -928,7 +928,7 @@ module Tput
           end
 
           if /^[\d;]*$/.match param
-            return "\x1b[" + param + "m"
+            return "\x1b[" + param.to_s + "m"
           end
 
           return
