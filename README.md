@@ -104,6 +104,12 @@ All the methods and capability names have many aliases. For example,
 terminfo and termcap capability names: `cursor_position`, `cursor_pos`,
 `cursor_address`, `cup`, `cm`, and `pos`.
 
+## Available methods
+
+To see the list of available term methods and their aliases, plase see sources or
+API documentation for file `src/methods.cr` in this shard and file `src/alias.cr`
+in the shard Terminfo.
+
 ## API documentation
 
 Run `crystal docs` as usual, then open file `docs/index.html`.
@@ -124,5 +130,6 @@ Also, see examples in the directory `examples/`.
 
 List of interesting or similar projects in no particular order:
 
+- https://github.com/crystallabs/terminfo - Terminfo parsing library for Crystal
 - https://github.com/crystallabs/term_app - Basic app environment on top of tput
 - https://github.com/crystallabs/crysterm - Complete term/console toolkit for Crystal
