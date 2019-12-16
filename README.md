@@ -81,7 +81,7 @@ print my.methods["carriage_return"].call NO_ARGS
 print my.methods["cursor_position"].call 10i16, 20i16
 ```
 
-Via `#put()`, automatically outputting the sequence to the terminal:
+Via `#put`, automatically outputting the sequence to the terminal:
 
 ```crystal
 my.put "bell"
@@ -90,7 +90,8 @@ my.put "cursor_address", 10, 20
 puts "Hi!"
 ```
 
-Via object methods, taking into account terminal specifics, state, buffering, etc.:
+Via object methods, similar to `#put` but also taking into account terminal specifics,
+state, buffering, etc.:
 
 ```crystal
 # Invoke string capabilities via predefined methods (high-level)
@@ -106,7 +107,7 @@ terminfo and termcap capability names: `cursor_position`, `cursor_pos`,
 
 ## Available methods
 
-To see the list of available term methods and their aliases, plase see sources or
+To see the list of available term methods and their aliases, please see sources or
 API documentation for file `src/methods.cr` in this shard and file `src/alias.cr`
 in the shard Terminfo.
 
