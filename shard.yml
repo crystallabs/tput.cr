@@ -1,17 +1,16 @@
 name: tput
-version: 0.4.0
+version: 0.4.1
 
 authors:
   - Davor Ocelic <docelic@crystallabs.io>
 
-crystal: 0.32.0
+crystal: 0.33.0
 
 license: MIT
 
 dependencies:
   terminfo:
     github: crystallabs/terminfo
-    version: ~> 0.7.1
   timer:
     github: vladfaust/timer.cr
     version: ~> 0.1.0
