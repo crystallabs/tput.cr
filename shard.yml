@@ -1,0 +1,22 @@
+name: tput
+version: 0.1.0
+
+authors:
+  - Davor Ocelic <docelic@crystallabs.io>
+
+crystal: 0.35.1
+
+license: MIT
+
+dependencies:
+  unibilium:
+    #github: crystallabs/unibilium.cr
+    path: ../unibilium.cr
+  unibilium-shim:
+    #github: crystallabs/unibilium-shim.cr
+    path: ../unibilium-shim.cr
+  crystallabs-helpers:
+    #github: crystallabs/crystallabs-helpers.cr
+    path: ../crystallabs-helpers.cr
+  term-screen:
+    github: crystal-term/screen
