@@ -6,8 +6,8 @@ class Tput
       include Macros
 
       def clear
-        @x = 0
-        @y = 0
+        @position.x = 0
+        @position.y = 0
         put(s.clear?) || _write "\x1b[H\x1b[J"
       end
 

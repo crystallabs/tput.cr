@@ -8,8 +8,9 @@ require "unibilium-shim"
 require "crystallabs-helpers"
 
 require "./macros"
+require "./namespace"
 require "./output"
-require "./coordinate_system"
+require "./coordinates"
 require "./data"
 require "./features"
 require "./emulator"
@@ -49,7 +50,7 @@ class Tput
 
   getter? exiting = false
 
-  include CoordinateSystem
+  include Coordinates
 
   def initialize(
     @terminfo=nil,
@@ -59,7 +60,8 @@ class Tput
     @force_unicode = false,
     @use_buffer = false,
   )
-    @rows, @cols = get_screen_size
+    @screen_size = get_screen_size
+    @position = Point.new
 
     @name = (@terminfo.try(&.name) || ENV["TERM"]? || "xterm").downcase
     @aliases = (@terminfo.try(&.aliases.map(&.downcase))) || [] of String
@@ -96,6 +98,7 @@ class Tput
     ret
   end
 
+  include Namespace
   include Data
   include Output
   

@@ -7,7 +7,7 @@ class Tput
 
       # ESC D Index (IND is 0x84).
       def index
-        @y+=1
+        @position.y+=1
         _ncoords
         put(s.ind?) || _write "\x1bD"
       end
@@ -15,7 +15,7 @@ class Tput
 
       # ESC M Reverse Index (RI is 0x8d).
       def reverseIndex
-        @y-=1
+        @position.y-=1
         _ncoords
         put(s.ri?) || _write "\x1bM"
       end
@@ -23,7 +23,7 @@ class Tput
 
       # CSI Ps S  Scroll up Ps lines (default = 1) (SU).
       def scroll_up(param=1)
-        @y -= param
+        @position.y -= param
         _ncoords
         put(s.parm_index?(param)) || _write "\x1b[#{param}S"
       end
@@ -31,7 +31,7 @@ class Tput
 
       # CSI Ps T  Scroll down Ps lines (default = 1) (SD).
       def scroll_down(param=1)
-        @y += param
+        @position.y += param
         _ncoords
         put(s.parm_rindex?(param)) || _write "\x1b[#{param}T"
       end
@@ -42,17 +42,17 @@ class Tput
       #   dow) (DECSTBM).
       # CSI ? Pm r
       def set_scroll_region(top=nil, bottom=nil)
-        unless @zero_based
+        unless @position.zero_based?
           top = (top || 1) - 1
-          bottom = (bottom || @rows) - 1
+          bottom = (bottom || @screen_size.height) - 1
         else
           top = top || 0
-          bottom = bottom || (@rows - 1)
+          bottom = bottom || (@screen_size.height - 1)
         end
         @scroll_top = top
         @scroll_bottom = bottom
-        @x = 0
-        @y = 0
+        @position.x = 0
+        @position.y = 0
         _ncoords
         put(s.csr?(top,bottom)) || _write "\x1b[#{top+1};#{bottom+1}r"
       end

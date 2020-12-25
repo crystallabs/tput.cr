@@ -11,7 +11,7 @@ class Tput
       # Cursor Next Line Ps Times (default = 1) (CNL).
       # same as CSI Ps B ?
       def cursor_next_line(param=1)
-        @y += param
+        @position.y += param
         _ncoords
         _write "\x1b[#{param}E"
       end
@@ -21,7 +21,7 @@ class Tput
       # Cursor Preceding Line Ps Times (default = 1) (CNL).
       # reuse CSI Ps A ?
       def cursor_preceding_line(param=1)
-        @y -= param
+        @position.y -= param
         _ncoords
         _write "\x1b[#{param}F"
       end
@@ -30,13 +30,13 @@ class Tput
       # CSI Ps G
       # Cursor Character Absolute  [column] (default = [row,1]) (CHA).
       def cursor_char_absolute(param=nil)
-        if !@zero_based
+        if !@position.zero_based?
           param = (param||1) - 1
         else
           param ||= 0
         end
 
-        @x = param
+        @position.x = param
         _ncoords
 
         put(s.hpa?(param)) || _write "\x1b[#{param+1}G"
@@ -47,7 +47,7 @@ class Tput
       # Line Position Absolute  [row] (default = [1,column]) (VPA).
       # NOTE: Can't find in terminfo, no idea why it has multiple params.
       def cursor_line_pos_absolute(param=1)
-        @y = param
+        @position.y = param
         _ncoords
         put(s.vpa?(param)) || _write "\x1b[#{param}d"
       end
@@ -56,7 +56,7 @@ class Tput
       # CSI Ps ; Ps H
       # Cursor Position [row;column] (default = [1,1]) (CUP).
       def cursor_pos(row=nil, col=nil)
-        if !@zero_based
+        if !@position.zero_based?
           row = (row || 1) - 1
           col = (col || 1) - 1
         else
@@ -64,14 +64,17 @@ class Tput
           col||= 0
         end
 
-        @x = col
-        @y = row
+        @position.x = col
+        @position.y = row
         _ncoords()
 
         put(s.cup?(row, col)) || _write "\x1b[#{row+1};#{col+1}H"
       end
       alias_previous cup, pos
 
+      def move(point : Point)
+        cursor_pos point.y, point.x
+      end
       def move(x=nil, y=nil)
         cursor_pos y, x
       end
@@ -79,7 +82,7 @@ class Tput
 
       # NOTE fix cud and cuu calls
       def omove(x=nil, y=nil)
-        if !@zero_based
+        if !@position.zero_based?
           x = (x||1) - 1
           y = (y||1) - 1
         else
@@ -87,27 +90,30 @@ class Tput
           y ||= 0
         end
 
-        return if @x==x && @y==y
+        return if @position.x==x && @position.y==y
 
-        if y == @y
-          if x > @x
-            cuf x-@x
-          elsif x < @x
-            cub @x-x
+        if y == @position.y
+          if x > @position.x
+            cuf x-@position.x
+          elsif x < @position.x
+            cub @position.x-x
           end
-        elsif x == @x
-          if y > @y
-            cud y-@y
-          elsif y < @y
-            cuu @y-y
+        elsif x == @position.x
+          if y > @position.y
+            cud y-@position.y
+          elsif y < @position.y
+            cuu @position.y-y
           end
         else
-          unless @zero_based
+          unless @position.zero_based?
             x+=1
             y+=1
           end
           cup y, x
         end
+      end
+      def omove(point : Point)
+        omove point.x, point.y
       end
 
       def rsetx(x)
@@ -120,6 +126,11 @@ class Tput
         # Disabled originally
         #return v_position_relative(y)
         y > 0 ? up(y) : down(-y)
+      end
+
+      def rmove(point : Point)
+        rsetx point.x
+        rsety point.y
       end
 
       def rmove(x, y)
@@ -183,8 +194,8 @@ class Tput
       # ESC 7 Save Cursor (DECSC).
       def save_cursor(key)
         return lsave_cursor(key) if key
-        @saved_x = @x || 0
-        @saved_y = @y || 0
+        @saved_x = @position.x || 0
+        @saved_y = @position.y || 0
         put(s.sc?) || _write "\x1b7"
       end
       alias_previous sc
@@ -192,8 +203,8 @@ class Tput
       # ESC 8 Restore Cursor (DECRC).
       def restore_cursor(key, hide)
         return lrestore_cursor(key, hide) if (key)
-        @x = @saved_x || 0
-        @y = @saved_y || 0
+        @position.x = @saved_x || 0
+        @position.y = @saved_y || 0
         put(s.rc?) || _write "\x1b8"
       end
       alias_previous rc
@@ -219,7 +230,7 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_up(param=nil)
-        @y -= param || 1
+        @position.y -= param || 1
         _ncoords()
         put(s.cuu?(0)) ||
           # XXX enable when solved: undefined method '*' for Slice(UInt8)
@@ -233,7 +244,7 @@ class Tput
 #      # CSI Ps B
 #      # Cursor Down Ps Times (default = 1) (CUD).
 #      def cursor_down(param=1)
-#        @y += param
+#        @position.y += param
 #        _ncoords()
 #        @tput.try do |tput|
 #          unless tput.terminfo.has("parm_down_cursor")
@@ -248,7 +259,7 @@ class Tput
 #      # CSI Ps C
 #      # Cursor Forward Ps Times (default = 1) (CUF).
 #      def cursor_forward(param=1)
-#        @x += param
+#        @position.x += param
 #        _ncoords()
 #        @tput.try do |tput|
 #          unless tput.terminfo.has("parm_right_cursor")
@@ -263,7 +274,7 @@ class Tput
 #      # CSI Ps D
 #      # Cursor Backward Ps Times (default = 1) (CUB).
 #      def cursor_backward(param=1)
-#        @x -= param
+#        @position.x -= param
 #        _ncoords()
 #        @tput.try do |tput|
 #          unless tput.terminfo.has("parm_left_cursor")
@@ -324,8 +335,8 @@ class Tput
       # CSI s
       #   Save cursor (ANSI.SYS).
       def save_cursor_a
-        @saved_x = @x
-        @saved_y = @y
+        @saved_x = @position.x
+        @saved_y = @position.y
         put(s.sc?) || _write "\x1b[s"
       end
       alias_previous sc_a
@@ -333,8 +344,8 @@ class Tput
       # CSI u
       #   Restore cursor (ANSI.SYS).
       def restore_cursor_a
-        @x = @saved_x || 0
-        @y = @saved_y || 0
+        @position.x = @saved_x || 0
+        @position.y = @saved_y || 0
         put(s.rc?) || _write "\x1b[u"
       end
       alias_previous rc_a
@@ -342,7 +353,7 @@ class Tput
       # CSI Ps I
       #   Cursor Forward Tabulation Ps tab stops (default = 1) (CHT).
       def cursor_forward_tab(param=1)
-        @x += 8
+        @position.x += 8
         _ncoords
         put(s.tab?(param)) || _write "\x1b[#{param}I"
       end
@@ -350,7 +361,7 @@ class Tput
 
       # CSI Ps Z  Cursor Backward Tabulation Ps tab stops (default = 1) (CBT).
       def cursor_backward_tab(param=1)
-        @x -= 8
+        @position.x -= 8
         _ncoords
         put(s.cbt?(param)) || _write "\x1b[#{param}Z"
       end
@@ -372,7 +383,7 @@ class Tput
       def h_position_relative(param=1)
         put(s.cuf?(param)) && return
 
-        @x += param
+        @position.x += param
         _ncoords
         # Disabled originally
         # Does not exist:
@@ -386,7 +397,7 @@ class Tput
       def v_position_relative(param=1)
         put(s.cud?(param)) && return
 
-        @y += param
+        @position.y += param
         _ncoords
 
         # Disabled originally
@@ -400,15 +411,15 @@ class Tput
       #   Horizontal and Vertical Position [row;column] (default =
       #   [1,1]) (HVP).
       def hv_position(row=nil, col=nil)
-        unless @zero_based
+        unless @position.zero_based?
           row = (row || 1) - 1
           col = (col || 1) - 1
         else
           row = row || 0
           col = col || 0
         end
-        @y = row
-        @x = col
+        @position.y = row
+        @position.x = col
         _ncoords
         # Disabled originally
         # Does not exist (?):
