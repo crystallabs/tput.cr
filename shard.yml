@@ -20,3 +20,6 @@ dependencies:
     path: ../crystallabs-helpers.cr
   term-screen:
     github: crystal-term/screen
+  event_handler:
+    github: crystallabs/event_handler
+    version: 0.15.2

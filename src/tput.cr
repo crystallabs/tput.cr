@@ -6,6 +6,7 @@ require "term-screen"
 require "unibilium"
 require "unibilium-shim"
 require "crystallabs-helpers"
+require "event_handler"
 
 require "./macros"
 require "./namespace"
@@ -14,6 +15,7 @@ require "./coordinates"
 require "./data"
 require "./features"
 require "./emulator"
+require "./events"
 
 class Object
   include Crystallabs::Helpers::Object_Inspect
@@ -21,7 +23,7 @@ end
 
 class Tput
   VERSION = "0.1.0"
-  include JSON::Serializable
+  #include JSON::Serializable
   include Crystallabs::Helpers::Logging
 
   DEFAULT_SCREEN_SIZE = {24, 80}
@@ -72,7 +74,7 @@ class Tput
     @features = Features.new self
     @emulator = Emulator.new self
 
-    Log.trace { to_json }
+    #Log.trace { to_json }
   end
 
   def name?(nam : String)
@@ -101,5 +103,6 @@ class Tput
   include Namespace
   include Data
   include Output
+  include Events
   
 end
