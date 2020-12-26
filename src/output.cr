@@ -15,13 +15,6 @@ class Tput
     include Output::Screen
     include Output::Terminal
 
-    @ret = false
-
-    @[JSON::Field(ignore: true)]
-    @_buf : Bytes? = nil
-
-    getter? use_buffer : Bool
-
     # Example: `DCS tmux; ESC Pt ST`
     # Real: `DCS tmux; ESC Pt ESC \`
     def _twrite(data)

@@ -1,7 +1,5 @@
 class Tput
   module Coordinates
-    @screen_size : Size
-    @position : Point
 
     macro get_screen_size
       r, c = ENV["TPUT_SCREEN_SIZE"]?.try { |s| s.split('x', 2).map &.to_i } ||

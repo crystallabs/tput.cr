@@ -4,59 +4,6 @@ class Tput
 
     #event EventEvent#, ...
 
-    event LogEvent, message : String
-    event WarningEvent, message : String
-    event ErrorEvent, message : String
-    event ExitEvent, code : Int32
-
-    event SubmitEvent#, ...value...
-    event CancelEvent#, ...value...
-    event ResetEvent#, ...value...
-    event CompleteEvent
-    event ResetEvent
-
-    event DataEvent#, data : ...
-
-    event ResizeEvent
-    event DestroyEvent
-    event HideEvent
-    event ShowEvent
-    event AttachEvent
-    event DetachEvent
-
-    event SetContentEvent
-    event ParseContentEvent
-    #event MoveEvent # But this one without args
-    event CancelEvent
-    event FocusEvent
-    event BlurEvent
-
-    #event ActionEvent, item : Item, selected : Bool # waiting Item
-    #event SelectEvent, item : Item, selected : Bool # waiting Item
-    #event SelectItemEvent, item : Item, selected : Bool # waiting Item
-    #event SelectTabEvent, item : Item, index : Int32
-
-    event CreateItemEvent
-    event AddItemEvent
-    event RemoveItemEvent
-    event InsertItemEvent
-    event SetItemsEvent
-
-    event PreRenderEvent
-    event RenderEvent#, ... coords ...
-    event PreDrawEvent
-    event DrawEvent#, ... coords ...
-    event RefreshEvent
-
-    event CheckEvent
-    event UncheckEvent
-
-    event CdEvent#, file, cwd
-    event FileEvent#, file, cwd
-
-    #event ReparentEvent, e : Element
-    #event AdoptEvent, e : Element
-
     event MouseEvent#, key : ...
     event MouseWheelEvent#, ...
     event MouseButtonDownEvent, buttons : MouseButton, modifiers : KeyboardModifier, point : Point
@@ -65,17 +12,6 @@ class Tput
     event MouseButtonDoubleClickEvent, buttons : MouseButton, modifiers : KeyboardModifier, point : Point
     event MouseOutEvent#, ...
     event MouseOverEvent#, ...
-
-    event ResponseEvent#, out : ...
-    #event ResponseEvent_#{out}#, out : ...
-
-    event MoveEvent, buttons : MouseButton, modifiers : KeyboardModifier, point : Point
-    event DragEvent, buttons : MouseButton, modifiers : KeyboardModifier, point : Point
-
-    event TitleEvent, title : String
-
-    event ScrollEvent # No data?
-    event PressEvent # What is this?
 
     event KeyPressEvent
     # Keep the list in sync with Key enum, just suffix with _Event

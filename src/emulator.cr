@@ -1,5 +1,4 @@
 class Tput
-
   # Class for terminal emulator program detection.
   #
   # The detection is always just a best-effort because it relies on testing environment
@@ -7,17 +6,17 @@ class Tput
   # an xterm, then an lxterminal in it, xterm-specific environment variables will propagate
   # to lxterm, confusing the detection.
   class Emulator
-		include Crystallabs::Helpers::Logging
+    include Crystallabs::Helpers::Logging
     include JSON::Serializable
     include Crystallabs::Helpers::Boolean
 
     getter? osxterm : Bool
-    getter? iterm2  : Bool
+    getter? iterm2 : Bool
     getter? xfce : Bool
     getter? terminator : Bool
     getter? lxterm : Bool
     getter? vte : Bool
-    getter? rxvt  : Bool
+    getter? rxvt : Bool
     getter? xterm : Bool
     getter? tmux : Bool
 
@@ -29,9 +28,9 @@ class Tput
 
       @osxterm = term_program == "Apple_Terminal"
 
-      @iterm2  = (term_program == "iTerm.app") || (to_b ENV["ITERM_SESSION_ID"]?)
+      @iterm2 = (term_program == "iTerm.app") || (to_b ENV["ITERM_SESSION_ID"]?)
 
-      @xfce = to_b ((ENV["COLORTERM"]?||"") =~ /xfce/i)
+      @xfce = to_b ((ENV["COLORTERM"]? || "") =~ /xfce/i)
 
       @terminator = to_b ENV["TERMINATOR_UUID"]?
 
@@ -41,7 +40,7 @@ class Tput
       # gnome-terminal and sakura use a later version of VTE which provides VTE_VERSION as well as supports SGR events.
       @vte = to_b(ENV["VTE_VERSION"]?) || @xfce || @terminator || @lxterm
 
-      @rxvt  = to_b((ENV["COLORTERM"]?||"") =~ /rxvt/i)
+      @rxvt = to_b((ENV["COLORTERM"]? || "") =~ /rxvt/i)
 
       @xterm = to_b ENV["XTERM_VERSION"]?
 

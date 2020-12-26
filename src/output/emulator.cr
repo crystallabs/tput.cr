@@ -5,8 +5,6 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
-      @_title : String?
-
       # OSC Ps ; Pt ST
       # OSC Ps ; Pt BEL
       #   Set Text Parameters.

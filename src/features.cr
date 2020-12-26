@@ -42,7 +42,7 @@ class Tput
         (@tput.force_unicode?) ||
 			  (to_b ENV["NCURSES_FORCE_UNICODE"]?) ||
 			  ({ ENV["LANG"]?, ENV["LANGUAGE"]?, ENV["LC_ALL"]?, ENV["LC_CTYPE"]? }.any? { |var| var.try &.=~(/utf\-?8/i) }) ||
-        #(xterm?.try { ENV["XTERM_LOCALE"]?.try &.=~(/utf\-?8/i) }) ||
+        (@tput.emulator.xterm?.try { ENV["XTERM_LOCALE"]?.try &.=~(/utf\-?8/i) }) ||
         ({% if flag? :windows %}get_console_cp == 65001{% end %})
       false
     end

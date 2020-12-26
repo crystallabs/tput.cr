@@ -17,16 +17,12 @@ require "./features"
 require "./emulator"
 require "./events"
 
-class Object
-  include Crystallabs::Helpers::Object_Inspect
-end
-
 class Tput
   VERSION = "0.1.0"
   #include JSON::Serializable
   include Crystallabs::Helpers::Logging
 
-  DEFAULT_SCREEN_SIZE = {24, 80}
+  DEFAULT_SCREEN_SIZE = {24, 80} # Opinions vary: 24, 25, 27
 
   @[JSON::Field(ignore: true)]
   @input : IO
@@ -50,6 +46,18 @@ class Tput
   @name : String
   #@aliases : Array[String]
 
+  @_title : String?
+
+  @screen_size : Size
+  @position : Point
+
+  @ret = false
+
+  @[JSON::Field(ignore: true)]
+  @_buf : Bytes? = nil
+
+  getter? use_buffer : Bool
+
   getter? exiting = false
 
   include Coordinates
@@ -67,7 +75,7 @@ class Tput
 
     @name = (@terminfo.try(&.name) || ENV["TERM"]? || "xterm").downcase
     @aliases = (@terminfo.try(&.aliases.map(&.downcase))) || [] of String
-    Log.trace { "Terminfo: #{@name.i} (#{@aliases.i})" }
+    Log.trace { "Terminfo: #{@name.inspect} (#{@aliases.inspect})" }
 
     @shim = @terminfo.try { |t| Unibilium::Terminfo::Shim.new t }
 
