@@ -10,7 +10,9 @@ require "event_handler"
 
 require "./macros"
 require "./namespace"
+require "./keys"
 require "./output"
+require "./input"
 require "./coordinates"
 require "./data"
 require "./features"
@@ -30,6 +32,8 @@ class Tput
   @output : IO
   @[JSON::Field(ignore: true)]
   @error : IO
+  @[JSON::Field(ignore: true)]
+  @mode : LibC::Termios? = nil
 
   @[JSON::Field(ignore: true)]
   getter? force_unicode
@@ -51,14 +55,14 @@ class Tput
   @screen_size : Size
   @position : Point
 
-  @ret = false
-
   @[JSON::Field(ignore: true)]
   @_buf : Bytes? = nil
 
-  getter? use_buffer : Bool
+  #getter? use_buffer : Bool
 
   getter? exiting = false
+
+  @ret = false # Unused. Return data instead of write()ing it?
 
   include Coordinates
 
@@ -68,7 +72,7 @@ class Tput
     @output = STDOUT,
     @error = STDERR,
     @force_unicode = false,
-    @use_buffer = false,
+    #@use_buffer = false,
   )
     @screen_size = get_screen_size
     @position = Point.new
@@ -97,20 +101,21 @@ class Tput
     names.any? { |name| name? name }
   end
 
-  # TODO -> redirects all output into a variable and returns it
-  # Maybe do with macros, or method_missing to be able to call any
-  # method, or so.
-  def out(args)
-    ret = Bytes.new
-    @ret=true
-    # ret += ...
-    @ret=false
-    ret
-  end
+  ## Unused. Redirects all output into a variable and returns it
+  ## Maybe do with macros, or method_missing to be able to call any
+  ## method, or so.
+  #def out(args)
+  #  ret = Bytes.new
+  #  @ret=true
+  #  # ret += ...
+  #  @ret=false
+  #  ret
+  #end
 
   include Namespace
   include Data
   include Output
+  include Input
   include Events
   
 end

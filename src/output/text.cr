@@ -5,7 +5,7 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
-      def print(txt, attr=nil)
+      def _print(txt, attr=nil)
         _write attr ? text(txt, attr) : txt
       end
       alias_previous echo

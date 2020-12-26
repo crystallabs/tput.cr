@@ -2,21 +2,23 @@ require "json"
 
 class Tput
   class Features
-		include Crystallabs::Helpers::Logging
+    include Crystallabs::Helpers::Logging
     include JSON::Serializable
-		include Crystallabs::Helpers::Boolean
+    include Crystallabs::Helpers::Boolean
 
     alias ACSHash = Hash(String, String)
 
-    getter? \
-      unicode : Bool,
-      broken_acs : Bool,
-      pc_rom_charset : Bool,
-      magic_cookie : Bool,
-      padding : Bool,
-      setbuf : Bool,
-      acsc : ACSHash,
-      acscr : ACSHash
+    getter? unicode : Bool
+    getter? broken_acs : Bool
+    getter? pc_rom_charset : Bool
+    getter? magic_cookie : Bool
+    getter? padding : Bool
+    getter? setbuf : Bool
+    getter? number_of_colors : Int32
+    getter? color : Bool
+
+    getter acsc : ACSHash
+    getter acscr : ACSHash
 
     @[JSON::Field(ignore: true)]
     getter acsc : ACSHash
@@ -34,51 +36,50 @@ class Tput
       @magic_cookie   = detect_magic_cookie
       @padding        = detect_padding
       @setbuf         = detect_setbuf
+      @number_of_colors = detect_number_of_colors
+      @color          = @number_of_colors > 2
       @acsc, @acscr   = parse_acs
     end
 
     def detect_unicode
       return true if \
         (@tput.force_unicode?) ||
-			  (to_b ENV["NCURSES_FORCE_UNICODE"]?) ||
-			  ({ ENV["LANG"]?, ENV["LANGUAGE"]?, ENV["LC_ALL"]?, ENV["LC_CTYPE"]? }.any? { |var| var.try &.=~(/utf\-?8/i) }) ||
+        (to_b ENV["NCURSES_FORCE_UNICODE"]?) ||
+        (term_has_unicode?) ||
+        ({ ENV["LANG"]?, ENV["LANGUAGE"]?, ENV["LC_ALL"]?, ENV["LC_CTYPE"]? }.any? { |var| var.try &.=~(/utf\-?8/i) }) ||
         (@tput.emulator.xterm?.try { ENV["XTERM_LOCALE"]?.try &.=~(/utf\-?8/i) }) ||
         ({% if flag? :windows %}get_console_cp == 65001{% end %})
       false
     end
 
-		# Detects whether terminal has broken ACS.
+    # Detects whether terminal has broken ACS.
     def detect_broken_acs
-			# For some reason TERM=linux has smacs/rmacs, but it maps to `^[[11m`
-			# and it does not switch to the DEC SCLD character set.
-			# xterm: \x1b(0, screen: \x0e, linux: \x1b[11m (doesn't work)
-			# `man console_codes` says:
-			# 11  select null mapping, set display control flag, reset tog‐
-			#     gle meta flag (ECMA-48 says "first alternate font").
-			# See ncurses:
-			# ~/ncurses/ncurses/base/lib_set_term.c
-			# ~/ncurses/ncurses/tinfo/lib_acs.c
-			# ~/ncurses/ncurses/tinfo/tinfo_driver.c
-			# ~/ncurses/ncurses/tinfo/lib_setup.c
+      # For some reason TERM=linux has smacs/rmacs, but it maps to `^[[11m`
+      # and it does not switch to the DEC SCLD character set.
+      # xterm: \x1b(0, screen: \x0e, linux: \x1b[11m (doesn't work)
+      # `man console_codes` says:
+      # 11  select null mapping, set display control flag, reset tog‐
+      #     gle meta flag (ECMA-48 says "first alternate font").
+      # See ncurses:
+      # ~/ncurses/ncurses/base/lib_set_term.c
+      # ~/ncurses/ncurses/tinfo/lib_acs.c
+      # ~/ncurses/ncurses/tinfo/tinfo_driver.c
+      # ~/ncurses/ncurses/tinfo/lib_setup.c
 
-			# ncurses-compatible env variable.
-			return true if to_b ENV["NCURSES_NO_UTF8_ACS"]?
+      # ncurses-compatible env variable.
+      return true if to_b ENV["NCURSES_NO_UTF8_ACS"]?
 
-			# If the terminal supports unicode, we don't need ACS.
-      @tput.terminfo.try do |t|
-        if t.extensions.has?("U8")
-          return t.extensions.get_num("U8") > 0
-        end
-      end
+      # If the terminal supports unicode, we don't need ACS.
+      return true if term_has_unicode?
 
-			# The linux console is just broken for some reason.
-			# Apparently the Linux console does not support ACS,
-			# but it does support the PC ROM character set.
-			return true if @tput.terminfo.try(&.name.==("linux")) || ENV["TERM"]?.try(&.==("linux"))
+      # The linux console is just broken for some reason.
+      # Apparently the Linux console does not support ACS,
+      # but it does support the PC ROM character set.
+      return true if @tput.terminfo.try(&.name.==("linux")) || ENV["TERM"]?.try(&.==("linux"))
 
-			# PC alternate charset
-			# if (acsc.indexOf('+\x10,\x11-\x18.\x190') === 0) {
-			return true if detect_pc_rom_charset
+      # PC alternate charset
+      # if (acsc.indexOf('+\x10,\x11-\x18.\x190') === 0) {
+      return true if detect_pc_rom_charset
 
       # XXX Possibly enable when tcap support is in. While we only support
       # terminfo, this is not relevant.
@@ -95,13 +96,13 @@ class Tput
       #    end
       #  end
 
-			false
+      false
     end
 
     def detect_pc_rom_charset
-			# If enter_pc_charset is the same as enter_alt_charset,
-			# the terminal does not support SCLD as ACS.
-			# See: ~/ncurses/ncurses/tinfo/lib_acs.c
+      # If enter_pc_charset is the same as enter_alt_charset,
+      # the terminal does not support SCLD as ACS.
+      # See: ~/ncurses/ncurses/tinfo/lib_acs.c
 
       @tput.shim.try do |shim|
         shim.enter_pc_charset_mode?.try do |epm|
@@ -111,20 +112,40 @@ class Tput
         end
       end
 
-			false
+      false
     end
 
-		def detect_magic_cookie
-			to_b ENV["NCURSES_NO_MAGIC_COOKIE"]?, false
-		end
+    def detect_magic_cookie
+      to_b ENV["NCURSES_NO_MAGIC_COOKIE"]?, false
+    end
 
-		def detect_padding
-			to_b ENV["NCURSES_NO_PADDING"]?, false
-		end
+    def detect_padding
+      to_b ENV["NCURSES_NO_PADDING"]?, false
+    end
 
-		def detect_setbuf
-			to_b ENV["NCURSES_NO_SETBUF"]?, false
-		end
+    def detect_setbuf
+      to_b ENV["NCURSES_NO_SETBUF"]?, false
+    end
+
+    def detect_number_of_colors
+      colors = 2
+
+      @tput.terminfo.try do |t|
+        t.get?(::Unibilium::Entry::Numeric::Max_colors).try do |v|
+          colors = v
+        end
+      end
+
+      if colors == 2
+        ENV["TERM"]?.try do |term|
+          if md = /(\d+)colors?$/.match term
+            colors = md[0].to_i
+          end
+        end
+      end
+
+      colors
+    end
 
     # Parses terminal's ACS characters and returns
     # ASCII->ACS and ACS->ASCII mappings.
@@ -149,8 +170,16 @@ class Tput
     end
 
     # TODO
-		def get_console_cp
-			0
-		end
+    def get_console_cp
+      0
+    end
+
+    def term_has_unicode?
+      @tput.terminfo.try do |t|
+        if t.extensions.has?("U8")
+          return t.extensions.get_num("U8") > 0
+        end
+      end
+    end
   end
 end

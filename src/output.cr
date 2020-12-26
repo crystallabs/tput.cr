@@ -54,7 +54,7 @@ class Tput
 
     def _owrite(text : String)
       #return unless @output.writable? # XXX
-      @output.print text
+      @output._print text
     end
     def _owrite(data : Bytes)
       #return unless @output.writable? # XXX
@@ -62,35 +62,36 @@ class Tput
     end
 
     def _write(text)
-      return text if @ret
-      return _buffer(text) if use_buffer?
+      #return text if @ret
+      #return _buffer(text) if use_buffer?
       _owrite text
     end
 
-    def _buffer(text)
-      if @exiting
-        flush
-        _owrite text
-        return
-      end
+    #def _buffer(text)
+    #  if @exiting
+    #    flush
+    #    _owrite text
+    #    return
+    #  end
 
-      ## TODO Fix this, then default to use_buffer=true
-      #if b = @_buf
-      #  #b += text
-      #  return
-      #end
+    #  ## TODO Fix this, then default to use_buffer=true
+    #  #if b = @_buf
+    #  #  #b += text
+    #  #  return
+    #  #end
 
-      #@_buf = text
-      flush # XXX Why here
+    #  #@_buf = text
+    #  flush # XXX Why here
 
-      true
-    end
+    #  true
+    #end
 
     def flush
-      @_buf.try do |buf|
-        _owrite buf
-        _buf = nil
-      end
+      #@_buf.try do |buf|
+      #  _owrite buf
+      #  _buf = nil
+      #end
+      @output.flush
     end
   end
 end
