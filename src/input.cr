@@ -30,13 +30,13 @@ class Tput
 		end
 
 		# Copied from IO::FileDescriptor, as this method is sadly `private`.
-		def raw_from_tc_mode!(fd, mode)
+		private def raw_from_tc_mode!(fd, mode)
 			LibC.cfmakeraw(pointerof(mode))
 			LibC.tcsetattr(fd, Termios::LineControl::TCSANOW, pointerof(mode))
 		end
 
 		# Copied from IO::FileDescriptor, as this method is sadly `private`.
-		def preserving_tc_mode(fd)
+		private def preserving_tc_mode(fd)
 			if LibC.tcgetattr(fd, out mode) != 0
 				raise RuntimeError.from_errno("Failed to enable raw mode on output")
 			end
@@ -57,36 +57,22 @@ class Tput
         with_raw_input do
           get_key.try { |k|
             block.call(k)
-            emit KeyPressEvent, k
           }
         end
-      end
-    end
-    def listen
-      loop do
-      #with_sync_output do
-        with_raw_input do
-          get_key.try { |k|
-            emit KeyPressEvent, k
-          }
-        end
-      #end
       end
     end
 
     def read_char
-      if c = @input.read_char
-        #yield << c
-      end
-      c
+      @input.read_char
     end
 
     def get_key
       #sequence = Bytes.new 64
       k = if char = read_char #{ sequence }
         if char.control?
-          key, mod = read_control(char) { @input.read_char }
+          key, mod = read_control(char) { read_char }
           if key
+            # This is a more elaborate key
             Key.new \
               key: Keys.new(key),
               modifier: mod

@@ -1,6 +1,5 @@
 require "json"
 
-
 class Tput
   # Various simple enums and classes which don't warrant a separate file
   module Namespace

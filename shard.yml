@@ -10,16 +10,13 @@ license: MIT
 
 dependencies:
   unibilium:
-    #github: crystallabs/unibilium.cr
-    path: ../unibilium.cr
+    github: crystallabs/unibilium.cr
+    version: 0.10.0
   unibilium-shim:
-    #github: crystallabs/unibilium-shim.cr
-    path: ../unibilium-shim.cr
+    github: crystallabs/unibilium-shim.cr
+    version: 0.1.0
   crystallabs-helpers:
-    #github: crystallabs/crystallabs-helpers.cr
-    path: ../crystallabs-helpers.cr
+    github: crystallabs/crystallabs-helpers.cr
+    version: 0.1.0
   term-screen:
     github: crystal-term/screen
-  event_handler:
-    github: crystallabs/event_handler
-    version: 0.15.2

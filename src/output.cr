@@ -54,7 +54,7 @@ class Tput
 
     def _owrite(text : String)
       #return unless @output.writable? # XXX
-      @output._print text
+      @output.print text
     end
     def _owrite(data : Bytes)
       #return unless @output.writable? # XXX

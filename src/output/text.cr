@@ -77,7 +77,7 @@ class Tput
       #alias_previous return # TODO can't alias 'return'
 
       def feed
-        @tput.try do |tput|
+        @shim.try do |s|
           if s.eat_newline_glitch? && @position.x >= @screen_size.width
             return
           end
