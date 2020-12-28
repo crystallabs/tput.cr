@@ -39,7 +39,7 @@ class Tput
         @position.x = param
         _ncoords
 
-        put(s.hpa?(param)) || _write "\x1b[#{param+1}G"
+        put(hpa?(param)) || _write "\x1b[#{param+1}G"
       end
       alias_previous cha, setx
 
@@ -49,7 +49,7 @@ class Tput
       def cursor_line_pos_absolute(param=1)
         @position.y = param
         _ncoords
-        put(s.vpa?(param)) || _write "\x1b[#{param}d"
+        put(vpa?(param)) || _write "\x1b[#{param}d"
       end
       alias_previous vpa, sety, line_pos_absolute, cursor_line_absolute
 
@@ -68,7 +68,7 @@ class Tput
         @position.y = row
         _ncoords()
 
-        put(s.cup?(row, col)) || _write "\x1b[#{row+1};#{col+1}H"
+        put(cup?(row, col)) || _write "\x1b[#{row+1};#{col+1}H"
       end
       alias_previous cup, pos
 
@@ -196,7 +196,7 @@ class Tput
         return lsave_cursor(key) if key
         @saved_x = @position.x || 0
         @saved_y = @position.y || 0
-        put(s.sc?) || _write "\x1b7"
+        put(sc?) || _write "\x1b7"
       end
       alias_previous sc
 
@@ -205,7 +205,7 @@ class Tput
         return lrestore_cursor(key, hide) if (key)
         @position.x = @saved_x || 0
         @position.y = @saved_y || 0
-        put(s.rc?) || _write "\x1b8"
+        put(rc?) || _write "\x1b8"
       end
       alias_previous rc
 
@@ -232,9 +232,9 @@ class Tput
       def cursor_up(param=nil)
         @position.y -= param || 1
         _ncoords()
-        put(s.cuu?(0)) ||
+        put(cuu?(0)) ||
           # XXX enable when solved: undefined method '*' for Slice(UInt8)
-          #put(s.cuu1?.try { |v| repeat(v, param) }) ||
+          #put(cuu1?.try { |v| repeat(v, param) }) ||
             _write "\x1b[#{param}A"
       end
       alias_method cuu, up
@@ -288,7 +288,7 @@ class Tput
 
       def hide_cursor
         @cursor_hidden = true
-        put(s.civis?) || reset_mode "?25"
+        put(civis?) || reset_mode "?25"
       end
       alias_previous dectcemh, cursor_invisible, vi, civis, cursor_invisible
 
@@ -300,7 +300,7 @@ class Tput
         # cvvis starts blinking cursor
         # return _write("\x1b[?12l\x1b[?25h"); // cursor_normal
         # return _write("\x1b[?12;25h"); // cursor_visible
-        put(s.cnorm?) || set_mode "?25"
+        put(cnorm?) || set_mode "?25"
       end
       alias_previous dectcem, cnorm, cvvis, cursor_visible
 
@@ -327,8 +327,8 @@ class Tput
             param = 6
         end
 
-        (put(s._Se?) && return) if param == 2
-        put(s._Ss?) || _write "\x1b[#{param} q"
+        (put(_Se?) && return) if param == 2
+        put(_Ss?) || _write "\x1b[#{param} q"
       end
       alias_previous decscusr
 
@@ -337,7 +337,7 @@ class Tput
       def save_cursor_a
         @saved_x = @position.x
         @saved_y = @position.y
-        put(s.sc?) || _write "\x1b[s"
+        put(sc?) || _write "\x1b[s"
       end
       alias_previous sc_a
 
@@ -346,7 +346,7 @@ class Tput
       def restore_cursor_a
         @position.x = @saved_x || 0
         @position.y = @saved_y || 0
-        put(s.rc?) || _write "\x1b[u"
+        put(rc?) || _write "\x1b[u"
       end
       alias_previous rc_a
 
@@ -355,7 +355,7 @@ class Tput
       def cursor_forward_tab(param=1)
         @position.x += 8
         _ncoords
-        put(s.tab?(param)) || _write "\x1b[#{param}I"
+        put(tab?(param)) || _write "\x1b[#{param}I"
       end
       alias_previous cht
 
@@ -363,14 +363,14 @@ class Tput
       def cursor_backward_tab(param=1)
         @position.x -= 8
         _ncoords
-        put(s.cbt?(param)) || _write "\x1b[#{param}Z"
+        put(cbt?(param)) || _write "\x1b[#{param}Z"
       end
       alias_previous cbt
 
       def restore_reported_cursor
         @_rx.try do |rx|
           @_ry.try do |ry|
-            put(s.cup? ry, rx)
+            put(cup? ry, rx)
             # Disabled originally:
             # put "nel"
           end
@@ -381,7 +381,7 @@ class Tput
       # Horizontal Position Relative
       # reuse CSI Ps C ?
       def h_position_relative(param=1)
-        put(s.cuf?(param)) && return
+        put(cuf?(param)) && return
 
         @position.x += param
         _ncoords
@@ -395,7 +395,7 @@ class Tput
       # 145 65 e * VPR - Vertical Position Relative
       # reuse CSI Ps B ?
       def v_position_relative(param=1)
-        put(s.cud?(param)) && return
+        put(cud?(param)) && return
 
         @position.y += param
         _ncoords
@@ -423,8 +423,8 @@ class Tput
         _ncoords
         # Disabled originally
         # Does not exist (?):
-        # put(s.hvp", row, col);
-        put(s.cup?(row, col)) || _write "\x1b[#{row+1};#{col+1}f"
+        # put(hvp", row, col);
+        put(cup?(row, col)) || _write "\x1b[#{row+1};#{col+1}f"
       end
       alias_previous hvp
 

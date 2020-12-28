@@ -8,7 +8,7 @@ class Tput
       # ESC c Full Reset (RIS).
       def reset
         @position.x = @position.y = 0
-        put(s.rs1?) || put(s.ris?) || _write "\x1bc"
+        put(rs1?) || put(ris?) || _write "\x1bc"
       end
 
       # CSI ! p   Soft terminal reset (DECSTR).
@@ -19,7 +19,7 @@ class Tput
         #if (tput) put.reset_2string()
         #_write('\x1b[!p')
         #_write('\x1b[!p\x1b[?3;4l\x1b[4l\x1b>'); # init
-        put(s.rs2?) || _write "\x1b[!p\x1b[?3;4l\x1b[4l\x1b>" # reset
+        put(rs2?) || _write "\x1b[!p\x1b[?3;4l\x1b[4l\x1b>" # reset
       end
       alias_previous decstr, rs2
 

@@ -30,12 +30,12 @@ class Tput
 
         case (name)
           when "acs", "scld" # DEC Special Character and Line Drawing Set.
-            return true if put(s.smacs?)
+            return true if put(smacs?)
             val = "0"
           when "uk" # UK
             val = "A"
           when "us", "usascii", "ascii" # United States (USASCII).
-            return true if put(s.rmacs?)
+            return true if put(rmacs?)
             val = "B"
           when "dutch" # Dutch
             val = "4"
@@ -63,7 +63,7 @@ class Tput
           when "isolatin" # ISOLatin (actually /A)
             val = "/A"
           else # Default
-            return true if put(s.rmacs?)
+            return true if put(rmacs?)
             val = "B"
         end
 

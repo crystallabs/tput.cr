@@ -8,7 +8,7 @@ class Tput
       def clear
         @position.x = 0
         @position.y = 0
-        put(s.clear?) || _write "\x1b[H\x1b[J"
+        put(clear?) || _write "\x1b[H\x1b[J"
       end
 
       # CSI Ps J  Erase in Display (ED).
@@ -37,7 +37,7 @@ class Tput
           end
           # Disabled originally
           # extended tput.E3 = ^[[3;J
-          put(s.ed?(param))
+          put(ed?(param))
         } ||
 
         case param
@@ -72,13 +72,13 @@ class Tput
       alias_previous mc
 
       def mc0
-        put(s.mc0?) || put(s.mc?(0))
+        put(mc0?) || put(mc?(0))
       end
       alias_previous print_screen, ps
 
       def alternate_buffer
         @is_alt = true
-        put(s.smcup?) && return
+        put(smcup?) && return
         return if name? "vt", "linux"
         set_mode "?47"
         set_mode "?1049"
@@ -87,7 +87,7 @@ class Tput
 
       def normal_buffer
         @is_alt = false
-        put(s.rmcup?) && return
+        put(rmcup?) && return
         reset_mode "?47"
         reset_mode "?1049"
       end

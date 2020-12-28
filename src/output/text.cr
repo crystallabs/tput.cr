@@ -41,27 +41,27 @@ class Tput
       end
 
       def form
-        put(s.ff?) || _write "\x0c"
+        put(ff?) || _write "\x0c"
       end
       alias_previous ff, formfeed, form_feed
 
       def backspace
         @position.x-=1
         _ncoords
-        put(s.kbs?) || _write "\x08"
+        put(kbs?) || _write "\x08"
       end
       alias_previous kbs
 
       def tab
         @position.x += 8
         _ncoords
-        put(s.ht?) || _write "\t"
+        put(ht?) || _write "\t"
       end
       alias_previous ht
 
       def shift_out
         # TODO support caps with first letter uppercase
-        #put(s.S2?) ||
+        #put(S2?) ||
         _write "\x0e"
       end
 
@@ -72,7 +72,7 @@ class Tput
 
       def cr
         x = 0
-        put(s.cr?) || _write "\r"
+        put(cr?) || _write "\r"
       end
       #alias_previous return # TODO can't alias 'return'
 
@@ -86,7 +86,7 @@ class Tput
         @position.x = 0
         @position.y+=1
         _ncoords()
-        put(s.nel?) || _write "\n"
+        put(nel?) || _write "\n"
       end
       alias_previous nel, newline
 
@@ -95,12 +95,12 @@ class Tput
         @position.y+=1
         @position.x = 0
         _ncoords
-        put(s.nel?) || _write "\x1bE"
+        put(nel?) || _write "\x1bE"
       end
 
       # ESC H Tab Set (HTS is 0x88).
       def tab_set
-        put(s.hts?) || _write "\x1bH"
+        put(hts?) || _write "\x1bH"
       end
 
       # CSI Pm m  Character Attributes (SGR).
@@ -452,35 +452,35 @@ class Tput
       def insert_chars(param=1)
         @position.x += param
         _ncoords
-        put(s.ich?(param)) || _write "\x1b[#{param}@"
+        put(ich?(param)) || _write "\x1b[#{param}@"
       end
       alias_previous ich
 
       # CSI Ps L
       # Insert Ps Line(s) (default = 1) (IL).
       def insert_lines(param)
-        put(s.il?(param)) || _write "\x1b[#{param}L"
+        put(il?(param)) || _write "\x1b[#{param}L"
       end
       alias_previous il
 
       # CSI Ps M
       # Delete Ps Line(s) (default = 1) (DL).
       def delete_lines(param=nil)
-        put(s.dl?(param)) || _write "\x1b[#{param}M"
+        put(dl?(param)) || _write "\x1b[#{param}M"
       end
       alias_previous dl
 
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
       def delete_chars(param=nil)
-        put(s.dch?(param)) || _write "\x1b[#{param}P"
+        put(dch?(param)) || _write "\x1b[#{param}P"
       end
       alias_previous dch
 
       # CSI Ps X
       # Erase Ps Character(s) (default = 1) (ECH).
       def erase_chars(param=nil)
-        put(s.ech?(param)) || _write "\x1b[#{param}X"
+        put(ech?(param)) || _write "\x1b[#{param}X"
       end
       alias_previous ech
 
@@ -493,7 +493,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a,b)
-       put(s._Ms?(a,b)) || _twrite "\x1b]52;#{a};#{b}\x07"
+       put(_Ms?(a,b)) || _twrite "\x1b]52;#{a};#{b}\x07"
       end
 
       # CSI Ps K  Erase in Line (EL).
@@ -520,7 +520,7 @@ class Tput
             else
               param = 0
           end
-          put(s.el?(param))
+          put(el?(param))
         } ||
 
         case (param)
@@ -568,7 +568,7 @@ class Tput
       def repeat_preceding_character(param=1)
         @position.x += param
         _ncoords
-        put(s.rep?(param)) || _write "\x1b[#{param}b"
+        put(rep?(param)) || _write "\x1b[#{param}b"
       end
       alias_previous rep, rpc
 
@@ -579,7 +579,7 @@ class Tput
       #   Ps = 2  -> Clear Stops on Line.
       #   http:#vt100.net/annarbor/aaa-ug/section6.html
       def tab_clear(param=0)
-        put(s.tbc?(param)) || _write "\x1b[#{param}g"
+        put(tbc?(param)) || _write "\x1b[#{param}g"
       end
       alias_previous tbc
 

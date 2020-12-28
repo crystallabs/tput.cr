@@ -6,7 +6,7 @@ class Tput
       include Macros
 
       def bell
-        put(s.bel?) || _write "\x07"
+        put(bel?) || _write "\x07"
       end
       alias_previous bel
 

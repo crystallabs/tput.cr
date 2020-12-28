@@ -9,7 +9,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Reset colors
       def reset_colors(param)
-        put(s._Cr?(param)) || _twrite "\x1b]112\x07"
+        put(_Cr?(param)) || _twrite "\x1b]112\x07"
         # Disabled originally:
         #_twrite "\x1b]112;#{param}\x07"
       end
@@ -18,7 +18,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Change dynamic colors
       def dynamic_colors(param)
-        put(s._Cs?(param)) || _twrite "\x1b]12;#{param}\x07"
+        put(_Cs?(param)) || _twrite "\x1b]12;#{param}\x07"
       end
 
     end
