@@ -6,7 +6,6 @@ require "term-screen"
 require "unibilium"
 require "unibilium-shim"
 require "crystallabs-helpers"
-require "event_handler"
 
 require "./macros"
 require "./namespace"
@@ -17,7 +16,6 @@ require "./coordinates"
 require "./data"
 require "./features"
 require "./emulator"
-require "./events"
 
 class Tput
   VERSION = "0.1.0"
@@ -47,12 +45,14 @@ class Tput
   getter! features : Features
   getter! emulator : Emulator
 
+  getter? cursor_hidden : Bool = false
+
   @name : String
   #@aliases : Array[String]
 
   @_title : String?
 
-  @screen_size : Size
+  getter screen_size : Size
   @position : Point
 
   @[JSON::Field(ignore: true)]
@@ -63,6 +63,8 @@ class Tput
   getter? exiting = false
 
   @ret = false # Unused. Return data instead of write()ing it?
+
+  getter is_alt = false
 
   include Coordinates
 
@@ -116,6 +118,5 @@ class Tput
   include Data
   include Output
   include Input
-  include Events
   
 end

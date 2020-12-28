@@ -1,56 +1,58 @@
 class Tput
   module Input
 
+    # Enables synced (unbuffered) output for the duration of the block.
     def with_sync_output
-			output = @output
-			if output.is_a?(IO::Buffered)
-				before = output.sync?
+      output = @output
+      if output.is_a?(IO::Buffered)
+        before = output.sync?
 
-				begin
-					output.sync = true
-					yield
-				ensure
-					output.sync = before
-				end
-			else
-				yield
-			end
-		end
+        begin
+          output.sync = true
+          yield
+        ensure
+          output.sync = before
+        end
+      else
+        yield
+      end
+    end
 
+    # Enables raw (unbuffered, non-cooked) input for the duration of the block.
     def with_raw_input
-			input = @input
-			if @mode.nil? && input.responds_to?(:fd) && input.tty?
-				preserving_tc_mode(input.fd) do |mode|
-					raw_from_tc_mode!(input.fd, mode)
-					yield
-				end
-			else
-				yield
-			end
-		end
+      input = @input
+      if @mode.nil? && input.responds_to?(:fd) && input.tty?
+        preserving_tc_mode(input.fd) do |mode|
+          raw_from_tc_mode!(input.fd, mode)
+          yield
+        end
+      else
+        yield
+      end
+    end
 
-		# Copied from IO::FileDescriptor, as this method is sadly `private`.
-		private def raw_from_tc_mode!(fd, mode)
-			LibC.cfmakeraw(pointerof(mode))
-			LibC.tcsetattr(fd, Termios::LineControl::TCSANOW, pointerof(mode))
-		end
+    # Copied from IO::FileDescriptor, as this method is sadly `private`.
+    private def raw_from_tc_mode!(fd, mode)
+      LibC.cfmakeraw(pointerof(mode))
+      LibC.tcsetattr(fd, Termios::LineControl::TCSANOW, pointerof(mode))
+    end
 
-		# Copied from IO::FileDescriptor, as this method is sadly `private`.
-		private def preserving_tc_mode(fd)
-			if LibC.tcgetattr(fd, out mode) != 0
-				raise RuntimeError.from_errno("Failed to enable raw mode on output")
-			end
+    # Copied from IO::FileDescriptor, as this method is sadly `private`.
+    private def preserving_tc_mode(fd)
+      if LibC.tcgetattr(fd, out mode) != 0
+        raise RuntimeError.from_errno("Failed to enable raw mode on output")
+      end
 
-			before = mode
-			@mode = mode
+      before = mode
+      @mode = mode
 
-			begin
-				yield mode
-			ensure
-				@mode = nil
-				LibC.tcsetattr(fd, Termios::LineControl::TCSANOW, pointerof(before))
-			end
-		end
+      begin
+        yield mode
+      ensure
+        @mode = nil
+        LibC.tcsetattr(fd, Termios::LineControl::TCSANOW, pointerof(before))
+      end
+    end
 
     def listen(&block : Proc(Key?,Nil))
       loop do
@@ -62,10 +64,16 @@ class Tput
       end
     end
 
+    # Reads one character from the input stream.
+    #
+    # This function should not be used standalone since many keys generate
+    # more than 1 character. Usually `get_key` is used.
     def read_char
       @input.read_char
     end
 
+    # Reads as many characters as required from the input stream to parse
+    # and recognize the key that has been pressed.
     def get_key
       #sequence = Bytes.new 64
       k = if char = read_char #{ sequence }
@@ -92,11 +100,14 @@ class Tput
             #sequence: sequence
         end
       end
-
-
     end
 
-    def read_control(char : Char)
+    # Examines in more detail a character that was read in and that had the `control?` flag
+    # set to true.
+    #
+    # The result of this function may be a standard control character (ascii 1-26 or so),
+    # or a more elaborate key (like the F keys etc.)
+    private def read_control(char : Char)
       case char.ord
       when 27 # Escape
         read_escape_sequence(char){ yield }
@@ -105,9 +116,11 @@ class Tput
       end
     end
 
-    # TODO support alt+f keys, shift+f keys
-    # many others too, but the framework is here.
-    def read_escape_sequence(char)
+    # Reads further chars while determining the key that was pressed.
+    private def read_escape_sequence(char)
+      # TODO support alt+f keys, shift+f keys
+      # many others too, but the framework is here.
+
       mod = KeyModifier::NONE
 
       key = case yield.try(&.ord)

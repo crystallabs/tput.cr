@@ -1,6 +1,14 @@
 require "json"
 
 class Tput
+
+  # Terminal features auto-detection.
+  #
+  # Involved in a terminal are the terminal emulator in use (`Tput::Emulator`) and
+  # the term type initialized/running in it (`ENV["TERM"]` usually).
+  #
+  # After those two variables are known, the features autodetection is ran to
+  # figure out the final details of terminal's behavior.
   class Features
     include Crystallabs::Helpers::Logging
     include JSON::Serializable
@@ -8,16 +16,30 @@ class Tput
 
     alias ACSHash = Hash(String, String)
 
+    # Is unicode supported?
     getter? unicode : Bool
+
+    # Does the terminal have broken ACS chars?
     getter? broken_acs : Bool
+
+    # Does the terminal support PC ROM charset?
     getter? pc_rom_charset : Bool
+
     getter? magic_cookie : Bool
+
     getter? padding : Bool
+
     getter? setbuf : Bool
+
+    # Number of colors supported by the terminal
     getter? number_of_colors : Int32
+
+    # Color support flag (a yes/no)
     getter? color : Bool
 
+    # :nodoc:
     getter acsc : ACSHash
+    # :nodoc:
     getter acscr : ACSHash
 
     @[JSON::Field(ignore: true)]
@@ -27,6 +49,7 @@ class Tput
     getter acscr : ACSHash
 
     @[JSON::Field(ignore: true)]
+    # :nodoc:
     getter tput : Tput
 
     def initialize(@tput : Tput)
@@ -41,6 +64,7 @@ class Tput
       @acsc, @acscr   = parse_acs
     end
 
+    # Detects Unicode support
     def detect_unicode
       return true if \
         (@tput.force_unicode?) ||
@@ -52,7 +76,7 @@ class Tput
       false
     end
 
-    # Detects whether terminal has broken ACS.
+    # Detects whether terminal has broken ACS characters
     def detect_broken_acs
       # For some reason TERM=linux has smacs/rmacs, but it maps to `^[[11m`
       # and it does not switch to the DEC SCLD character set.
@@ -99,6 +123,7 @@ class Tput
       false
     end
 
+    # Detects whether terminal supports PC ROM charset
     def detect_pc_rom_charset
       # If enter_pc_charset is the same as enter_alt_charset,
       # the terminal does not support SCLD as ACS.
@@ -127,6 +152,7 @@ class Tput
       to_b ENV["NCURSES_NO_SETBUF"]?, false
     end
 
+    # Detects number of colors supported by the terminal (2 - 16M)
     def detect_number_of_colors
       colors = 2
 
@@ -169,12 +195,12 @@ class Tput
       { acsc, acscr }
     end
 
-    # TODO
+    # Gets console codepage (Windows-specific)
     def get_console_cp
       0
     end
 
-    def term_has_unicode?
+    private def term_has_unicode?
       @tput.terminfo.try do |t|
         if t.extensions.has?("U8")
           return t.extensions.get_num("U8") > 0

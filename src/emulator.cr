@@ -1,3 +1,6 @@
+require "json"
+require "crystallabs-helpers"
+
 class Tput
   # Class for terminal emulator program detection.
   #
@@ -10,19 +13,41 @@ class Tput
     include JSON::Serializable
     include Crystallabs::Helpers::Boolean
 
+    # Is the emulator Mac OS X terminal?
     getter? osxterm : Bool
+
+    # Is the emulator iTerm2?
     getter? iterm2 : Bool
+
+    # Is the emulator XFCE's terminal?
     getter? xfce : Bool
+
+    # Is the emulator terminator?
     getter? terminator : Bool
+
+    # Is the emulator LXDE's lxterm?
     getter? lxterm : Bool
+
+    # Is the emulator based on VTE?
     getter? vte : Bool
+
+    # Is the emulator rxvt?
     getter? rxvt : Bool
+
+    # Is the emulator xterm?
     getter? xterm : Bool
+
+    # Is the emulator tmux?
     getter? tmux : Bool
 
+    # Is the emulator screen?
+    getter? screen : Bool
+
     @[JSON::Field(ignore: true)]
+    # :nodoc:
     getter tput : Tput
 
+    # Creates an instance of `Features` and performs the autodetection.
     def initialize(@tput : Tput)
       term_program = ENV["TERM_PROGRAM"]? || ""
 
@@ -46,6 +71,8 @@ class Tput
 
       @tmux = to_b (ENV["TMUX"]?)
       # XXX Detect TMUX version?
+
+      @screen = (ENV["TERM"]? == "screen")
     end
   end
 end

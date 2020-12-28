@@ -1,8 +1,11 @@
 class Tput
+
+  # Various tables and static/fixed data.
   module Data
 
     # ACS = Alternate Character Set.
     # DEC Special Character and Line Drawing Set.
+    #
     # Mapping of ACS ascii characters to the most similar-looking UTF characters.
     # This is a default list; in a particular terminal it may be affected by the
     # term's value of string capability "acs_chars".
@@ -43,12 +46,12 @@ class Tput
     #      UK pound sign               ACS_STERLING   f         }        0x7d
     #      bullet                      ACS_BULLET     o         ~        0x7e
     #
-    #       The best way to define a new device's graphics set is to add a
-    #       column to a copy of this table for your terminal, giving the
-    #       character which (when emitted between smacs/rmacs switches) will
-    #       be rendered as the corresponding graphic.  Then read off the
-    #       VT100/your terminal character pairs right to left in sequence;
-    #       these become the ACSC string.
+    # The best way to define a new device's graphics set is to add a
+    # column to a copy of this table for your terminal, giving the
+    # character which (when emitted between smacs/rmacs switches) will
+    # be rendered as the corresponding graphic.  Then read off the
+    # VT100/your terminal character pairs right to left in sequence;
+    # these become the ACSC string.
     ACSC = {    # (0
       # Char         # Proposed Unicode equivalent 
       # 0x5f Blank     U+00A0 NO-BREAK SPACE 

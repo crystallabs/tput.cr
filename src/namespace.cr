@@ -521,6 +521,12 @@ class Tput
     end
 
     enum CursorShape
+      Block
+      Underline
+      Line
+    end
+
+    enum MouseCursorShape
         ArrowCursor
         UpArrowCursor
         CrossCursor
@@ -1132,8 +1138,45 @@ class Tput
       property top : Int32
       property right : Int32
       property bottom : Int32
-      def initialize(@left, @top, @right, @bottom)
+      def initialize(@left=0, @top=0, @right=0, @bottom=0)
       end
+    end
+
+    struct Padding
+      include JSON::Serializable
+      property left : Int32
+      property top : Int32
+      property right : Int32
+      property bottom : Int32
+      def initialize(@left=0, @top=0, @right=0, @bottom=0)
+      end
+    end
+
+    struct Position # XXX better name?
+      include JSON::Serializable
+      property left : Int32
+      property top : Int32
+      property right : Int32
+      property bottom : Int32
+      def initialize(@left=0, @top=0, @right=0, @bottom=0)
+      end
+      def width
+        raise "Not iplimented"
+      end
+      def height
+        raise "Not iplimented"
+      end
+    end
+
+    struct TextCursor
+      property artificial : Bool = false
+      property shape = CursorShape::Block
+      property blink = false
+      property color : GlobalColor? = GlobalColor::Red #nil
+
+      property _set = false
+      property _state = 1
+      property _hidden = true
     end
 
   end

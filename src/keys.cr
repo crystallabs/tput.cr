@@ -1,4 +1,6 @@
 class Tput
+
+  # Listing of recognized keys with key names.
   enum Keys
     Key_CtrlA = 1
     Key_CtrlB = 2
