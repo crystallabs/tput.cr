@@ -5,6 +5,7 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
+      # Prints text with optional attributes
       def print(txt, attr=nil)
         _write attr ? text(txt, attr) : txt
       end

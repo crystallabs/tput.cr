@@ -1099,8 +1099,7 @@ class Tput
       include JSON::Serializable
       property x : Int32
       property y : Int32
-      property? zero_based : Bool
-      def initialize(@x=0, @y=0, @zero_based=true)
+      def initialize(@x=0, @y=0)
       end
     end
 

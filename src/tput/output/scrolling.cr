@@ -41,14 +41,7 @@ class Tput
       #   Set Scrolling Region [top;bottom] (default = full size of win-
       #   dow) (DECSTBM).
       # CSI ? Pm r
-      def set_scroll_region(top=nil, bottom=nil)
-        unless @position.zero_based?
-          top = (top || 1) - 1
-          bottom = (bottom || @screen_size.height) - 1
-        else
-          top = top || 0
-          bottom = bottom || (@screen_size.height - 1)
-        end
+      def set_scroll_region(top=0, bottom=(@screen_size.height - 1))
         @scroll_top = top
         @scroll_bottom = bottom
         @position.x = 0

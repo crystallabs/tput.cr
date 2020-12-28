@@ -27,43 +27,41 @@ class Tput
       end
       alias_previous cpl, cursor_previous_line
 
-      # CSI Ps G
-      # Cursor Character Absolute  [column] (default = [row,1]) (CHA).
-      def cursor_char_absolute(param=nil)
-        if !@position.zero_based?
-          param = (param||1) - 1
-        else
-          param ||= 0
-        end
-
+      # Sets cursor x coordinate to absolute value `param`.
+      #
+      #     CSI Ps G
+      #     Cursor Character Absolute  [column] (default = [row,1]) (CHA).
+      def cursor_char_absolute(point : Point)
+        cursor_char_absolute point.x
+      end
+      # :ditto:
+      def cursor_char_absolute(param=0)
         @position.x = param
         _ncoords
 
         put(hpa?(param)) || _write "\x1b[#{param+1}G"
       end
-      alias_previous cha, setx
+      alias_previous cha, setx, set_x
 
-      # CSI Pm d
-      # Line Position Absolute  [row] (default = [1,column]) (VPA).
+      # Sets cursor y coordinate to absolute value `param`.
+      #
+      #     CSI Pm d
+      #     Line Position Absolute  [row] (default = [1,column]) (VPA).
+      #
       # NOTE: Can't find in terminfo, no idea why it has multiple params.
+      def cursor_line_pos_absolute(point : Point)
+        cursor_line_pos_absolute point.y
+      end
       def cursor_line_pos_absolute(param=1)
         @position.y = param
         _ncoords
         put(vpa?(param)) || _write "\x1b[#{param}d"
       end
-      alias_previous vpa, sety, line_pos_absolute, cursor_line_absolute
+      alias_previous vpa, sety, line_pos_absolute, cursor_line_absolute, set_y
 
       # CSI Ps ; Ps H
       # Cursor Position [row;column] (default = [1,1]) (CUP).
-      def cursor_pos(row=nil, col=nil)
-        if !@position.zero_based?
-          row = (row || 1) - 1
-          col = (col || 1) - 1
-        else
-          row||= 0
-          col||= 0
-        end
-
+      def cursor_pos(row=0, col=0)
         @position.x = col
         @position.y = row
         _ncoords()
@@ -81,15 +79,7 @@ class Tput
       alias_previous cursor_move, cursor_move_to
 
       # NOTE fix cud and cuu calls
-      def omove(x=nil, y=nil)
-        if !@position.zero_based?
-          x = (x||1) - 1
-          y = (y||1) - 1
-        else
-          x ||= 0
-          y ||= 0
-        end
-
+      def omove(x=0, y=0)
         return if @position.x==x && @position.y==y
 
         if y == @position.y
@@ -105,10 +95,6 @@ class Tput
             cuu @position.y-y
           end
         else
-          unless @position.zero_based?
-            x+=1
-            y+=1
-          end
           cup y, x
         end
       end
@@ -410,14 +396,7 @@ class Tput
       # CSI Ps ; Ps f
       #   Horizontal and Vertical Position [row;column] (default =
       #   [1,1]) (HVP).
-      def hv_position(row=nil, col=nil)
-        unless @position.zero_based?
-          row = (row || 1) - 1
-          col = (col || 1) - 1
-        else
-          row = row || 0
-          col = col || 0
-        end
+      def hv_position(row=0, col=0)
         @position.y = row
         @position.x = col
         _ncoords
