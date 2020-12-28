@@ -86,22 +86,26 @@ class Tput
       end
       alias_previous exit_alt_charset_mode, ae
 
-      # ESC N
-      # Single Shift Select of G2 Character Set
-      # ( SS2 is 0x8e). This affects next character only.
-      # ESC O
-      # Single Shift Select of G3 Character Set
-      # ( SS3 is 0x8f). This affects next character only.
-      # ESC n
-      # Invoke the G2 Character Set as GL (LS2).
-      # ESC o
-      # Invoke the G3 Character Set as GL (LS3).
-      # ESC |
-      # Invoke the G3 Character Set as GR (LS3R).
-      # ESC }
-      # Invoke the G2 Character Set as GR (LS2R).
-      # ESC ~
-      # Invoke the G1 Character Set as GR (LS1R).
+      # Set G character set.
+      #
+      # This method currently sets it non-configurable for the next character only.
+      #
+      #     ESC N
+      #     Single Shift Select of G2 Character Set
+      #     ( SS2 is 0x8e). This affects next character only.
+      #     ESC O
+      #     Single Shift Select of G3 Character Set
+      #     ( SS3 is 0x8f). This affects next character only.
+      #     ESC n
+      #     Invoke the G2 Character Set as GL (LS2).
+      #     ESC o
+      #     Invoke the G3 Character Set as GL (LS3).
+      #     ESC |
+      #     Invoke the G3 Character Set as GR (LS3R).
+      #     ESC }
+      #     Invoke the G2 Character Set as GR (LS2R).
+      #     ESC ~
+      #     Invoke the G1 Character Set as GR (LS1R).
       def set_g(val)
         # Disabled originally
         # if (tput) put.S2()

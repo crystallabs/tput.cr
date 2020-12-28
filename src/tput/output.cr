@@ -73,7 +73,7 @@ class Tput
     end
 
     def _oprint(*args)
-      args.join @output
+      args.join io: @output
     end
     private def _oprint(&block : IO -> Nil)
       yield @output
@@ -171,7 +171,11 @@ class Tput
         _oprint *args
         return
       end
+
+      # NOTE Without io:, treats the argument as separator rather
+      # than IO. Can't reproduce on play.
       args.join @_buf
+
       flush
     end
     private def _buffer_print(&block : IO -> Nil)
