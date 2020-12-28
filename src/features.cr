@@ -145,7 +145,13 @@ class Tput
     end
 
     def detect_padding
-      to_b ENV["NCURSES_NO_PADDING"]?, false
+      v = to_b ENV["NCURSES_NO_PADDING"]?, false
+      unless v
+        #raise "Padding not supported yet"
+        # TODO - Padding is always disabled currently
+      end
+      #return !!v
+      false
     end
 
     def detect_setbuf

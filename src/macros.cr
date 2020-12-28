@@ -18,7 +18,7 @@ class Tput
     #
     # ```
     macro put(arg)
-      @shim.try { |s| {{arg}}.try { |data| _write data }}
+      @shim.try { |s| {{arg}}.try { |data| features.padding? ? _pad_print(data) : _write(data) }}
     end
 
   end

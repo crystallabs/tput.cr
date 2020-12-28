@@ -93,5 +93,10 @@ class Tput
       #end
       @output.flush
     end
+
+    def _pad_print(code, prn = ->_write(Bytes), done = nil)
+      raise "Padding not supported yet"
+      # tput._print, tput.print
+    end
   end
 end
