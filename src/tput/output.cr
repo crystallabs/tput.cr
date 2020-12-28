@@ -93,6 +93,11 @@ class Tput
     def _write(str : String)
       _write str.to_slice
     end
+    # :ditto:
+    def _write(&block : IO -> Nil)
+      # XXX Note this is avoiding buffering for now!
+      yield @output
+    end
 
     # Standard output method which takes terminal padding (software timing/delays) into account.
     #

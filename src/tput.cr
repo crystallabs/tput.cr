@@ -50,10 +50,11 @@ class Tput
   @name : String
   #@aliases : Array[String]
 
-  @_title : String?
+  @_title : String = ""
 
   getter screen_size : Size
   @position : Point
+  @saved_position : Point?
 
   @[JSON::Field(ignore: true)]
   @_buf : Bytes = Bytes.new 0

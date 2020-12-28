@@ -11,28 +11,17 @@ class Tput
       end
       alias_previous echo
 
+      # Writes string `str` (repeated `i` times and with `attr` attributes)
       def simple_insert(str, i, attr)
         _write (str*i), attr
       end
 
-      def repeat(str,i)
+      # Repeats string `str` `i` times.
+      def repeat(str,i = 1)
         if (!i || i < 0)
           i = 0
         end
         str * i
-      end
-
-      # Specific to iTerm2
-      # Example:
-      #  unless copy_to_clipboard text
-      #    exec_clipboard_program text
-      #  end
-      def copy_to_clipboard(text)
-        if emulator.iterm2?
-          _twrite "\x1b]50;CopyToCliboard=#{text}\x07"
-          return true
-        end
-        false
       end
 
       def vtab
@@ -61,7 +50,6 @@ class Tput
       alias_previous ht
 
       def shift_out
-        # TODO support caps with first letter uppercase
         #put(S2?) ||
         _write "\x0e"
       end
@@ -72,10 +60,10 @@ class Tput
       end
 
       def cr
-        x = 0
+        @position.x = 0
         put(cr?) || _write "\r"
       end
-      #alias_previous return # TODO can't alias 'return'
+      #alias_previous # TODO can't alias 'return'
 
       def feed
         @shim.try do |s|

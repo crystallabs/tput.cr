@@ -5,9 +5,13 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
-      # OSC Ps ; Pt ST
-      # OSC Ps ; Pt BEL
-      #   Set Text Parameters.
+      # Sets terminal emulator's title.
+      #
+      # To change title without issuing an instruction to the terminal, use `#title=`.
+      #
+      #     OSC Ps ; Pt ST
+      #     OSC Ps ; Pt BEL
+      #       Set Text Parameters.
       def set_title(title)
         @_title = title
 
@@ -21,6 +25,23 @@ class Tput
         # }
 
         _twrite "\x1b]0;#{title}\x07"
+      end
+
+      # Copies text to clipboard. Does nothing if terminal emulator is not iTerm2.
+      #
+      # This specificness could be circumvented by executing an external clipboard
+      # program when this capability is missing.
+      #
+      # Example:
+      #      unless copy_to_clipboard text
+      #        exec_clipboard_program text
+      #      end
+      def copy_to_clipboard(text)
+        if emulator.iterm2?
+          _twrite "\x1b]50;CopyToCliboard=#{text}\x07"
+          return true
+        end
+        false
       end
 
       # CSI > Ps; Ps t

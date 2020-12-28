@@ -70,14 +70,18 @@ class Tput
       end
       alias_previous cup, pos
 
+      # Moves cursor to desired point by using absolute coordinate instructions
       def move(point : Point)
         cursor_pos point.y, point.x
       end
+      # :ditto:
       def move(x=nil, y=nil)
         cursor_pos y, x
       end
       alias_previous cursor_move, cursor_move_to
 
+      # Moves cursor to desired point by using instructions relative to current position
+      #
       # NOTE fix cud and cuu calls
       def omove(x=0, y=0)
         return if @position.x==x && @position.y==y
@@ -98,66 +102,81 @@ class Tput
           cup y, x
         end
       end
+      # :ditto:
       def omove(point : Point)
         omove point.x, point.y
       end
 
-      def rsetx(x)
+      # Move cursor forward or back by `dx` columns
+      def rsetx(dx)
         # Disabled originally
         #return h_position_relative(x)
-        x > 0 ? forward(x) : back(-x)
+        x > 0 ? forward(dx) : back(-dx)
       end
 
-      def rsety(y)
+      # Move cursor forward or back by `dy` rows
+      def rsety(dy)
         # Disabled originally
         #return v_position_relative(y)
-        y > 0 ? up(y) : down(-y)
+        dy > 0 ? up(dy) : down(-dy)
       end
 
+      # Move cursor by `dx` columns and `dy` rows
       def rmove(point : Point)
         rsetx point.x
         rsety point.y
       end
-
-      def rmove(x, y)
-        rsetx x
-        rsety y
+      # :ditto:
+      def rmove(dx, dy)
+        rsetx dx
+        rsety dy
       end
 
-      # Only XTerm and iTerm2. If you know of any others, post them.
+      # Sets cursor shape.
+      #
+      # Only XTerm, (u)rxvt, screen, and iTerm2. Does nothing otherwise.
+      # If you know of any others, post them.
       def cursor_shape(shape, blink=false)
-        blink = to_i blink
+        blink = blink ? 1 : 2
+
         if emulator.iterm2?
           case shape
-            # XXX add enum choices
-            when "block", :block
+            when CursorShape::Block
               _twrite "\x1b]50;CursorShape=0;BlinkingCursorEnabled=#{blink}\x07"
-            when "underline", :underline
-              # Disabled originally
-              #_twrite "\x1b]50;CursorShape=n;BlinkingCursorEnabled=#{blink}\x07"
-            when "line", :line
+            when CursorShape::Underline
+              _twrite "\x1b]50;CursorShape=2;BlinkingCursorEnabled=#{blink}\x07"
+            when CursorShape::Line
               _twrite "\x1b]50;CursorShape=1;BlinkingCursorEnabled=#{blink}\x07"
           end
-          return true
+          true
 
-        elsif name? "xterm", "screen"
+        #elsif xterm? || screen? || rxvt?
+        elsif name? "xterm", "screen", "rxvt"
           case shape
-            when "block", :block
+            when CursorShape::Block
               _twrite "\x1b[#{blink} q"
-            when "underline", :underline
+            when CursorShape::Underline
               _twrite "\x1b[#{blink+2} q"
-            when "line", :line
+            when CursorShape::Line
               _twrite "\x1b[#{blink+4} q"
           end
-          return true
-        end
+          true
 
-        false
+        else
+          false
+        end
       end
 
+      # Sets cursor color. XTerm, rxvt, and screen specific.
+      #
+      # Accepted values are the color names listed in `/etc/X11/rgb.txt`.
+      def cursor_color(color : Color)
+        cursor_color color.to_s.downcase
+      end
+      # :ditto:
       def cursor_color(color : String)
-        if name? "xterm", "rxvt", "screen"
-          _twrite "\x1b]12#{color}\x07"
+        if name? "xterm", "screen", "rxvt"
+          _twrite "\x1b]12;#{color}\x07"
           return true
         end
         false
@@ -178,10 +197,10 @@ class Tput
       alias_previous cursor_reset
 
       # ESC 7 Save Cursor (DECSC).
-      def save_cursor(key)
+      def save_cursor(key=nil)
         return lsave_cursor(key) if key
-        @saved_x = @position.x || 0
-        @saved_y = @position.y || 0
+        @saved_position.x = @position.x
+        @saved_position.y = @position.y
         put(sc?) || _write "\x1b7"
       end
       alias_previous sc
@@ -189,29 +208,28 @@ class Tput
       # ESC 8 Restore Cursor (DECRC).
       def restore_cursor(key, hide)
         return lrestore_cursor(key, hide) if (key)
-        @position.x = @saved_x || 0
-        @position.y = @saved_y || 0
-        put(rc?) || _write "\x1b8"
+        if sp = @saved_position
+          @position.x = sp.x
+          @position.y = sp.y
+          put(rc?) || _write "\x1b8"
+        end
       end
       alias_previous rc
 
-      # Enable when aux class/struct is in
-      ## Save Cursor Locally
-      #def lsave_cursor(key=nil)
-      #  key||= "local"
-      #  @_saved[key] = CursorState.new x, y, @cursor_hidden
-      #end
-      ## Restore Cursor Locally
-      #def lrestore_cursor(key, hide)
-      #  key||= "local"
-      #  @_saved[key]?.try do |pos|
-      #    #delete @_saved[key]
-      #    cup pos.y, pos.x
-      #    if hide && (pos.hidden != @cursor_hidden)
-      #      pos.hidden ?  hide_cursor : show_cursor
-      #    end
-      #  end
-      #end
+      # Save Cursor Locally
+      def lsave_cursor(key="local")
+        @_saved[key] = CursorState.new @position, @cursor_hidden
+      end
+      # Restore Cursor Locally
+      def lrestore_cursor(key="local", hide=false)
+        @_saved[key]?.try do |state|
+          #delete @_saved[key]
+          cup state.position
+          if hide && (state.hidden? != @cursor_hidden)
+            state.hidden? ? hide_cursor : show_cursor
+          end
+        end
+      end
 
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
@@ -321,8 +339,8 @@ class Tput
       # CSI s
       #   Save cursor (ANSI.SYS).
       def save_cursor_a
-        @saved_x = @position.x
-        @saved_y = @position.y
+        @saved_position.x = @position.x
+        @saved_position.y = @position.y
         put(sc?) || _write "\x1b[s"
       end
       alias_previous sc_a
@@ -330,8 +348,8 @@ class Tput
       # CSI u
       #   Restore cursor (ANSI.SYS).
       def restore_cursor_a
-        @position.x = @saved_x || 0
-        @position.y = @saved_y || 0
+        @position.x = @saved_position.x
+        @position.y = @saved_position.y
         put(rc?) || _write "\x1b[u"
       end
       alias_previous rc_a

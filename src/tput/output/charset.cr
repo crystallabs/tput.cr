@@ -5,79 +5,84 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
+      alias C = Tput::Namespace::Charset
+
       # ESC (,),*,+,-,. Designate G0-G2 Character Set.
-      def charset(val, level = 0)
+      #
+      #     See also:
+      #     acs_chars / acsc / ac
+      #     enter_alt_charset_mode / smacs / as
+      #     exit_alt_charset_mode / rmacs / ae
+      #     enter_pc_charset_mode / smpch / S2
+      #     exit_pc_charset_mode / rmpch / S3
+      def charset(charset : Tput::Namespace::Charset?) #, level = 0)
 
-        # See also:
-        # acs_chars / acsc / ac
-        # enter_alt_charset_mode / smacs / as
-        # exit_alt_charset_mode / rmacs / ae
-        # enter_pc_charset_mode / smpch / S2
-        # exit_pc_charset_mode / rmpch / S3
+        #case (level)
+        #  when 0
+        #    level = "("
+        #  when 1
+        #    level = ")"
+        #  when 2
+        #    level = "*"
+        #  when 3
+        #    level = "+"
+        #end
 
-        case (level)
-          when 0
-            level = "("
-          when 1
-            level = ")"
-          when 2
-            level = "*"
-          when 3
-            level = "+"
-        end
+        #name = val.is_a?(String) ? val.downcase : val
 
-        name = val.is_a?(String) ? val.downcase : val
-
-        case (name)
-          when "acs", "scld" # DEC Special Character and Line Drawing Set.
+        case (charset)
+          when C::ACS, C::SCLD
             return true if put(smacs?)
             val = "0"
-          when "uk" # UK
+          when C::UK
             val = "A"
-          when "us", "usascii", "ascii" # United States (USASCII).
+          when C::ASCII
             return true if put(rmacs?)
             val = "B"
-          when "dutch" # Dutch
+          when C::Dutch
             val = "4"
-          when "finnish" # Finnish
+          when C::Finnish
             #val = "C"
             val = "5"
-          when "french" # French
+          when C::French
             val = "R"
-          when "frenchcanadian" # FrenchCanadian
+          when C::FrenchCanadian
             val = "Q"
-          when "german"  # German
+          when C::German
             val = "K"
-          when "italian" # Italian
+          when C::Italian
             val = "Y"
-          when "norwegiandanish" # NorwegianDanish
+          when C::NorwegianDanish
             #val = "E"
             val = "6"
-          when "spanish" # Spanish
+          when C::Spanish
             val = "Z"
-          when "swedish" # Swedish
+          when C::Swedish
             #val = "H"
             val = "7"
-          when "swiss" # Swiss
+          when C::Swiss
             val = "="
-          when "isolatin" # ISOLatin (actually /A)
+          when C::Isolatin
             val = "/A"
-          else # Default
+          when nil # Default
             return true if put(rmacs?)
             val = "B"
+          else
+            raise "Unsupported charset '#{charset}'"
         end
 
         _write "\x1b(#{val}"
       end
 
-      # TODO avoid use of strings
+      # Enter ACS/SCLD character set
       def smacs
-        charset "acs"
+        charset Tput::Namespace::Charset::ACS
       end
       alias_previous enter_alt_charset_mode #, as # TODO can't alias to 'as'
 
+      # Exit any character set by returning back to ASCII
       def rmacs
-        charset "ascii"
+        charset Tput::Namespace::Charset::ASCII
       end
       alias_previous exit_alt_charset_mode, ae
 

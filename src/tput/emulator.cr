@@ -65,7 +65,7 @@ class Tput
       # gnome-terminal and sakura use a later version of VTE which provides VTE_VERSION as well as supports SGR events.
       @vte = to_b(ENV["VTE_VERSION"]?) || @xfce || @terminator || @lxterm
 
-      @rxvt = to_b((ENV["COLORTERM"]? || "") =~ /rxvt/i)
+      @rxvt = ENV["COLORTERM"]?.try(&.starts_with?("rxvt")) || (@tput.name? "rxvt")
 
       @xterm = to_b ENV["XTERM_VERSION"]?
 
