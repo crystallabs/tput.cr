@@ -7,15 +7,15 @@ require "unibilium"
 require "unibilium-shim"
 require "crystallabs-helpers"
 
-require "./macros"
-require "./namespace"
-require "./keys"
-require "./output"
-require "./input"
-require "./coordinates"
-require "./data"
-require "./features"
-require "./emulator"
+require "./tput/macros"
+require "./tput/namespace"
+require "./tput/keys"
+require "./tput/output"
+require "./tput/input"
+require "./tput/coordinates"
+require "./tput/data"
+require "./tput/features"
+require "./tput/emulator"
 
 class Tput
   VERSION = "0.1.0"
@@ -56,9 +56,9 @@ class Tput
   @position : Point
 
   @[JSON::Field(ignore: true)]
-  @_buf : Bytes? = nil
+  @_buf : Bytes = Bytes.new 0
 
-  #getter? use_buffer : Bool
+  getter? use_buffer : Bool
 
   getter? exiting = false
 
@@ -74,7 +74,7 @@ class Tput
     @output = STDOUT,
     @error = STDERR,
     @force_unicode = false,
-    #@use_buffer = false,
+    @use_buffer = true,
   )
     @screen_size = get_screen_size
     @position = Point.new
