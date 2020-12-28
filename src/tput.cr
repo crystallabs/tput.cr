@@ -57,7 +57,7 @@ class Tput
   @saved_position : Point?
 
   @[JSON::Field(ignore: true)]
-  @_buf : Bytes = Bytes.new 0
+  @_buf = IO::Memory.new
 
   getter? use_buffer : Bool
 

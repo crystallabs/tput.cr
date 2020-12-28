@@ -70,12 +70,17 @@ class Tput
     def _owrite(text : String)
       @output.print text
     end
-
-    # Directly writes bytes to `@output` (usually STDOUT).
-    #
-    # Mostly not used directly, but through `#_write`.
+    # :ditto:
     def _owrite(data : Bytes)
       @output.write data
+    end
+    # :ditto:
+    def _owrite(data : IO)
+      @output << data
+    end
+    # :ditto:
+    private def _owrite(&block : IO -> Nil)
+      with @output yield @output
     end
 
     # Standard output method.
@@ -84,7 +89,7 @@ class Tput
     def _write(bytes : Bytes)
       #return text if @ret
       if use_buffer?
-        return _buffer bytes
+        _buffer bytes
       else
         _owrite bytes
       end
@@ -95,8 +100,11 @@ class Tput
     end
     # :ditto:
     def _write(&block : IO -> Nil)
-      # XXX Note this is avoiding buffering for now!
-      yield @output
+      if use_buffer?
+        _buffer &block
+      else
+        _owrite &block
+      end
     end
 
     # Standard output method which takes terminal padding (software timing/delays) into account.
@@ -110,28 +118,36 @@ class Tput
 
     # Saves `bytes` to local buffer.
     private def _buffer(bytes : Bytes)
+      @_buf.write bytes
+      flush
+    end
+
+    private def _buffer(&block : IO -> Nil)
       if @exiting
         flush
-        _owrite bytes
-        return
       end
 
+      # Not needed any more since buf is now an IO rather than slice.
       # Essentially a += operation for Bytes
-      _buf = Bytes.new @_buf.size + bytes.size
-      @_buf.copy_to _buf
-      bytes.copy_to _buf + @_buf.size
-      @_buf = _buf
+      #_buf = Bytes.new @_buf.size + bytes.size
+      #@_buf.copy_to _buf
+      #bytes.copy_to _buf + @_buf.size
+      #@_buf = _buf
 
-      flush # XXX Why here
+      with @_buf yield @_buf
+
+      #if @exiting
+        flush
+      #end
 
       true
     end
 
     # Flushes internal buffer into `@output` and calls `@output.flush`
     def flush
-      if @_buf.any?
-        _owrite @_buf
-        @_buf = Bytes.new 0
+      unless @_buf.empty?
+        _owrite { |io| io << @_buf }
+        @_buf.clear
         @output.flush
       end
     end
