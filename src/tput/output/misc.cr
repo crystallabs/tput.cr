@@ -8,7 +8,7 @@ class Tput
       def nul
         # Disabled originally
         ##if (has('pad')) return put.pad
-        _write "\x80"
+        _print "\x80"
       end
       alias_previous pad
   
@@ -21,7 +21,7 @@ class Tput
       #     Ps = 2  2  -> Extinguish Caps Lock.
       #     Ps = 2  3  -> Extinguish Scroll Lock.
       def load_leds(param="")
-        _write "\x1b[#{param}q"
+        _print { |io| io << "\x1b[" << param << 'q' }
       end
       alias_previous decll
 

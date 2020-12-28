@@ -8,7 +8,7 @@ class Tput
       # ESC c Full Reset (RIS).
       def reset
         @position.x = @position.y = 0
-        put(rs1?) || put(ris?) || _write "\x1bc"
+        put(rs1?) || put(ris?) || _print "\x1bc"
       end
 
       # CSI ! p   Soft terminal reset (DECSTR).
@@ -19,7 +19,7 @@ class Tput
         #if (tput) put.reset_2string()
         #_write('\x1b[!p')
         #_write('\x1b[!p\x1b[?3;4l\x1b[4l\x1b>'); # init
-        put(rs2?) || _write "\x1b[!p\x1b[?3;4l\x1b[4l\x1b>" # reset
+        put(rs2?) || _print "\x1b[!p\x1b[?3;4l\x1b[4l\x1b>" # reset
       end
       alias_previous decstr, rs2
 
@@ -109,7 +109,7 @@ class Tput
       #   http://vt100.net/docs/vt220-rm/chapter4.html
       def set_mode(*arguments)
         param = arguments.join(';') || ""
-        _write "\x1b[#{param}h"
+        _print { |io| io << "\x1b[" << param << "h" }
       end
       alias_previous sm
 
@@ -195,7 +195,7 @@ class Tput
       #     Ps = 2 0 0 4  -> Reset bracketed paste mode.
       def reset_mode(*arguments)
         param = arguments.join(';') || ""
-        _write "\x1b[#{param}l"
+        _print { |io| io << "\x1b[" << param << "l" }
       end
       alias_previous rm
 
@@ -210,7 +210,7 @@ class Tput
       #     3 - permanently set
       #     4 - permanently reset
       def request_ansi_mode(param="")
-        _write "\x1b[#{param}$p"
+        _print { |io| io << "\x1b[" << param << "$p" }
       end
       alias_previous decrqm
   
@@ -220,7 +220,7 @@ class Tput
       #   where Ps is the mode number as in DECSET, Pm is the mode value
       #   as in the ANSI DECRQM.
       def request_private_mode(param="")
-        _write "\x1b[?#{param}$p"
+        _print { |io| io << "\x1b[?" << param << "$p" }
       end
       alias_previous decrqmp
   
@@ -235,7 +235,7 @@ class Tput
       #     Ps = 1  -> 7-bit controls (always set for VT100).
       #     Ps = 2  -> 8-bit controls.
       def set_conformance_level(*arguments)
-        _write "\x1b[#{arguments.join ';'}\"p"
+        _print "\x1b[#{arguments.join ';'}\"p"
       end
       alias_previous decscl
 

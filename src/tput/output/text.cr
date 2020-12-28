@@ -7,7 +7,8 @@ class Tput
 
       # Prints text with optional attributes
       def print(txt, attr=nil)
-        _write attr ? text(txt, attr) : txt
+        # XXX to_slice until it's replaced with direct io write
+        _write (attr ? text(txt, attr) : txt).to_slice
       end
       alias_previous echo
 
@@ -27,41 +28,41 @@ class Tput
       def vtab
         @position.y+=1
         _ncoords
-        _write "\x0b"
+        _print "\x0b"
       end
 
       def form
-        put(ff?) || _write "\x0c"
+        put(ff?) || _print "\x0c"
       end
       alias_previous ff, formfeed, form_feed
 
       def backspace
         @position.x-=1
         _ncoords
-        put(kbs?) || _write "\x08"
+        put(kbs?) || _print "\x08"
       end
       alias_previous kbs
 
       def tab
         @position.x += 8
         _ncoords
-        put(ht?) || _write "\t"
+        put(ht?) || _print "\t"
       end
       alias_previous ht
 
       def shift_out
         #put(S2?) ||
-        _write "\x0e"
+        _print "\x0e"
       end
 
       def shift_in
         #has_and_put("S3") ||
-        _write "\x0f"
+        _print "\x0f"
       end
 
       def cr
         @position.x = 0
-        put(cr?) || _write "\r"
+        put(cr?) || _print "\r"
       end
       #alias_previous # TODO can't alias 'return'
 
@@ -75,7 +76,7 @@ class Tput
         @position.x = 0
         @position.y+=1
         _ncoords()
-        put(nel?) || _write "\n"
+        put(nel?) || _print "\n"
       end
       alias_previous nel, newline
 
@@ -84,12 +85,12 @@ class Tput
         @position.y+=1
         @position.x = 0
         _ncoords
-        put(nel?) || _write "\x1bE"
+        put(nel?) || _print "\x1bE"
       end
 
       # ESC H Tab Set (HTS is 0x88).
       def tab_set
-        put(hts?) || _write "\x1bH"
+        put(hts?) || _print "\x1bH"
       end
 
       # CSI Pm m  Character Attributes (SGR).
@@ -441,48 +442,48 @@ class Tput
       def insert_chars(param=1)
         @position.x += param
         _ncoords
-        put(ich?(param)) || _write "\x1b[#{param}@"
+        put(ich?(param)) || _print { |io| io << "\x1b[" << param << "@" }
       end
       alias_previous ich
 
       # CSI Ps L
       # Insert Ps Line(s) (default = 1) (IL).
       def insert_lines(param)
-        put(il?(param)) || _write "\x1b[#{param}L"
+        put(il?(param)) || _print { |io| io << "\x1b[" << param << "L" }
       end
       alias_previous il
 
       # CSI Ps M
       # Delete Ps Line(s) (default = 1) (DL).
       def delete_lines(param=nil)
-        put(dl?(param)) || _write "\x1b[#{param}M"
+        put(dl?(param)) || _print { |io| io << "\x1b[" << param << "M" }
       end
       alias_previous dl
 
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
       def delete_chars(param=nil)
-        put(dch?(param)) || _write "\x1b[#{param}P"
+        put(dch?(param)) || _print { |io| io << "\x1b[" << param << "P" }
       end
       alias_previous dch
 
       # CSI Ps X
       # Erase Ps Character(s) (default = 1) (ECH).
       def erase_chars(param=nil)
-        put(ech?(param)) || _write "\x1b[#{param}X"
+        put(ech?(param)) || _print { |io| io << "\x1b[" << param << "X" }
       end
       alias_previous ech
 
       # ESC # 3 DEC line height/width
       def line_height
-        _write "\x1b#"
+        _print "\x1b#"
       end
 
       # OSC Ps ; Pt ST
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a,b)
-       put(_Ms?(a,b)) || _twrite "\x1b]52;#{a};#{b}\x07"
+       put(_Ms?(a,b)) || _tprint "\x1b]52;#{a};#{b}\x07"
       end
 
       # CSI Ps K  Erase in Line (EL).
@@ -514,13 +515,13 @@ class Tput
 
         case (param)
           when "left"
-            _write "\x1b[1K"
+            _print "\x1b[1K"
           when "all"
-            _write "\x1b[2K"
+            _print "\x1b[2K"
           when "right"
-            _write "\x1b[K"
+            _print "\x1b[K"
           else
-            _write "\x1b[K"
+            _print "\x1b[K"
         end
       end
       alias_previous el
@@ -529,7 +530,7 @@ class Tput
       # Insert P s Column(s) (default = 1) (DECIC), VT420 and up.
       # NOTE: xterm doesn't enable this code by default.
       def insert_columns(*arguments)
-        _write "\x1b[#{arguments.join ';'} }"
+        _print "\x1b[#{arguments.join ';'} }"
       end
       alias_previous decic
 
@@ -537,7 +538,7 @@ class Tput
       # Delete P s Column(s) (default = 1) (DECDC), VT420 and up
       # NOTE: xterm doesn't enable this code by default.
       def delete_columns(*arguments)
-        _write "\x1b[#{arguments.join ';'} ~"
+        _print "\x1b[#{arguments.join ';'} ~"
       end
       alias_previous decdc
 
@@ -557,7 +558,7 @@ class Tput
       def repeat_preceding_character(param=1)
         @position.x += param
         _ncoords
-        put(rep?(param)) || _write "\x1b[#{param}b"
+        put(rep?(param)) || _print { |io| io << "\x1b[" << param << "b" }
       end
       alias_previous rep, rpc
 
@@ -568,7 +569,7 @@ class Tput
       #   Ps = 2  -> Clear Stops on Line.
       #   http:#vt100.net/annarbor/aaa-ug/section6.html
       def tab_clear(param=0)
-        put(tbc?(param)) || _write "\x1b[#{param}g"
+        put(tbc?(param)) || _print { |io| io << "\x1b[" << param << "g" }
       end
       alias_previous tbc
 

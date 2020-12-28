@@ -8,7 +8,7 @@ class Tput
       def clear
         @position.x = 0
         @position.y = 0
-        put(clear?) || _write "\x1b[H\x1b[J"
+        put(clear?) || _print "\x1b[H\x1b[J"
       end
 
       # CSI Ps J  Erase in Display (ED).
@@ -42,15 +42,15 @@ class Tput
 
         case param
           when "above"
-            _write "\X1b[1J"
+            _print "\X1b[1J"
           when "all"
-            _write "\x1b[2J"
+            _print "\x1b[2J"
           when "saved"
-            _write "\x1b[3J"
+            _print "\x1b[3J"
           when "below"
-            _write "\x1b[J"
+            _print "\x1b[J"
           else
-            _write "\x1b[J"
+            _print "\x1b[J"
         end
       end
       alias_previous ed
@@ -67,7 +67,7 @@ class Tput
       #     Ps = 1  0  -> Print composed display, ignores DECPEX.
       #     Ps = 1  1  -> Print all pages.
       def media_copy(*arguments)
-        _write "\x1b[#{arguments.join ';'}i"
+        _print "\x1b[#{arguments.join ';'}i"
       end
       alias_previous mc
 

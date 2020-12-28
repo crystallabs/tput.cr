@@ -29,7 +29,8 @@ class Tput
     #
     #     Example: `DCS tmux; ESC Pt ST`
     #     Real: `DCS tmux; ESC Pt ESC \`
-    def _twrite(data)
+    def _tprint(data)
+
       iterations = 0
 
       if emulator.tmux?
@@ -58,54 +59,85 @@ class Tput
         flush
 
         # Write out raw now that the buffer is flushed.
-        _owrite data
+        _oprint data
       else
-        _write data
+        _print data
       end
     end
 
     # Directly writes string to `@output` (usually STDOUT). 
     #
     # Mostly not used directly, but through `#_write`.
-    def _owrite(text : String)
-      @output.print text
+    def _owrite(*args)
+      args.map { |arg| @output.write arg }
     end
-    # :ditto:
-    def _owrite(data : Bytes)
-      @output.write data
+
+    def _oprint(*args)
+      args.join @output
     end
-    # :ditto:
-    def _owrite(data : IO)
-      @output << data
+    private def _oprint(&block : IO -> Nil)
+      yield @output
     end
-    # :ditto:
-    private def _owrite(&block : IO -> Nil)
-      with @output yield @output
-    end
+
+    #def _owrite(text : String)
+    #  @output.print text
+    #end
+    ## :ditto:
+    #def _owrite(data : Bytes)
+    #  @output.write data
+    #end
+    ## :ditto:
+    #def _owrite(data : IO)
+    #  @output << data
+    #end
+    ## :ditto:
 
     # Standard output method.
     #
     # Takes into account internal buffering.
-    def _write(bytes : Bytes)
-      #return text if @ret
+    def _write(*args)
       if use_buffer?
-        _buffer bytes
+        _buffer_write *args
       else
-        _owrite bytes
+        _owrite *args
       end
     end
-    # :ditto:
-    def _write(str : String)
-      _write str.to_slice
-    end
-    # :ditto:
-    def _write(&block : IO -> Nil)
+
+    def _print(*args)
       if use_buffer?
-        _buffer &block
+        _buffer_print *args
       else
-        _owrite &block
+        _oprint *args
       end
     end
+    def _print(&block : IO -> Nil)
+      if use_buffer?
+        _buffer_print &block
+      else
+        _oprint &block
+      end
+    end
+
+    #def _write(bytes : Bytes)
+    #  #return text if @ret
+    #  if use_buffer?
+    #    _buffer bytes
+    #  else
+    #    _owrite bytes
+    #  end
+    #end
+    ## :ditto:
+    #def _write(str : String)
+    #  _write str.to_slice
+    #end
+    ## :ditto:
+    #def _write(&block : IO -> Nil)
+    #  if use_buffer?
+    #    _buffer &block
+    #  else
+    #    _owrite &block
+    #  end
+    #end
 
     # Standard output method which takes terminal padding (software timing/delays) into account.
     #
@@ -117,36 +149,50 @@ class Tput
     end
 
     # Saves `bytes` to local buffer.
-    private def _buffer(bytes : Bytes)
-      @_buf.write bytes
-      flush
-    end
-
-    private def _buffer(&block : IO -> Nil)
+    private def _buffer_write(*args) #bytes : Bytes)
       if @exiting
         flush
+        _owrite *args
+        return
       end
-
       # Not needed any more since buf is now an IO rather than slice.
       # Essentially a += operation for Bytes
       #_buf = Bytes.new @_buf.size + bytes.size
       #@_buf.copy_to _buf
       #bytes.copy_to _buf + @_buf.size
       #@_buf = _buf
-
-      with @_buf yield @_buf
-
-      #if @exiting
-        flush
-      #end
-
-      true
+      #@_buf.write bytes
+      args.each { |a| @_buf.write a }
+      flush
     end
+    private def _buffer_print(*args)
+      if @exiting
+        flush
+        _oprint *args
+        return
+      end
+      args.join @_buf
+      flush
+    end
+    private def _buffer_print(&block : IO -> Nil)
+      if @exiting
+        flush
+        _oprint &block
+      else
+        yield @_buf
+      end
+      flush
+    end
+    #private def _buffer(&block : IO -> Nil)
+    #  with @_buf yield @_buf
+    #  true
+    #end
 
     # Flushes internal buffer into `@output` and calls `@output.flush`
     def flush
       unless @_buf.empty?
-        _owrite { |io| io << @_buf }
+        #IO.copy @_buf, @output
+        @output << @_buf
         @_buf.clear
         @output.flush
       end

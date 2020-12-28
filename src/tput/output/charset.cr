@@ -71,7 +71,7 @@ class Tput
             raise "Unsupported charset '#{charset}'"
         end
 
-        _write "\x1b(#{val}"
+        _print { |io| io << "\x1b(" << val }
       end
 
       # Enter ACS/SCLD character set
@@ -119,7 +119,7 @@ class Tput
             val = 'O'; # Next Char Only
         end
 
-        _write "\x1b#{val}"
+        _print { |io| io << "\x1b" << val }
       end
 
     end

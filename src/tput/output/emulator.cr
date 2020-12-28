@@ -24,7 +24,7 @@ class Tput
         #   _write('\x1bk' + title + '\x1b\\')
         # }
 
-        _twrite "\x1b]0;#{title}\x07"
+        _tprint "\x1b]0;#{title}\x07"
       end
 
       # Copies text to clipboard. Does nothing if terminal emulator is not iTerm2.
@@ -38,7 +38,7 @@ class Tput
       #      end
       def copy_to_clipboard(text)
         if emulator.iterm2?
-          _twrite "\x1b]50;CopyToCliboard=#{text}\x07"
+          _tprint "\x1b]50;CopyToCliboard=#{text}\x07"
           return true
         end
         false
@@ -54,7 +54,7 @@ class Tput
       #     cussion of "Title Modes")
       # XXX VTE bizarelly echos this:
       def set_title_mode_feature(*arguments)
-        _twrite "\x1b[>#{arguments.join ';'}t"
+        _tprint "\x1b[>#{arguments.join ';'}t"
       end
 
       # CSI > Ps; Ps T
@@ -69,7 +69,7 @@ class Tput
       #     Ps = 3  -> Do not query window/icon labels using UTF-8.
       #   (See discussion of "Title Modes").
       def reset_title_modes(*arguments)
-        _write "\x1b[>#{arguments.join ';'}T"
+        _print "\x1b[>#{arguments.join ';'}T"
       end
 
     end

@@ -6,7 +6,7 @@ class Tput
       include Macros
 
       def bell
-        put(bel?) || _write "\x07"
+        put(bel?) || _print "\x07"
       end
       alias_previous bel
 
@@ -16,7 +16,7 @@ class Tput
       #     Ps = 2 , 3  or 4  -> low.
       #     Ps = 5 , 6 , 7 , or 8  -> high.
       def set_warning_bell_volume(param="")
-        _write "\x1b[#{param || ""} t"
+        _print { |io| io << "\x1b[" << param << "} t" }
       end
       alias_previous decswbv
 
@@ -26,7 +26,7 @@ class Tput
       #     Ps = 2 , 3  or 4  -> low.
       #     Ps = 0 , 5 , 6 , 7 , or 8  -> high.
       def set_margin_bell_volume(param="")
-        _write "\x1b[#{param} u"
+        _print { |io| io << "\x1b[" << param << " u" }
       end
       alias_previous decsmbv
 
