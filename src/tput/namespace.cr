@@ -1613,6 +1613,16 @@ class Tput
       property height : Int32
       def initialize(@width, @height)
       end
+      #def [](arg : Int32)
+      #  case arg
+      #  when 0
+      #    @width
+      #  when 1
+      #    @height
+      #  else
+      #    raise IndexError.new "Index out of bounds"
+      #  end
+      #end
     end
 
     struct Point
