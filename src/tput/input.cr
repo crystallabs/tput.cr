@@ -1,5 +1,6 @@
 class Tput
   module Input
+    include Crystallabs::Helpers::Logging
 
     # Enables synced (unbuffered) output for the duration of the block.
     def with_sync_output

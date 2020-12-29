@@ -57,6 +57,8 @@ class Tput
       @number_of_colors = detect_number_of_colors
       @color = @number_of_colors > 2
       @acsc, @acscr = parse_acs
+
+      Log.trace { inspect }
     end
 
     # Detects Unicode support

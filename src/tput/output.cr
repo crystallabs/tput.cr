@@ -1,6 +1,7 @@
 require "./output/*"
 class Tput
   module Output
+    include Crystallabs::Helpers::Logging
 
     include Output::Cursor
     include Output::Text

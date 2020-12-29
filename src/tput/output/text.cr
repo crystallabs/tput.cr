@@ -3,6 +3,7 @@ class Tput
     module Text
       include Crystallabs::Helpers::Alias_Methods
       #include Crystallabs::Helpers::Boolean
+      include Crystallabs::Helpers::Logging
       include Macros
 
       # Prints text with optional attributes

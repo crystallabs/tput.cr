@@ -18,7 +18,10 @@ class Tput
     #
     # ```
     macro put(arg)
-      @shim.try { |s| s.{{arg}}.try { |data| features.padding? ? _pad_write(data) : _write(data) }}
+      @shim.try { |s| s.{{arg}}.try { |data|
+        Log.trace { %{{{arg.stringify}} => #{String.new(data).inspect}} };
+        features.padding? ? _pad_write(data) : _write(data) }
+      }
     end
 
     macro has?(arg)

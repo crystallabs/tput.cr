@@ -71,6 +71,8 @@ class Tput
       # XXX Detect TMUX version?
 
       @screen = (ENV["TERM"]? == "screen")
+
+      Log.trace { inspect }
     end
   end
 end

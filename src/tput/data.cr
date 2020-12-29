@@ -2,6 +2,7 @@ class Tput
 
   # Various tables and static/fixed data.
   module Data
+    include Crystallabs::Helpers::Logging
 
     # ACS = Alternate Character Set.
     # DEC Special Character and Line Drawing Set.

@@ -2,6 +2,7 @@ class Tput
 
   # Collection of methods related to coordinates within the terminal screen.
   module Coordinates
+    include Crystallabs::Helpers::Logging
 
     # Gets terminal/screen size as number of columns and rows.
     macro get_screen_size
