@@ -73,6 +73,7 @@ class Tput
     end
 
     def _oprint(*args)
+      # https://github.com/crystal-lang/crystal/pull/10152
       args.join io: @output
     end
     private def _oprint(&block : IO -> Nil)
@@ -172,9 +173,8 @@ class Tput
         return
       end
 
-      # NOTE Without io:, treats the argument as separator rather
-      # than IO. Can't reproduce on play.
-      args.join @_buf
+      # https://github.com/crystal-lang/crystal/pull/10152
+      args.join io: @_buf
 
       flush
     end

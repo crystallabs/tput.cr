@@ -35,10 +35,13 @@ class Tput
         cursor_char_absolute point.x
       end
       # :ditto:
+      def cursor_char_absolute(point : Point)
+        cursor_char_absolute point.x
+      end
+      # :ditto:
       def cursor_char_absolute(param=0)
         @position.x = param
         _ncoords
-
         put(hpa?(param)) || _print { |io| io << "\x1b[" << param+1 << 'G' }
       end
       alias_previous cha, setx, set_x
@@ -64,7 +67,7 @@ class Tput
       def cursor_pos(row=0, col=0)
         @position.x = col
         @position.y = row
-        _ncoords()
+        _ncoords
 
         put(cup?(row, col)) ||
           _print { |io| io << "\x1b[" << row+1 << ';' << col+1 << 'H' }
@@ -234,62 +237,47 @@ class Tput
 
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
-      def cursor_up(param=nil)
-        @position.y -= param || 1
-        _ncoords()
-        put(cuu?(0)) ||
-          # XXX enable when solved: undefined method '*' for Slice(UInt8)
-          #put(cuu1?.try { |v| repeat(v, param) }) ||
+      def cursor_up(param=1)
+        @position.y -= param
+        _ncoords
+        put(cuu?(param)) ||
+          (has?(cuu1?) && param.times{ put(cuu1) }) ||
             _print { |io| io << "\x1b[" << param << 'A' }
       end
-      alias_method cuu, up
+      alias_previous cuu, up
 
-# TODO Enable these after cursor_up is fixed to work.
-# Requires param, but seems to be going 1 line too much.
-#      # CSI Ps B
-#      # Cursor Down Ps Times (default = 1) (CUD).
-#      def cursor_down(param=1)
-#        @position.y += param
-#        _ncoords()
-#        @tput.try do |tput|
-#          unless tput.terminfo.has("parm_down_cursor")
-#            return _write(repeat(tput.terminfo.get("cud1"), param))
-#          end
-#          return put("cud", param)
-#        end
-#        _write("\x1b[" + (param) + "B")
-#      end
-#      alias_previous cud, down
-#
-#      # CSI Ps C
-#      # Cursor Forward Ps Times (default = 1) (CUF).
-#      def cursor_forward(param=1)
-#        @position.x += param
-#        _ncoords()
-#        @tput.try do |tput|
-#          unless tput.terminfo.has("parm_right_cursor")
-#            return _write(repeat(tput.terminfo.get("cuf1"), param))
-#          end
-#          return put("cuf", param)
-#        end
-#        _write("\x1b[" + (param) + "C")
-#      end
-#      alias_previous cuf, right, forward
-#
-#      # CSI Ps D
-#      # Cursor Backward Ps Times (default = 1) (CUB).
-#      def cursor_backward(param=1)
-#        @position.x -= param
-#        _ncoords()
-#        @tput.try do |tput|
-#          unless tput.terminfo.has("parm_left_cursor")
-#            return _write(repeat(tput.terminfo.get("cub1"), param))
-#          end
-#          return put("cub", param)
-#        end
-#        _write("\x1b[" + (param) + "D")
-#      end
-#      alias_previous cub, left, back
+      # CSI Ps A
+      # Cursor Up Ps Times (default = 1) (CUU).
+      def cursor_down(param=1)
+        @position.y += param
+        _ncoords
+        put(cud?(param)) ||
+          (has?(cud1?) && param.times{ put(cud1) }) ||
+            _print { |io| io << "\x1b[" << param << 'B' }
+      end
+      alias_previous cud, down
+
+      # CSI Ps A
+      # Cursor Up Ps Times (default = 1) (CUU).
+      def cursor_forward(param=1)
+        @position.x += param
+        _ncoords
+        put(cuf?(param)) ||
+          (has?(cuf1?) && param.times{ put(cuf1) }) ||
+            _print { |io| io << "\x1b[" << param << 'C' }
+      end
+      alias_previous cuf, forward, right
+
+      # CSI Ps A
+      # Cursor Up Ps Times (default = 1) (CUU).
+      def cursor_backward(param=1)
+        @position.x -= param
+        _ncoords
+        put(cub?(param)) ||
+          (has?(cub1?) && param.times{ put(cub1) }) ||
+            _print { |io| io << "\x1b[" << param << 'D' }
+      end
+      alias_previous cub, left, back
 
       def hide_cursor
         @cursor_hidden = true
@@ -316,24 +304,9 @@ class Tput
       #     Ps = 2  -> steady block.
       #     Ps = 3  -> blinking underline.
       #     Ps = 4  -> steady underline.
-      def set_cursor_style(param)
-        case param
-          when "blinking block"
-            param = 1
-          when "block", "steady block"
-            param = 2
-          when "blinking underline"
-            param = 3
-          when "underline", "steady underline"
-            param = 4
-          when "blinking bar"
-            param = 5
-          when "bar", "steady bar"
-            param = 6
-        end
-
-        (put(_Se?) && return) if param == 2
-        put(_Ss?) || _print { |io| io << "\x1b[" << param << " q" }
+      def set_cursor_style(style = CursorStyle::SteadyBlock)
+        (put(_Se?) && return) if style.value == 2
+        put(_Ss?(param)) || _print { |io| io << "\x1b[" << style.value << " q" }
       end
       alias_previous decscusr
 
@@ -351,6 +324,7 @@ class Tput
       def restore_cursor_a
         @position.x = @saved_position.x
         @position.y = @saved_position.y
+        _ncoords
         put(rc?) || _print "\x1b[u"
       end
       alias_previous rc_a
@@ -382,6 +356,15 @@ class Tput
         end
       end
 
+      # CSI Pm `  Character Position Absolute
+      #   [column] (default = [row,1]) (HPA).
+      def char_pos_absolute(param=1)
+        @x = param
+        _ncoords
+        put(hpa?(param)) || _print { |io| io << "\x1b[" << param << '`' }
+      end
+      alias_previous hpa
+
       # 141 61 a * HPR -
       # Horizontal Position Relative
       # reuse CSI Ps C ?
@@ -400,15 +383,14 @@ class Tput
       # 145 65 e * VPR - Vertical Position Relative
       # reuse CSI Ps B ?
       def v_position_relative(param=1)
-        put(cud?(param)) && return
-
         @position.y += param
         _ncoords
 
-        # Disabled originally
-        # Does not exist:
-        # if (@terminfo) return put "vpr", param
-        _print { |io| io << "\x1b[" << param << "e" }
+        put(cud?(param)) ||
+          # Disabled originally
+          # Does not exist:
+          # if (@terminfo) return put "vpr", param
+          _print { |io| io << "\x1b[" << param << "e" }
       end
       alias_previous vpr
 

@@ -123,11 +123,12 @@ class Tput
       #     Ps = 4 6  -> Set background color to Cyan.
       #     Ps = 4 7  -> Set background color to White.
       #     Ps = 4 9  -> Set background color to default (original).
-
+      #
       #   If 16-color support is compiled, the following apply.  Assume
       #   that xterm's resources are set so that the ISO color codes are
       #   the first 8 of a set of 16.  Then the aixterm colors are the
       #   bright versions of the ISO colors:
+      #
       #     Ps = 9 0  -> Set foreground color to Black.
       #     Ps = 9 1  -> Set foreground color to Red.
       #     Ps = 9 2  -> Set foreground color to Green.
@@ -144,12 +145,13 @@ class Tput
       #     Ps = 1 0 5  -> Set background color to Magenta.
       #     Ps = 1 0 6  -> Set background color to Cyan.
       #     Ps = 1 0 7  -> Set background color to White.
-
+      #
       #   If xterm is compiled with the 16-color support disabled, it
       #   supports the following, from rxvt:
+      #
       #     Ps = 1 0 0  -> Set foreground and background color to
       #     default.
-
+      #
       #   If 88- or 256-color support is compiled, the following apply.
       #     Ps = 3 8  ; 5  ; Ps -> Set foreground color to the second
       #     Ps.
@@ -164,7 +166,10 @@ class Tput
         _attr(attr, true) + text + _attr(attr, false)
       end
 
+      # NOTE this function is a mess. Rework and improve.
+      #
       # NOTE: sun-color may not allow multiple params for SGR.
+      #
       # XXX see if these attributes can somehow be combined with
       # Crystal's functionality in Colorize.
       # Also make this accept enum values rather than parsing a
@@ -448,28 +453,28 @@ class Tput
 
       # CSI Ps L
       # Insert Ps Line(s) (default = 1) (IL).
-      def insert_lines(param)
+      def insert_lines(param=1)
         put(il?(param)) || _print { |io| io << "\x1b[" << param << "L" }
       end
       alias_previous il
 
       # CSI Ps M
       # Delete Ps Line(s) (default = 1) (DL).
-      def delete_lines(param=nil)
+      def delete_lines(param=1)
         put(dl?(param)) || _print { |io| io << "\x1b[" << param << "M" }
       end
       alias_previous dl
 
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
-      def delete_chars(param=nil)
+      def delete_chars(param=1)
         put(dch?(param)) || _print { |io| io << "\x1b[" << param << "P" }
       end
       alias_previous dch
 
       # CSI Ps X
       # Erase Ps Character(s) (default = 1) (ECH).
-      def erase_chars(param=nil)
+      def erase_chars(param=1)
         put(ech?(param)) || _print { |io| io << "\x1b[" << param << "X" }
       end
       alias_previous ech
@@ -483,7 +488,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a,b)
-       put(_Ms?(a,b)) || _tprint "\x1b]52;#{a};#{b}\x07"
+        put(_Ms?(a,b)) || _tprint "\x1b]52;#{a};#{b}\x07"
       end
 
       # CSI Ps K  Erase in Line (EL).
@@ -572,6 +577,17 @@ class Tput
         put(tbc?(param)) || _print { |io| io << "\x1b[" << param << "g" }
       end
       alias_previous tbc
+
+      # CSI Ps " q
+      #   Select character protection attribute (DECSCA).  Valid values
+      #   for the parameter:
+      #     Ps = 0  -> DECSED and DECSEL can erase (default).
+      #     Ps = 1  -> DECSED and DECSEL cannot erase.
+      #     Ps = 2  -> DECSED and DECSEL can erase.
+      def set_char_protection_attr(param=0)
+        _print { |io| io << "\x1b[" << param << "\"q" }
+      end
+      alias_previous decsca
 
     end
   end

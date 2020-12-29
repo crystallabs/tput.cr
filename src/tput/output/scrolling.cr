@@ -47,7 +47,7 @@ class Tput
         @position.x = 0
         @position.y = 0
         _ncoords
-        put(csr?(top,bottom)) || _print "\x1b[#{top+1};#{bottom+1}r"
+        put(csr?(top,bottom)) || _print { |io| io << "\x1b[" << top+1 << ';' << bottom+1 << 'r' }
       end
       alias_previous decstbm, csr
 

@@ -21,18 +21,6 @@ class Tput
       end
       alias_previous decefr
 
-      # CSI > Ps p
-      #   Set resource value pointerMode.  This is used by xterm to
-      #   decide whether to hide the pointer cursor as the user types.
-      #   Valid values for the parameter:
-      #     Ps = 0  -> never hide the pointer.
-      #     Ps = 1  -> hide if the mouse tracking mode is not enabled.
-      #     Ps = 2  -> always hide the pointer.  If no parameter is
-      #     given, xterm uses the default, which is 1 .
-      def set_pointer_mode(param="")
-        _print { |io| io << "\x1b[>" << param << 'p' }
-      end
-
       # CSI Pm ' {
       #   Select Locator Events (DECSLE).
       #   Valid values for the first (and any additional parameters)

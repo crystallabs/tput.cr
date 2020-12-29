@@ -1015,6 +1015,37 @@ class Tput
       VBar = 4
     end
 
+    # CSI Ps SP q
+    #   Set cursor style (DECSCUSR, VT520).
+    #     Ps = 0  -> blinking block.
+    #     Ps = 1  -> blinking block (default).
+    #     Ps = 2  -> steady block.
+    #     Ps = 3  -> blinking underline.
+    #     Ps = 4  -> steady underline.
+    #     And 5 and 6?
+    enum CursorStyle
+      BlinkingBlock = 1
+      BlinkingBox = 1
+      SteadyBlock = 2
+      SteadyBox = 2
+
+      BlinkingUnderline = 3
+      BlinkingUnderscore = 3
+      BlinkingHLine = 3
+      BlinkingHBar = 3
+      SteadyUnderline = 4
+      SteadyUnderscore = 4
+      SteadyHLine = 4
+      SteadyHBar = 4
+
+      BlinkingLine = 5
+      BlinkingVLine = 5
+      BlinkingVBar = 5
+      SteadyLine = 6
+      SteadyVLine = 6
+      SteadyVBar = 6
+    end
+
     enum MouseCursorShape
         ArrowCursor
         UpArrowCursor
@@ -1693,6 +1724,13 @@ class Tput
       Swedish
       Swiss
       Isolatin
+    end
+
+    enum Erase
+      Below = 0
+      Above = 1
+      All = 2
+      SavedLines = 3
     end
   end
 end

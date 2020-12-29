@@ -108,8 +108,7 @@ class Tput
       # Modes:
       #   http://vt100.net/docs/vt220-rm/chapter4.html
       def set_mode(*arguments)
-        param = arguments.join(';') || ""
-        _print { |io| io << "\x1b[" << param << "h" }
+        _print { |io| io << "\x1b["; arguments.join(io, ';'); io << 'h' }
       end
       alias_previous sm
 
@@ -194,8 +193,7 @@ class Tput
       #     Ps = 1 0 6 1  -> Reset keyboard emulation to Sun/PC style.
       #     Ps = 2 0 0 4  -> Reset bracketed paste mode.
       def reset_mode(*arguments)
-        param = arguments.join(';') || ""
-        _print { |io| io << "\x1b[" << param << "l" }
+        _print { |io| io << "\x1b["; arguments.join(io, ';'); io << "l" }
       end
       alias_previous rm
 
@@ -235,7 +233,7 @@ class Tput
       #     Ps = 1  -> 7-bit controls (always set for VT100).
       #     Ps = 2  -> 8-bit controls.
       def set_conformance_level(*arguments)
-        _print "\x1b[#{arguments.join ';'}\"p"
+        _print { |io| io << "\x1b["; arguments.join(io, ';'); io << "\"p" }
       end
       alias_previous decscl
 
