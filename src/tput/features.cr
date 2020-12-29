@@ -1,7 +1,6 @@
 require "json"
 
 class Tput
-
   # Terminal features auto-detection.
   #
   # Involved in a terminal are the terminal emulator in use (`Tput::Emulator`) and
@@ -53,39 +52,33 @@ class Tput
     getter tput : Tput
 
     def initialize(@tput : Tput)
-      @unicode        = detect_unicode
-      @broken_acs     = detect_broken_acs
+      @unicode = detect_unicode
+      @broken_acs = detect_broken_acs
       @pc_rom_charset = detect_pc_rom_charset
-      @magic_cookie   = detect_magic_cookie
-      @padding        = detect_padding
-      @setbuf         = detect_setbuf
+      @magic_cookie = detect_magic_cookie
+      @padding = detect_padding
+      @setbuf = detect_setbuf
       @number_of_colors = detect_number_of_colors
-      @color          = @number_of_colors > 2
-      @acsc, @acscr   = parse_acs
+      @color = @number_of_colors > 2
+      @acsc, @acscr = parse_acs
     end
 
     # Detects Unicode support
     def detect_unicode
-      return true if \
-        (@tput.force_unicode?) ||
+      if (@tput.force_unicode?) ||
+         (to_b ENV["NCURSES_FORCE_UNICODE"]?) ||
+         # (term_has_unicode?) || # Not always trustworthy:
+         ({ENV["XTERM_LOCALE"]?,
+           ENV["LANG"]?,
+           ENV["LANGUAGE"]?,
+           ENV["LC_ALL"]?,
+           ENV["LC_CTYPE"]?}.any? { |var| var.try &.=~(/utf\-?8/i) }) ||
+         (ENV["TERM"]?.try &.=~(/\bunicode\b/i)) ||
+         # (@tput.emulator.xterm?.try { ENV["XTERM_LOCALE"]?.try &.=~(/utf\-?8/i) }) || # Done above, unspecific to xterm
+         ({% if flag? :windows %}get_console_cp == 65001{% end %})
+        return true
+      end
 
-        (to_b ENV["NCURSES_FORCE_UNICODE"]?) ||
-
-        # Not always trustworthy:
-        #(term_has_unicode?) ||
-
-        ({ ENV["XTERM_LOCALE"]?,
-         ENV["LANG"]?,
-         ENV["LANGUAGE"]?,
-         ENV["LC_ALL"]?,
-         ENV["LC_CTYPE"]? }.any? { |var| var.try &.=~(/utf\-?8/i) }) ||
-
-        ( ENV["TERM"]?.try &.=~(/\bunicode\b/i) ) ||
-
-        # Done above, unspecific to xterm
-        #(@tput.emulator.xterm?.try { ENV["XTERM_LOCALE"]?.try &.=~(/utf\-?8/i) }) ||
-
-        ({% if flag? :windows %}get_console_cp == 65001{% end %})
       false
     end
 
@@ -160,10 +153,10 @@ class Tput
     def detect_padding
       v = to_b ENV["NCURSES_NO_PADDING"]?, false
       unless v
-        #raise "Padding not supported yet"
+        # raise "Padding not supported yet"
         # TODO - Padding is always disabled currently
       end
-      #return !!v
+      # return !!v
       false
     end
 
@@ -199,13 +192,13 @@ class Tput
     def parse_acs
       acsc = ACSHash.new
       acscr = ACSHash.new
-      return { acsc, acscr } if @pc_rom_charset
-      
+      return {acsc, acscr} if @pc_rom_charset
+
       acs_chars = @tput.shim.try(&.acs_chars.try { |v| String.new v }) || ""
       ACSC.each do |ch, _|
         next unless i = acs_chars.index ch
 
-        nxt = acs_chars[(i+1)..(i+1)]?
+        nxt = acs_chars[(i + 1)..(i + 1)]?
 
         next if !nxt || !ACSC[nxt]?
 
@@ -213,7 +206,7 @@ class Tput
         acscr[ACSC[nxt]] = ch
       end
 
-      { acsc, acscr }
+      {acsc, acscr}
     end
 
     # Gets console codepage (Windows-specific)
