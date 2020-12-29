@@ -18,7 +18,7 @@ class Tput
 
     # Gets terminal/screen size and resets the values in memory to the discovered dimensions.
     def reset_screen_size
-      @screen_size = get_screen_size
+      @screen = get_screen_size
       _ncoords
       true
     end
@@ -31,18 +31,18 @@ class Tput
     def _ncoords
       # TODO - instead of adjusting live x/y, make this function accept the proposed x/y as
       # arguments and return them after eventual adjustment. Those values can then be saved
-      # to @position.x/y, making sure that the stored values are never out of boundaries.
-      if @position.x<0
-        @position.x=0
+      # to @cursor.x/y, making sure that the stored values are never out of boundaries.
+      if @cursor.x<0
+        @cursor.x=0
       end
-      if @position.x >= @screen_size.width
-        @position.x = @screen_size.width - 1
+      if @cursor.x >= @screen.width
+        @cursor.x = @screen.width - 1
       end
-      if @position.y < 0
-        @position.y = 0
+      if @cursor.y < 0
+        @cursor.y = 0
       end
-      if @position.y >= @screen_size.height
-        @position.y = @screen_size.height - 1
+      if @cursor.y >= @screen.height
+        @cursor.y = @screen.height - 1
       end
     end
   end

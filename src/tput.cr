@@ -19,17 +19,20 @@ require "./tput/emulator"
 
 class Tput
   VERSION = "0.1.0"
-  #include JSON::Serializable
+  include JSON::Serializable
   include Crystallabs::Helpers::Logging
 
   DEFAULT_SCREEN_SIZE = {24, 80} # Opinions vary: 24, 25, 27
 
   @[JSON::Field(ignore: true)]
   @input : IO
+
   @[JSON::Field(ignore: true)]
   @output : IO
+
   @[JSON::Field(ignore: true)]
   @error : IO
+
   @[JSON::Field(ignore: true)]
   @mode : LibC::Termios? = nil
 
@@ -52,9 +55,9 @@ class Tput
 
   @_title : String = ""
 
-  getter screen_size : Size
-  getter position : Point
-  @saved_position : Point?
+  getter screen : Size
+  getter cursor : Point
+  @saved_cursor : Point?
 
   @[JSON::Field(ignore: true)]
   @_buf = IO::Memory.new
@@ -63,7 +66,7 @@ class Tput
 
   getter? exiting = false
 
-  @ret = false # Unused. Return data instead of write()ing it?
+  #@ret = false # Unused. Return data instead of write()ing it?
 
   getter is_alt = false
 
@@ -72,13 +75,13 @@ class Tput
   def initialize(
     @terminfo=nil,
     @input = STDIN,
-    @output = STDOUT,
-    @error = STDERR,
+    @output = STDOUT.dup,
+    @error = STDERR.dup,
     @force_unicode = false,
     @use_buffer = true,
   )
-    @screen_size = get_screen_size
-    @position = Point.new
+    @screen = get_screen_size
+    @cursor = Point.new
 
     @name = (@terminfo.try(&.name) || ENV["TERM"]? || "xterm").downcase
     @aliases = (@terminfo.try(&.aliases.map(&.downcase))) || [] of String
@@ -92,8 +95,6 @@ class Tput
     Signal::WINCH.trap do
       reset_screen_size
     end
-
-    #Log.trace { to_json }
   end
 
   def name?(nam : String)

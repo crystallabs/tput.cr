@@ -7,7 +7,7 @@ class Tput
 
       # ESC c Full Reset (RIS).
       def reset
-        @position.x = @position.y = 0
+        @cursor.x = @cursor.y = 0
         put(rs1?) || put(ris?) || _print "\x1bc"
       end
 

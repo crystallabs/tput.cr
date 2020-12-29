@@ -27,7 +27,7 @@ class Tput
       end
 
       def vtab
-        @position.y+=1
+        @cursor.y+=1
         _ncoords
         _print "\x0b"
       end
@@ -38,14 +38,14 @@ class Tput
       alias_previous ff, formfeed, form_feed
 
       def backspace
-        @position.x-=1
+        @cursor.x-=1
         _ncoords
         put(kbs?) || _print "\x08"
       end
       alias_previous kbs
 
       def tab
-        @position.x += 8
+        @cursor.x += 8
         _ncoords
         put(ht?) || _print "\t"
       end
@@ -62,20 +62,20 @@ class Tput
       end
 
       def cr
-        @position.x = 0
+        @cursor.x = 0
         put(cr?) || _print "\r"
       end
       #alias_previous # TODO can't alias 'return'
 
       def feed
         @shim.try do |s|
-          if s.eat_newline_glitch? && @position.x >= @screen_size.width
+          if s.eat_newline_glitch? && @cursor.x >= @screen.width
             return
           end
         end
 
-        @position.x = 0
-        @position.y+=1
+        @cursor.x = 0
+        @cursor.y+=1
         _ncoords()
         put(nel?) || _print "\n"
       end
@@ -83,8 +83,8 @@ class Tput
 
       # ESC E Next Line (NEL is 0x85).
       def next_line
-        @position.y+=1
-        @position.x = 0
+        @cursor.y+=1
+        @cursor.x = 0
         _ncoords
         put(nel?) || _print "\x1bE"
       end
@@ -446,7 +446,7 @@ class Tput
       # CSI Ps @
       # Insert Ps (Blank) Character(s) (default = 1) (ICH).
       def insert_chars(param=1)
-        @position.x += param
+        @cursor.x += param
         _ncoords
         put(ich?(param)) || _print { |io| io << "\x1b[" << param << "@" }
       end
@@ -562,7 +562,7 @@ class Tput
 
       # CSI Ps b  Repeat the preceding graphic character Ps times (REP).
       def repeat_preceding_character(param=1)
-        @position.x += param
+        @cursor.x += param
         _ncoords
         put(rep?(param)) || _print { |io| io << "\x1b[" << param << "b" }
       end

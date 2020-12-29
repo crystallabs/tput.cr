@@ -11,7 +11,7 @@ class Tput
       # Cursor Next Line Ps Times (default = 1) (CNL).
       # same as CSI Ps B ?
       def cursor_next_line(param=1)
-        @position.y += param
+        @cursor.y += param
         _ncoords
         _print { |io| io << "\x1b[" << param << 'E' }
       end
@@ -21,7 +21,7 @@ class Tput
       # Cursor Preceding Line Ps Times (default = 1) (CNL).
       # reuse CSI Ps A ?
       def cursor_preceding_line(param=1)
-        @position.y -= param
+        @cursor.y -= param
         _ncoords
         _print { |io| io << "\x1b[" << param << 'F' }
       end
@@ -40,7 +40,7 @@ class Tput
       end
       # :ditto:
       def cursor_char_absolute(param=0)
-        @position.x = param
+        @cursor.x = param
         _ncoords
         put(hpa?(param)) || _print { |io| io << "\x1b[" << param+1 << 'G' }
       end
@@ -56,7 +56,7 @@ class Tput
         cursor_line_pos_absolute point.y
       end
       def cursor_line_pos_absolute(param=1)
-        @position.y = param
+        @cursor.y = param
         _ncoords
         put(vpa?(param)) || _print { |io| io << "\x1b[" << param << 'd' }
       end
@@ -65,14 +65,14 @@ class Tput
       # CSI Ps ; Ps H
       # Cursor Position [row;column] (default = [1,1]) (CUP).
       def cursor_pos(row=0, col=0)
-        @position.x = col
-        @position.y = row
-        Log.trace { "XX: " + @position.inspect }
+        @cursor.x = col
+        @cursor.y = row
+        Log.trace { "XX: " + @cursor.inspect }
         _ncoords
-        Log.trace { "YY: " + @position.inspect }
+        Log.trace { "YY: " + @cursor.inspect }
 
-        put(cup?(@position.y, @position.x)) ||
-          _print { |io| io << "\x1b[" << @position.y << ';' << @position.x << 'H' }
+        put(cup?(@cursor.y, @cursor.x)) ||
+          _print { |io| io << "\x1b[" << @cursor.y << ';' << @cursor.x << 'H' }
       end
       alias_previous cup, pos
 
@@ -90,19 +90,19 @@ class Tput
       #
       # NOTE fix cud and cuu calls
       def omove(x=0, y=0)
-        return if @position.x==x && @position.y==y
+        return if @cursor.x==x && @cursor.y==y
 
-        if y == @position.y
-          if x > @position.x
-            cuf x-@position.x
-          elsif x < @position.x
-            cub @position.x-x
+        if y == @cursor.y
+          if x > @cursor.x
+            cuf x-@cursor.x
+          elsif x < @cursor.x
+            cub @cursor.x-x
           end
-        elsif x == @position.x
-          if y > @position.y
-            cud y-@position.y
-          elsif y < @position.y
-            cuu @position.y-y
+        elsif x == @cursor.x
+          if y > @cursor.y
+            cud y-@cursor.y
+          elsif y < @cursor.y
+            cuu @cursor.y-y
           end
         else
           cup y, x
@@ -205,8 +205,8 @@ class Tput
       # ESC 7 Save Cursor (DECSC).
       def save_cursor(key=nil)
         return lsave_cursor(key) if key
-        @saved_position.x = @position.x
-        @saved_position.y = @position.y
+        @saved_position.x = @cursor.x
+        @saved_position.y = @cursor.y
         put(sc?) || _print "\x1b7"
       end
       alias_previous sc
@@ -215,8 +215,8 @@ class Tput
       def restore_cursor(key, hide)
         return lrestore_cursor(key, hide) if (key)
         if sp = @saved_position
-          @position.x = sp.x
-          @position.y = sp.y
+          @cursor.x = sp.x
+          @cursor.y = sp.y
           put(rc?) || _print "\x1b8"
         end
       end
@@ -224,7 +224,7 @@ class Tput
 
       # Save Cursor Locally
       def lsave_cursor(key="local")
-        @_saved[key] = CursorState.new @position, @cursor_hidden
+        @_saved[key] = CursorState.new @cursor, @cursor_hidden
       end
       # Restore Cursor Locally
       def lrestore_cursor(key="local", hide=false)
@@ -240,7 +240,7 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_up(param=1)
-        @position.y -= param
+        @cursor.y -= param
         _ncoords
         put(cuu?(param)) ||
           (has?(cuu1?) && param.times{ put(cuu1) }) ||
@@ -251,7 +251,7 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_down(param=1)
-        @position.y += param
+        @cursor.y += param
         _ncoords
         put(cud?(param)) ||
           (has?(cud1?) && param.times{ put(cud1) }) ||
@@ -262,7 +262,7 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_forward(param=1)
-        @position.x += param
+        @cursor.x += param
         _ncoords
         put(cuf?(param)) ||
           (has?(cuf1?) && param.times{ put(cuf1) }) ||
@@ -273,7 +273,7 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_backward(param=1)
-        @position.x -= param
+        @cursor.x -= param
         _ncoords
         put(cub?(param)) ||
           (has?(cub1?) && param.times{ put(cub1) }) ||
@@ -315,8 +315,8 @@ class Tput
       # CSI s
       #   Save cursor (ANSI.SYS).
       def save_cursor_a
-        @saved_position.x = @position.x
-        @saved_position.y = @position.y
+        @saved_position.x = @cursor.x
+        @saved_position.y = @cursor.y
         put(sc?) || _print "\x1b[s"
       end
       alias_previous sc_a
@@ -324,8 +324,8 @@ class Tput
       # CSI u
       #   Restore cursor (ANSI.SYS).
       def restore_cursor_a
-        @position.x = @saved_position.x
-        @position.y = @saved_position.y
+        @cursor.x = @saved_position.x
+        @cursor.y = @saved_position.y
         _ncoords
         put(rc?) || _print "\x1b[u"
       end
@@ -334,7 +334,7 @@ class Tput
       # CSI Ps I
       #   Cursor Forward Tabulation Ps tab stops (default = 1) (CHT).
       def cursor_forward_tab(param=1)
-        @position.x += 8
+        @cursor.x += 8
         _ncoords
         put(tab?(param)) || _print { |io| io << "\x1b[" << param << "I" }
       end
@@ -342,7 +342,7 @@ class Tput
 
       # CSI Ps Z  Cursor Backward Tabulation Ps tab stops (default = 1) (CBT).
       def cursor_backward_tab(param=1)
-        @position.x -= 8
+        @cursor.x -= 8
         _ncoords
         put(cbt?(param)) || _print { |io| io << "\x1b[" << param << "Z" }
       end
@@ -373,7 +373,7 @@ class Tput
       def h_position_relative(param=1)
         put(cuf?(param)) && return
 
-        @position.x += param
+        @cursor.x += param
         _ncoords
         # Disabled originally
         # Does not exist:
@@ -385,7 +385,7 @@ class Tput
       # 145 65 e * VPR - Vertical Position Relative
       # reuse CSI Ps B ?
       def v_position_relative(param=1)
-        @position.y += param
+        @cursor.y += param
         _ncoords
 
         put(cud?(param)) ||
@@ -400,8 +400,8 @@ class Tput
       #   Horizontal and Vertical Position [row;column] (default =
       #   [1,1]) (HVP).
       def hv_position(row=0, col=0)
-        @position.y = row
-        @position.x = col
+        @cursor.y = row
+        @cursor.x = col
         _ncoords
         # Disabled originally
         # Does not exist (?):
