@@ -1624,6 +1624,12 @@ class Tput
       #    raise IndexError.new "Index out of bounds"
       #  end
       #end
+      def self.[](width, height)
+        new width, height
+      end
+      def inspect(io)
+        io << "Size[" << @width << ", " << @height << ']'
+      end
     end
 
     class Point

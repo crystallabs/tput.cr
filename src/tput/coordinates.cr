@@ -5,14 +5,15 @@ class Tput
     include Crystallabs::Helpers::Logging
 
     # Gets terminal/screen size as number of columns and rows.
-    macro get_screen_size
+    def get_screen_size
       r, c = ENV["TPUT_SCREEN_SIZE"]?.try { |s| s.split('x', 2).map &.to_i } ||
         Term::Screen.size_from_ioctl ||
         Term::Screen.size_from_env ||
         Term::Screen.size_from_ansicon ||
         DEFAULT_SCREEN_SIZE
-      Log.trace { "@screen_size.height x @screen_size.width = #{r} x #{c}" }
-      Size.new c, r
+      s = Size.new c, r
+      Log.trace { my s }
+      s
     end
 
     # Gets terminal/screen size and resets the values in memory to the discovered dimensions.
@@ -34,13 +35,13 @@ class Tput
       if @position.x<0
         @position.x=0
       end
-      if @position.x > @screen_size.width
+      if @position.x >= @screen_size.width
         @position.x = @screen_size.width - 1
       end
       if @position.y < 0
         @position.y = 0
       end
-      if @position.y > @screen_size.height
+      if @position.y >= @screen_size.height
         @position.y = @screen_size.height - 1
       end
     end

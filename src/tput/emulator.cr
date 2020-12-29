@@ -74,7 +74,7 @@ class Tput
 
       @screen = (ENV["TERM"]? == "screen")
 
-      Log.trace { inspect }
+      Log.trace { my self }
     end
 
     def inspect(io)

@@ -82,7 +82,7 @@ class Tput
 
     @name = (@terminfo.try(&.name) || ENV["TERM"]? || "xterm").downcase
     @aliases = (@terminfo.try(&.aliases.map(&.downcase))) || [] of String
-    Log.trace { "Terminfo: #{@name.inspect} (#{@aliases.inspect})" }
+    Log.trace { my @name, @aliases }
 
     @shim = @terminfo.try { |t| Unibilium::Terminfo::Shim.new t }
 

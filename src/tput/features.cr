@@ -38,6 +38,7 @@ class Tput
 
     getter acsc : ACSHash
 
+    @[JSON::Field(ignore: true)]
     getter acscr : ACSHash
 
     @[JSON::Field(ignore: true)]
@@ -55,7 +56,7 @@ class Tput
       @color = @number_of_colors > 2
       @acsc, @acscr = parse_acs
 
-      Log.trace { inspect }
+      Log.trace { my self }
     end
 
     def inspect(io)
