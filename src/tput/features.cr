@@ -68,10 +68,23 @@ class Tput
     def detect_unicode
       return true if \
         (@tput.force_unicode?) ||
+
         (to_b ENV["NCURSES_FORCE_UNICODE"]?) ||
-        (term_has_unicode?) ||
-        ({ ENV["LANG"]?, ENV["LANGUAGE"]?, ENV["LC_ALL"]?, ENV["LC_CTYPE"]? }.any? { |var| var.try &.=~(/utf\-?8/i) }) ||
-        (@tput.emulator.xterm?.try { ENV["XTERM_LOCALE"]?.try &.=~(/utf\-?8/i) }) ||
+
+        # Not always trustworthy:
+        #(term_has_unicode?) ||
+
+        ({ ENV["XTERM_LOCALE"]?,
+         ENV["LANG"]?,
+         ENV["LANGUAGE"]?,
+         ENV["LC_ALL"]?,
+         ENV["LC_CTYPE"]? }.any? { |var| var.try &.=~(/utf\-?8/i) }) ||
+
+        ( ENV["TERM"]?.try &.=~(/\bunicode\b/i) ) ||
+
+        # Done above, unspecific to xterm
+        #(@tput.emulator.xterm?.try { ENV["XTERM_LOCALE"]?.try &.=~(/utf\-?8/i) }) ||
+
         ({% if flag? :windows %}get_console_cp == 65001{% end %})
       false
     end
@@ -162,16 +175,18 @@ class Tput
     def detect_number_of_colors
       colors = 2
 
-      @tput.terminfo.try do |t|
-        t.get?(::Unibilium::Entry::Numeric::Max_colors).try do |v|
-          colors = v
+      # NOTE Which of these 2 tests should come first?
+
+      ENV["TERM"]?.try do |term|
+        if md = /(\d+)colors?$/.match term
+          colors = md[0].to_i
         end
       end
 
       if colors == 2
-        ENV["TERM"]?.try do |term|
-          if md = /(\d+)colors?$/.match term
-            colors = md[0].to_i
+        @tput.terminfo.try do |t|
+          t.get?(::Unibilium::Entry::Numeric::Max_colors).try do |v|
+            colors = v
           end
         end
       end
