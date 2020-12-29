@@ -17,6 +17,7 @@ class Tput
     # Gets terminal/screen size and resets the values in memory to the discovered dimensions.
     def reset_screen_size
       @screen_size = get_screen_size
+      _ncoords
       true
     end
 

@@ -10,7 +10,6 @@ class Tput
   # figure out the final details of terminal's behavior.
   class Features
     include Crystallabs::Helpers::Logging
-    include JSON::Serializable
     include Crystallabs::Helpers::Boolean
 
     alias ACSHash = Hash(String, String)
@@ -41,13 +40,10 @@ class Tput
     # :nodoc:
     getter acscr : ACSHash
 
-    @[JSON::Field(ignore: true)]
     getter acsc : ACSHash
 
-    @[JSON::Field(ignore: true)]
     getter acscr : ACSHash
 
-    @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
 

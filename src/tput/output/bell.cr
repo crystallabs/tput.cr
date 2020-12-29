@@ -5,6 +5,7 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
+      # Bell
       def bell
         put(bel?) || _print "\x07"
       end

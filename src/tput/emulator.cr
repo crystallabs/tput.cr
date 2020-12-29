@@ -10,7 +10,6 @@ class Tput
   # to lxterm, confusing the detection.
   class Emulator
     include Crystallabs::Helpers::Logging
-    include JSON::Serializable
     include Crystallabs::Helpers::Boolean
 
     # Is the emulator Mac OS X terminal?
@@ -43,7 +42,6 @@ class Tput
     # Is the emulator screen?
     getter? screen : Bool
 
-    @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
 
