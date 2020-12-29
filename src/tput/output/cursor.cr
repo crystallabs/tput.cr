@@ -65,12 +65,7 @@ class Tput
       # CSI Ps ; Ps H
       # Cursor Position [row;column] (default = [1,1]) (CUP).
       def cursor_pos(row=0, col=0)
-        @cursor.x = col
-        @cursor.y = row
-        Log.trace { "XX: " + @cursor.inspect }
-        _ncoords
-        Log.trace { "YY: " + @cursor.inspect }
-
+        @cursor.x, @cursor.y = _adjust_xy_abs col, row
         put(cup?(@cursor.y, @cursor.x)) ||
           _print { |io| io << "\x1b[" << @cursor.y << ';' << @cursor.x << 'H' }
       end
@@ -124,7 +119,7 @@ class Tput
       def rsety(dy)
         # Disabled originally
         #return v_position_relative(y)
-        dy > 0 ? up(dy) : down(-dy)
+        dy > 0 ? down(dy) : up(-dy)
       end
 
       # Move cursor by `dx` columns and `dy` rows
@@ -240,8 +235,9 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_up(param=1)
+        _, param = _adjust_xy_rel 0, -param
+        param *= -1
         @cursor.y -= param
-        _ncoords
         put(cuu?(param)) ||
           (has?(cuu1?) && param.times{ put(cuu1) }) ||
             _print { |io| io << "\x1b[" << param << 'A' }
@@ -251,8 +247,8 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_down(param=1)
+        _, param = _adjust_xy_rel 0, param
         @cursor.y += param
-        _ncoords
         put(cud?(param)) ||
           (has?(cud1?) && param.times{ put(cud1) }) ||
             _print { |io| io << "\x1b[" << param << 'B' }
@@ -262,8 +258,8 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_forward(param=1)
+        param, _ = _adjust_xy_rel param
         @cursor.x += param
-        _ncoords
         put(cuf?(param)) ||
           (has?(cuf1?) && param.times{ put(cuf1) }) ||
             _print { |io| io << "\x1b[" << param << 'C' }
@@ -273,8 +269,9 @@ class Tput
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).
       def cursor_backward(param=1)
+        param, _ = _adjust_xy_rel -param
+        param *= -1
         @cursor.x -= param
-        _ncoords
         put(cub?(param)) ||
           (has?(cub1?) && param.times{ put(cub1) }) ||
             _print { |io| io << "\x1b[" << param << 'D' }

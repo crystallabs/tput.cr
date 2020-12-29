@@ -1609,7 +1609,6 @@ class Tput
     end
 
     class Size
-      include JSON::Serializable
       property width : Int32
       property height : Int32
       def initialize(@width, @height)
@@ -1633,7 +1632,6 @@ class Tput
     end
 
     class Point
-      include JSON::Serializable
       property x : Int32
       property y : Int32
       def initialize(@x=0, @y=0)
@@ -1647,7 +1645,6 @@ class Tput
     end
 
     class Rect
-      include JSON::Serializable
       property x : Int32
       property y : Int32
       property width : Int32
@@ -1665,7 +1662,6 @@ class Tput
     end
 
     class Line
-      include JSON::Serializable
       property x1 : Int32
       property x2 : Int32
       property y1 : Int32
@@ -1675,7 +1671,6 @@ class Tput
     end
 
     class Margins
-      include JSON::Serializable
       property left : Int32
       property top : Int32
       property right : Int32
@@ -1685,7 +1680,6 @@ class Tput
     end
 
     class Padding
-      include JSON::Serializable
       property left : Int32
       property top : Int32
       property right : Int32
@@ -1695,7 +1689,6 @@ class Tput
     end
 
     class Position # XXX better name?
-      include JSON::Serializable
       property left : Int32
       property top : Int32
       property right : Int32

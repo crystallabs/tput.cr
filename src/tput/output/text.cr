@@ -14,8 +14,12 @@ class Tput
       alias_previous echo
 
       # Writes string `str` (repeated `i` times and with `attr` attributes)
-      def simple_insert(str, i, attr)
-        _write (str*i), attr
+      def simple_insert(str, i=1, attr=nil)
+        if i> 1
+          _print str.to_s*i, attr
+        else
+          _print str, attr
+        end
       end
 
       # Repeats string `str` `i` times.
