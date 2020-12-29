@@ -9,6 +9,7 @@ class Tput
   # an xterm, then an lxterminal in it, xterm-specific environment variables will propagate
   # to lxterm, confusing the detection.
   class Emulator
+    include JSON::Serializable
     include Crystallabs::Helpers::Logging
     include Crystallabs::Helpers::Boolean
 
@@ -42,6 +43,7 @@ class Tput
     # Is the emulator screen?
     getter? screen : Bool
 
+    @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
 
@@ -73,6 +75,10 @@ class Tput
       @screen = (ENV["TERM"]? == "screen")
 
       Log.trace { inspect }
+    end
+
+    def inspect(io)
+      to_json io
     end
   end
 end

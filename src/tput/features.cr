@@ -9,6 +9,7 @@ class Tput
   # After those two variables are known, the features autodetection is ran to
   # figure out the final details of terminal's behavior.
   class Features
+    include JSON::Serializable
     include Crystallabs::Helpers::Logging
     include Crystallabs::Helpers::Boolean
 
@@ -35,15 +36,11 @@ class Tput
     # Color support flag (a yes/no)
     getter? color : Bool
 
-    # :nodoc:
-    getter acsc : ACSHash
-    # :nodoc:
-    getter acscr : ACSHash
-
     getter acsc : ACSHash
 
     getter acscr : ACSHash
 
+    @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
 
@@ -59,6 +56,10 @@ class Tput
       @acsc, @acscr = parse_acs
 
       Log.trace { inspect }
+    end
+
+    def inspect(io)
+      to_json io
     end
 
     # Detects Unicode support
