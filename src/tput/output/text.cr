@@ -8,7 +8,7 @@ class Tput
       # Prints text with optional attributes
       def print(txt, attr=nil)
         # XXX to_slice until it's replaced with direct io write
-        _write (attr ? text(txt, attr) : txt).to_slice
+        _print (attr ? text(txt, attr) : txt)
       end
       alias_previous echo
 

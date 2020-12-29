@@ -32,12 +32,14 @@ class Tput
       # to @position.x/y, making sure that the stored values are never out of boundaries.
       if @position.x<0
         @position.x=0
-      elsif @position.x > @screen_size.width
+      end
+      if @position.x > @screen_size.width
         @position.x = @screen_size.width - 1
       end
       if @position.y < 0
         @position.y = 0
-      elsif @position.y > @screen_size.height
+      end
+      if @position.y > @screen_size.height
         @position.y = @screen_size.height - 1
       end
     end

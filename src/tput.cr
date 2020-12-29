@@ -1,5 +1,5 @@
 require "log"
-Log.setup_from_env
+Log.setup_from_env backend: Log::IOBackend.new STDERR
 
 require "term-screen"
 
@@ -53,7 +53,7 @@ class Tput
   @_title : String = ""
 
   getter screen_size : Size
-  @position : Point
+  getter position : Point
   @saved_position : Point?
 
   @[JSON::Field(ignore: true)]

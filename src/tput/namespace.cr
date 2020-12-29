@@ -1607,7 +1607,7 @@ class Tput
         LastCallback
     end
 
-    struct Size
+    class Size
       include JSON::Serializable
       property width : Int32
       property height : Int32
@@ -1625,15 +1625,21 @@ class Tput
       #end
     end
 
-    struct Point
+    class Point
       include JSON::Serializable
       property x : Int32
       property y : Int32
       def initialize(@x=0, @y=0)
       end
+      def self.[](x, y)
+        new x, y
+      end
+      def inspect(io)
+        io << "Point[" << @x << ", " << @y << ']'
+      end
     end
 
-    struct Rect
+    class Rect
       include JSON::Serializable
       property x : Int32
       property y : Int32
@@ -1651,7 +1657,7 @@ class Tput
       end
     end
 
-    struct Line
+    class Line
       include JSON::Serializable
       property x1 : Int32
       property x2 : Int32
@@ -1661,7 +1667,7 @@ class Tput
       end
     end
 
-    struct Margins
+    class Margins
       include JSON::Serializable
       property left : Int32
       property top : Int32
@@ -1671,7 +1677,7 @@ class Tput
       end
     end
 
-    struct Padding
+    class Padding
       include JSON::Serializable
       property left : Int32
       property top : Int32
@@ -1681,7 +1687,7 @@ class Tput
       end
     end
 
-    struct Position # XXX better name?
+    class Position # XXX better name?
       include JSON::Serializable
       property left : Int32
       property top : Int32
@@ -1697,7 +1703,7 @@ class Tput
       end
     end
 
-    struct Cursor
+    class Cursor
       property artificial : Bool = false
       property shape = CursorShape::Block
       property blink = false
@@ -1708,7 +1714,7 @@ class Tput
       property _hidden = true
     end
 
-    struct CursorState
+    class CursorState
       property position : Point
       property? hidden : Bool
       def initialize(@position, @hidden)

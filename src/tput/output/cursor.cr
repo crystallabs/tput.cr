@@ -67,10 +67,12 @@ class Tput
       def cursor_pos(row=0, col=0)
         @position.x = col
         @position.y = row
+        Log.trace { "XX: " + @position.inspect }
         _ncoords
+        Log.trace { "YY: " + @position.inspect }
 
-        put(cup?(row, col)) ||
-          _print { |io| io << "\x1b[" << row+1 << ';' << col+1 << 'H' }
+        put(cup?(@position.y, @position.x)) ||
+          _print { |io| io << "\x1b[" << @position.y << ';' << @position.x << 'H' }
       end
       alias_previous cup, pos
 
@@ -115,7 +117,7 @@ class Tput
       def rsetx(dx)
         # Disabled originally
         #return h_position_relative(x)
-        x > 0 ? forward(dx) : back(-dx)
+        dx > 0 ? forward(dx) : back(-dx)
       end
 
       # Move cursor forward or back by `dy` rows
