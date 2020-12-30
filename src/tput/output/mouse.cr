@@ -17,7 +17,7 @@ class Tput
       #   ted, any locator motion will be reported.  DECELR always can-
       #   cels any prevous rectangle definition.
       def enable_filter_rectangle(*arguments)
-        _print { |io| io << "\x1b["; arguments.join(io, ';'); io << "'w" }
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << "'w" }
       end
       alias_previous decefr
 
@@ -33,7 +33,7 @@ class Tput
       #     Ps = 3  -> report button up transitions.
       #     Ps = 4  -> do not report button up transitions.
       def set_locator_events(*arguments)
-        _print { |io| io << "\x1b["; arguments.join(io, ';'); io << "'{" }
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << "'{" }
       end
       alias_previous decsle
 
@@ -50,7 +50,7 @@ class Tput
     #     Pu = 1  <- device physical pixels.
     #     Pu = 2  <- character cells.
     def enable_locator_reporting(*arguments)
-      _print { |io| io << "\x1b["; arguments.join(io, ';'); io << "'z" }
+      _print { |io| io << "\e["; arguments.join(io, ';'); io << "'z" }
     end
     alias_previous decelr
 

@@ -5,7 +5,7 @@ class Tput
     include Crystallabs::Helpers::Logging
 
     # ACS = Alternate Character Set.
-    # DEC Special Character and Line Drawing Set.
+    # DEC VT100 Special Character and Line Drawing Set.
 		Data = {
 		 # acsc   ACS           Unicode      ASCII    Glyph
 		 # char   Name          Default      Default  Name

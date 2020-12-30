@@ -1748,6 +1748,20 @@ class Tput
       All = 2
       SavedLines = 3
     end
+
+    enum Volume
+      Off = 0
+      Off2 = 1
+
+      Low1 = 2
+      Low2 = 3
+      Low3 = 4
+
+      High1 = 5
+      High2 = 6
+      High3 = 7
+      High4 = 8
+    end
   end
 end
 

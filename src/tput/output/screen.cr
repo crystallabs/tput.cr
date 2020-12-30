@@ -8,7 +8,7 @@ class Tput
       def clear
         @cursor.x = 0
         @cursor.y = 0
-        put(clear?) || _print "\x1b[H\x1b[J"
+        put(clear?) || _print "\e[H\e[J"
       end
 
       # CSI Ps J  Erase in Display (ED).
@@ -24,7 +24,7 @@ class Tput
       def erase_in_display(param=Erase::Below)
         # Disabled originally
         # extended tput.E3 = ^[[3;J
-        put(ed?(param.value)) || _print { |io| io << "\x1b[" << param.value << 'J' }
+        put(ed?(param.value)) || _print { |io| io << "\e[" << param.value << 'J' }
       end
       alias_previous ed
 

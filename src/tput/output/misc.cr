@@ -21,7 +21,7 @@ class Tput
       #     Ps = 2  2  -> Extinguish Caps Lock.
       #     Ps = 2  3  -> Extinguish Scroll Lock.
       def load_leds(param=0)
-        _print { |io| io << "\x1b[" << param << 'q' }
+        _print { |io| io << "\e[" << param << 'q' }
       end
       alias_previous decll
 
@@ -37,7 +37,7 @@ class Tput
       #     Ps = 1  0  -> Print composed display, ignores DECPEX.
       #     Ps = 1  1  -> Print all pages.
       def media_copy(*arguments)
-        _print "\x1b[#{arguments.join ';'}i"
+        _print "\e[#{arguments.join ';'}i"
       end
       alias_previous mc
 

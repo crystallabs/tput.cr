@@ -71,20 +71,20 @@ class Tput
             raise "Unsupported charset '#{charset}'"
         end
 
-        _print { |io| io << "\x1b(" << val }
+        _print { |io| io << "\e(" << val }
       end
 
       # Enter ACS/SCLD character set
-      def smacs
+      def enter_alt_charset_mode 
         charset Tput::Namespace::Charset::ACS
       end
-      alias_previous enter_alt_charset_mode #, as # TODO can't alias to 'as'
+      alias_previous smacs #, as # TODO can't alias to 'as'
 
       # Exit any character set by returning back to ASCII
-      def rmacs
+      def exit_alt_charset_mode
         charset Tput::Namespace::Charset::ASCII
       end
-      alias_previous exit_alt_charset_mode, ae
+      alias_previous rmacs, ae
 
       # Set G character set.
       #
@@ -123,7 +123,7 @@ class Tput
             val = 'O'; # Next Char Only
         end
 
-        _print { |io| io << "\x1b" << val }
+        _print { |io| io << "\e" << val }
       end
 
     end

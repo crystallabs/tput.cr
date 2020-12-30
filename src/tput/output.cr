@@ -36,10 +36,10 @@ class Tput
 
       if emulator.tmux?
         # Replace all STs with BELs so they can be nested within the DCS code.
-        data = data.gsub /\x1b\\/, "\x07"
+        data = data.gsub /\e\\/, "\x07"
 
         # Wrap in tmux forward DCS:
-        data = "\x1bPtmux;\x1b" + data + "\x1b\\"
+        data = "\ePtmux;\e" + data + "\e\\"
 
         # TODO
         ## If we've never even flushed yet, it means we're still in
@@ -155,8 +155,7 @@ class Tput
     private def _buffer_write(*args) #bytes : Bytes)
       if @exiting
         flush
-        _owrite *args
-        return
+        return _owrite *args
       end
       # Not needed any more since buf is now an IO rather than slice.
       # Essentially a += operation for Bytes
@@ -171,23 +170,23 @@ class Tput
     private def _buffer_print(*args)
       if @exiting
         flush
-        _oprint *args
-        return
+        return _oprint *args
       end
 
       # https://github.com/crystal-lang/crystal/pull/10152
-      args.join io: @_buf
-
+      v = args.join io: @_buf
       flush
+      v
     end
     private def _buffer_print(&block : IO -> Nil)
-      if @exiting
+      v = if @exiting
         flush
         _with_io &block
       else
         yield @_buf
       end
       flush
+      v
     end
     #private def _buffer(&block : IO -> Nil)
     #  with @_buf yield @_buf
@@ -202,6 +201,7 @@ class Tput
         @_buf.clear
         @output.flush
       end
+      true
     end
   end
 end

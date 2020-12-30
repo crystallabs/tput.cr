@@ -16,20 +16,20 @@ class Tput
       #     Ps = 0  or 1  -> off.
       #     Ps = 2 , 3  or 4  -> low.
       #     Ps = 5 , 6 , 7 , or 8  -> high.
-      def set_warning_bell_volume(param="")
-        _print { |io| io << "\x1b[" << param << "} t" }
+      def warning_bell_volume=(param : Volume)
+        _print { |io| io << "\e[" << param.value << "} t" }
       end
-      alias_previous decswbv
+      alias_previous :decswbv=
 
       # CSI Ps SP u
       #   Set margin-bell volume (DECSMBV, VT520).
       #     Ps = 1  -> off.
       #     Ps = 2 , 3  or 4  -> low.
       #     Ps = 0 , 5 , 6 , 7 , or 8  -> high.
-      def set_margin_bell_volume(param="")
-        _print { |io| io << "\x1b[" << param << " u" }
+      def margin_bell_volume=(param : Volume)
+        _print { |io| io << "\e[" << param.value << " u" }
       end
-      alias_previous decsmbv
+      alias_previous :decsmbv=
 
     end
   end

@@ -19,12 +19,12 @@ class Tput
         # if (term('screen')) {
         #   # Tmux pane
         #   # if (tmux) {
-        #   #   _write('\x1b]2;' + title + '\x1b\\')
+        #   #   _write('\e]2;' + title + '\e\\')
         #   # }
-        #   _write('\x1bk' + title + '\x1b\\')
+        #   _write('\ek' + title + '\e\\')
         # }
 
-        _tprint "\x1b]0;#{title}\x07"
+        _tprint "\e]0;#{title}\x07"
       end
 
       # Copies text to clipboard. Does nothing if terminal emulator is not iTerm2.
@@ -38,7 +38,7 @@ class Tput
       #      end
       def copy_to_clipboard(text)
         if emulator.iterm2?
-          _tprint "\x1b]50;CopyToCliboard=#{text}\x07"
+          _tprint "\e]50;CopyToCliboard=#{text}\x07"
           return true
         end
         false
@@ -54,7 +54,7 @@ class Tput
       #     cussion of "Title Modes")
       # XXX VTE bizarelly echos this:
       def set_title_mode_feature(*arguments)
-        _tprint "\x1b[>#{arguments.join ';'}t"
+        _tprint "\e[>#{arguments.join ';'}t"
       end
 
       # CSI > Ps; Ps T
@@ -69,7 +69,7 @@ class Tput
       #     Ps = 3  -> Do not query window/icon labels using UTF-8.
       #   (See discussion of "Title Modes").
       def reset_title_modes(*arguments)
-        _print "\x1b[>#{arguments.join ';'}T"
+        _print "\e[>#{arguments.join ';'}T"
       end
 
       # CSI > Ps; Ps m
@@ -85,7 +85,7 @@ class Tput
       #   If no parameters are given, all resources are reset to their
       #   initial values.
       def set_resources(*arguments)
-        _print { |io| "\x1b[>"; arguments.join(io, ";"); io << "m" }
+        _print { |io| "\e[>"; arguments.join(io, ";"); io << "m" }
       end
 
       # CSI > Ps n
@@ -102,7 +102,7 @@ class Tput
       #   adding a parameter to each function key to denote the modi-
       #   fiers.
       def disableModifiers(param="")
-        _print { |io| io << "\x1b[>" << param << 'n' }
+        _print { |io| io << "\e[>" << param << 'n' }
       end
 
       # CSI > Ps p
@@ -114,7 +114,7 @@ class Tput
       #     Ps = 2  -> always hide the pointer.  If no parameter is
       #     given, xterm uses the default, which is 1 .
       def set_pointer_mode(param="")
-        _print { |io| io << "\x1b[>" << param << 'p' }
+        _print { |io| io << "\e[>" << param << 'p' }
       end
 
     end

@@ -86,7 +86,7 @@ class Tput
     def detect_broken_acs
       # For some reason TERM=linux has smacs/rmacs, but it maps to `^[[11m`
       # and it does not switch to the DEC SCLD character set.
-      # xterm: \x1b(0, screen: \x0e, linux: \x1b[11m (doesn't work)
+      # xterm: \e(0, screen: \x0e, linux: \e[11m (doesn't work)
       # `man console_codes` says:
       # 11  select null mapping, set display control flag, reset tog‐
       #     gle meta flag (ECMA-48 says "first alternate font").

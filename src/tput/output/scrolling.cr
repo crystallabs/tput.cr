@@ -9,7 +9,7 @@ class Tput
       def index
         @cursor.y+=1
         _ncoords
-        put(ind?) || _print "\x1bD"
+        put(ind?) || _print "\eD"
       end
       alias_previous ind
 
@@ -17,7 +17,7 @@ class Tput
       def reverseIndex
         @cursor.y-=1
         _ncoords
-        put(ri?) || _print "\x1bM"
+        put(ri?) || _print "\eM"
       end
       alias_previous ri, reverse
 
@@ -25,7 +25,7 @@ class Tput
       def scroll_up(param=1)
         @cursor.y -= param
         _ncoords
-        put(parm_index?(param)) || _print { |io| io << "\x1b[" << param << "S" }
+        put(parm_index?(param)) || _print { |io| io << "\e[" << param << "S" }
       end
       alias_previous su
 
@@ -33,7 +33,7 @@ class Tput
       def scroll_down(param=1)
         @cursor.y += param
         _ncoords
-        put(parm_rindex?(param)) || _print { |io| io << "\x1b[" << param << "T" }
+        put(parm_rindex?(param)) || _print { |io| io << "\e[" << param << "T" }
       end
       alias_previous sd
 
@@ -47,7 +47,7 @@ class Tput
         @cursor.x = 0
         @cursor.y = 0
         _ncoords
-        put(csr?(top,bottom)) || _print { |io| io << "\x1b[" << top+1 << ';' << bottom+1 << 'r' }
+        put(csr?(top,bottom)) || _print { |io| io << "\e[" << top+1 << ';' << bottom+1 << 'r' }
       end
       alias_previous decstbm, csr
 

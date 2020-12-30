@@ -90,12 +90,12 @@ class Tput
         @cursor.y+=1
         @cursor.x = 0
         _ncoords
-        put(nel?) || _print "\x1bE"
+        put(nel?) || _print "\eE"
       end
 
       # ESC H Tab Set (HTS is 0x88).
       def tab_set
-        put(hts?) || _print "\x1bH"
+        put(hts?) || _print "\eH"
       end
 
       # CSI Pm m  Character Attributes (SGR).
@@ -209,10 +209,10 @@ class Tput
             outbuf.push part
           end
 
-          #return outbuf.map{|e| "\x1b[#{e}m"}.join
+          #return outbuf.map{|e| "\e[#{e}m"}.join
           # TODO figure this out. Sequence gets aborted at some point
           # and the rest printed to the screen.
-          return "\x1b[#{outbuf.join ';'}m"
+          return "\e[#{outbuf.join ';'}m"
         end
 
         if param.index("no ") == 0
@@ -229,100 +229,100 @@ class Tput
           # attributes
           when "normal", "default"
             return "" if !val
-            return "\x1b[m"
+            return "\e[m"
           when "bold"
-            return !val ? "\x1b[22m" : "\x1b[1m"
+            return !val ? "\e[22m" : "\e[1m"
           when "ul", "underline", "underlined"
-            return !val ? "\x1b[24m" : "\x1b[4m"
+            return !val ? "\e[24m" : "\e[4m"
           when "blink"
-            return !val ? "\x1b[25m" : "\x1b[5m"
+            return !val ? "\e[25m" : "\e[5m"
           when "inverse"
-            return !val ? "\x1b[27m" : "\x1b[7m"
+            return !val ? "\e[27m" : "\e[7m"
           when "invisible"
-            return !val ? "\x1b[28m" : "\x1b[8m"
+            return !val ? "\e[28m" : "\e[8m"
 
           # 8-color foreground
           when "black fg"
-            return !val ? "\x1b[39m" : "\x1b[30m"
+            return !val ? "\e[39m" : "\e[30m"
           when "red fg"
-            return !val ? "\x1b[39m" : "\x1b[31m"
+            return !val ? "\e[39m" : "\e[31m"
           when "green fg"
-            return !val ? "\x1b[39m" : "\x1b[32m"
+            return !val ? "\e[39m" : "\e[32m"
           when "yellow fg"
-            return !val ? "\x1b[39m" : "\x1b[33m"
+            return !val ? "\e[39m" : "\e[33m"
           when "blue fg"
-            return !val ? "\x1b[39m" : "\x1b[34m"
+            return !val ? "\e[39m" : "\e[34m"
           when "magenta fg"
-            return !val ? "\x1b[39m" : "\x1b[35m"
+            return !val ? "\e[39m" : "\e[35m"
           when "cyan fg"
-            return !val ? "\x1b[39m" : "\x1b[36m"
+            return !val ? "\e[39m" : "\e[36m"
           when "white fg", "light grey fg", "light gray fg", "bright grey fg", "bright gray fg"
-            return !val ? "\x1b[39m" : "\x1b[37m"
+            return !val ? "\e[39m" : "\e[37m"
           when "default fg"
             return "" if !val
-            return "\x1b[39m"
+            return "\e[39m"
 
           # 8-color background
           when "black bg"
-            return !val ? "\x1b[49m" : "\x1b[40m"
+            return !val ? "\e[49m" : "\e[40m"
           when "red bg"
-            return !val ? "\x1b[49m" : "\x1b[41m"
+            return !val ? "\e[49m" : "\e[41m"
           when "green bg"
-            return !val ? "\x1b[49m" : "\x1b[42m"
+            return !val ? "\e[49m" : "\e[42m"
           when "yellow bg"
-            return !val ? "\x1b[49m" : "\x1b[43m"
+            return !val ? "\e[49m" : "\e[43m"
           when "blue bg"
-            return !val ? "\x1b[49m" : "\x1b[44m"
+            return !val ? "\e[49m" : "\e[44m"
           when "magenta bg"
-            return !val ? "\x1b[49m" : "\x1b[45m"
+            return !val ? "\e[49m" : "\e[45m"
           when "cyan bg"
-            return !val ? "\x1b[49m" : "\x1b[46m"
+            return !val ? "\e[49m" : "\e[46m"
           when "white bg", "light grey bg", "light gray bg", "bright grey bg", "bright gray bg"
-            return !val ? "\x1b[49m" : "\x1b[47m"
+            return !val ? "\e[49m" : "\e[47m"
           when "default bg"
             return "" if !val
-            return "\x1b[49m"
+            return "\e[49m"
 
           # 16-color foreground
           when "light black fg", "bright black fg", "grey fg", "gray fg"
-            return !val ? "\x1b[39m" : "\x1b[90m"
+            return !val ? "\e[39m" : "\e[90m"
           when "light red fg", "bright red fg"
-            return !val ? "\x1b[39m" : "\x1b[91m"
+            return !val ? "\e[39m" : "\e[91m"
           when "light green fg", "bright green fg"
-            return !val ? "\x1b[39m" : "\x1b[92m"
+            return !val ? "\e[39m" : "\e[92m"
           when "light yellow fg", "bright yellow fg"
-            return !val ? "\x1b[39m" : "\x1b[93m"
+            return !val ? "\e[39m" : "\e[93m"
           when "light blue fg", "bright blue fg"
-            return !val ? "\x1b[39m" : "\x1b[94m"
+            return !val ? "\e[39m" : "\e[94m"
           when "light magenta fg", "bright magenta fg"
-            return !val ? "\x1b[39m" : "\x1b[95m"
+            return !val ? "\e[39m" : "\e[95m"
           when "light cyan fg", "bright cyan fg"
-            return !val ? "\x1b[39m" : "\x1b[96m"
+            return !val ? "\e[39m" : "\e[96m"
           when "light white fg", "bright white fg"
-            return !val ? "\x1b[39m" : "\x1b[97m"
+            return !val ? "\e[39m" : "\e[97m"
 
           # 16-color background
           when "light black bg", "bright black bg", "grey bg", "gray bg"
-            return !val ? "\x1b[49m" : "\x1b[100m"
+            return !val ? "\e[49m" : "\e[100m"
           when "light red bg", "bright red bg"
-            return !val ? "\x1b[49m" : "\x1b[101m"
+            return !val ? "\e[49m" : "\e[101m"
           when "light green bg", "bright green bg"
-            return !val ? "\x1b[49m" : "\x1b[102m"
+            return !val ? "\e[49m" : "\e[102m"
           when "light yellow bg", "bright yellow bg"
-            return !val ? "\x1b[49m" : "\x1b[103m"
+            return !val ? "\e[49m" : "\e[103m"
           when "light blue bg", "bright blue bg"
-            return !val ? "\x1b[49m" : "\x1b[104m"
+            return !val ? "\e[49m" : "\e[104m"
           when "light magenta bg", "bright magenta bg"
-            return !val ? "\x1b[49m" : "\x1b[105m"
+            return !val ? "\e[49m" : "\e[105m"
           when "light cyan bg", "bright cyan bg"
-            return !val ? "\x1b[49m" : "\x1b[106m"
+            return !val ? "\e[49m" : "\e[106m"
           when "light white bg", "bright white bg"
-            return !val ? "\x1b[49m" : "\x1b[107m"
+            return !val ? "\e[49m" : "\e[107m"
 
           # non-16-color rxvt default fg and bg
           when "default fg bg"
             return "" if !val
-            return name?("rxvt") ? "\x1b[100m" : "\x1b[39;49m"
+            return name?("rxvt") ? "\e[100m" : "\e[39;49m"
 
           else
             # 256-color fg and bg
@@ -360,20 +360,20 @@ class Tput
                     color += 100
                   end
                 end
-                return "\x1b[#{color}m"
+                return "\e[#{color}m"
               end
 
               if m[2] == "fg"
-                return "\x1b[38;5;#{color}m"
+                return "\e[38;5;#{color}m"
               end
 
               if m[2] == "bg"
-                return "\x1b[48;5;#{color}m"
+                return "\e[48;5;#{color}m"
               end
             end
 
             if /^[\d;]*$/.match param
-              return "\x1b[#{param}m"
+              return "\e[#{param}m"
             end
 
             return ""
@@ -452,48 +452,48 @@ class Tput
       def insert_chars(param=1)
         @cursor.x += param
         _ncoords
-        put(ich?(param)) || _print { |io| io << "\x1b[" << param << "@" }
+        put(ich?(param)) || _print { |io| io << "\e[" << param << "@" }
       end
       alias_previous ich
 
       # CSI Ps L
       # Insert Ps Line(s) (default = 1) (IL).
       def insert_lines(param=1)
-        put(il?(param)) || _print { |io| io << "\x1b[" << param << "L" }
+        put(il?(param)) || _print { |io| io << "\e[" << param << "L" }
       end
       alias_previous il
 
       # CSI Ps M
       # Delete Ps Line(s) (default = 1) (DL).
       def delete_lines(param=1)
-        put(dl?(param)) || _print { |io| io << "\x1b[" << param << "M" }
+        put(dl?(param)) || _print { |io| io << "\e[" << param << "M" }
       end
       alias_previous dl
 
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
       def delete_chars(param=1)
-        put(dch?(param)) || _print { |io| io << "\x1b[" << param << "P" }
+        put(dch?(param)) || _print { |io| io << "\e[" << param << "P" }
       end
       alias_previous dch
 
       # CSI Ps X
       # Erase Ps Character(s) (default = 1) (ECH).
       def erase_chars(param=1)
-        put(ech?(param)) || _print { |io| io << "\x1b[" << param << "X" }
+        put(ech?(param)) || _print { |io| io << "\e[" << param << "X" }
       end
       alias_previous ech
 
       # ESC # 3 DEC line height/width
       def line_height
-        _print "\x1b#"
+        _print "\e#"
       end
 
       # OSC Ps ; Pt ST
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a,b)
-        put(_Ms?(a,b)) || _tprint "\x1b]52;#{a};#{b}\x07"
+        put(_Ms?(a,b)) || _tprint "\e]52;#{a};#{b}\x07"
       end
 
       # CSI Ps K  Erase in Line (EL).
@@ -525,13 +525,13 @@ class Tput
 
         case (param)
           when "left"
-            _print "\x1b[1K"
+            _print "\e[1K"
           when "all"
-            _print "\x1b[2K"
+            _print "\e[2K"
           when "right"
-            _print "\x1b[K"
+            _print "\e[K"
           else
-            _print "\x1b[K"
+            _print "\e[K"
         end
       end
       alias_previous el
@@ -540,7 +540,7 @@ class Tput
       # Insert P s Column(s) (default = 1) (DECIC), VT420 and up.
       # NOTE: xterm doesn't enable this code by default.
       def insert_columns(*arguments)
-        _print "\x1b[#{arguments.join ';'} }"
+        _print "\e[#{arguments.join ';'} }"
       end
       alias_previous decic
 
@@ -548,7 +548,7 @@ class Tput
       # Delete P s Column(s) (default = 1) (DECDC), VT420 and up
       # NOTE: xterm doesn't enable this code by default.
       def delete_columns(*arguments)
-        _print "\x1b[#{arguments.join ';'} ~"
+        _print "\e[#{arguments.join ';'} ~"
       end
       alias_previous decdc
 
@@ -568,7 +568,7 @@ class Tput
       def repeat_preceding_character(param=1)
         @cursor.x += param
         _ncoords
-        put(rep?(param)) || _print { |io| io << "\x1b[" << param << "b" }
+        put(rep?(param)) || _print { |io| io << "\e[" << param << "b" }
       end
       alias_previous rep, rpc
 
@@ -579,7 +579,7 @@ class Tput
       #   Ps = 2  -> Clear Stops on Line.
       #   http:#vt100.net/annarbor/aaa-ug/section6.html
       def tab_clear(param=0)
-        put(tbc?(param)) || _print { |io| io << "\x1b[" << param << "g" }
+        put(tbc?(param)) || _print { |io| io << "\e[" << param << "g" }
       end
       alias_previous tbc
 
@@ -590,7 +590,7 @@ class Tput
       #     Ps = 1  -> DECSED and DECSEL cannot erase.
       #     Ps = 2  -> DECSED and DECSEL can erase.
       def set_char_protection_attr(param=0)
-        _print { |io| io << "\x1b[" << param << "\"q" }
+        _print { |io| io << "\e[" << param << "\"q" }
       end
       alias_previous decsca
 

@@ -13,7 +13,7 @@ class Tput
       def cursor_next_line(param=1)
         @cursor.y += param
         _ncoords
-        _print { |io| io << "\x1b[" << param << 'E' }
+        _print { |io| io << "\e[" << param << 'E' }
       end
       alias_previous cnl
 
@@ -23,7 +23,7 @@ class Tput
       def cursor_preceding_line(param=1)
         @cursor.y -= param
         _ncoords
-        _print { |io| io << "\x1b[" << param << 'F' }
+        _print { |io| io << "\e[" << param << 'F' }
       end
       alias_previous cpl, cursor_previous_line
 
@@ -42,7 +42,7 @@ class Tput
       def cursor_char_absolute(param=0)
         @cursor.x = param
         _ncoords
-        put(hpa?(param)) || _print { |io| io << "\x1b[" << param+1 << 'G' }
+        put(hpa?(param)) || _print { |io| io << "\e[" << param+1 << 'G' }
       end
       alias_previous cha, setx, set_x
 
@@ -58,7 +58,7 @@ class Tput
       def cursor_line_pos_absolute(param=1)
         @cursor.y = param
         _ncoords
-        put(vpa?(param)) || _print { |io| io << "\x1b[" << param << 'd' }
+        put(vpa?(param)) || _print { |io| io << "\e[" << param << 'd' }
       end
       alias_previous vpa, sety, line_pos_absolute, cursor_line_absolute, set_y
 
@@ -67,7 +67,7 @@ class Tput
       def cursor_pos(row=0, col=0)
         @cursor.x, @cursor.y = _adjust_xy_abs col, row
         put(cup?(@cursor.y, @cursor.x)) ||
-          _print { |io| io << "\x1b[" << @cursor.y << ';' << @cursor.x << 'H' }
+          _print { |io| io << "\e[" << @cursor.y << ';' << @cursor.x << 'H' }
       end
       alias_previous cup, pos
 
@@ -143,11 +143,11 @@ class Tput
         if emulator.iterm2?
           case shape
             when CursorShape::Block
-              _tprint "\x1b]50;CursorShape=0;BlinkingCursorEnabled=#{blink}\x07"
+              _tprint "\e]50;CursorShape=0;BlinkingCursorEnabled=#{blink}\x07"
             when CursorShape::Underline
-              _tprint "\x1b]50;CursorShape=2;BlinkingCursorEnabled=#{blink}\x07"
+              _tprint "\e]50;CursorShape=2;BlinkingCursorEnabled=#{blink}\x07"
             when CursorShape::Line
-              _tprint "\x1b]50;CursorShape=1;BlinkingCursorEnabled=#{blink}\x07"
+              _tprint "\e]50;CursorShape=1;BlinkingCursorEnabled=#{blink}\x07"
           end
           true
 
@@ -155,11 +155,11 @@ class Tput
         elsif name? "xterm", "screen", "rxvt"
           case shape
             when CursorShape::Block
-              _tprint "\x1b[#{blink} q"
+              _tprint "\e[#{blink} q"
             when CursorShape::Underline
-              _tprint "\x1b[#{blink+2} q"
+              _tprint "\e[#{blink+2} q"
             when CursorShape::Line
-              _tprint "\x1b[#{blink+4} q"
+              _tprint "\e[#{blink+4} q"
           end
           true
 
@@ -177,7 +177,7 @@ class Tput
       # :ditto:
       def cursor_color(color : String)
         if name? "xterm", "screen", "rxvt"
-          _tprint "\x1b]12;#{color}\x07"
+          _tprint "\e]12;#{color}\x07"
           return true
         end
         false
@@ -187,10 +187,10 @@ class Tput
         if name? "xterm", "rxvt", "screen"
           # XXX Disabled originally
           # return reset_colors
-          _tprint "\x1b[0 q"
-          _tprint "\x1b]112\x07"
+          _tprint "\e[0 q"
+          _tprint "\e]112\x07"
           # urxvt doesn't support OSC 112
-          _tprint "\x1b]12;white\x07"
+          _tprint "\e]12;white\x07"
           return true
         end
         false
@@ -202,7 +202,7 @@ class Tput
         return lsave_cursor(key) if key
         @saved_position.x = @cursor.x
         @saved_position.y = @cursor.y
-        put(sc?) || _print "\x1b7"
+        put(sc?) || _print "\e7"
       end
       alias_previous sc
 
@@ -212,7 +212,7 @@ class Tput
         if sp = @saved_position
           @cursor.x = sp.x
           @cursor.y = sp.y
-          put(rc?) || _print "\x1b8"
+          put(rc?) || _print "\e8"
         end
       end
       alias_previous rc
@@ -240,7 +240,7 @@ class Tput
         @cursor.y -= param
         put(cuu?(param)) ||
           (has?(cuu1?) && param.times{ put(cuu1) }) ||
-            _print { |io| io << "\x1b[" << param << 'A' }
+            _print { |io| io << "\e[" << param << 'A' }
       end
       alias_previous cuu, up
 
@@ -251,7 +251,7 @@ class Tput
         @cursor.y += param
         put(cud?(param)) ||
           (has?(cud1?) && param.times{ put(cud1) }) ||
-            _print { |io| io << "\x1b[" << param << 'B' }
+            _print { |io| io << "\e[" << param << 'B' }
       end
       alias_previous cud, down
 
@@ -262,7 +262,7 @@ class Tput
         @cursor.x += param
         put(cuf?(param)) ||
           (has?(cuf1?) && param.times{ put(cuf1) }) ||
-            _print { |io| io << "\x1b[" << param << 'C' }
+            _print { |io| io << "\e[" << param << 'C' }
       end
       alias_previous cuf, forward, right
 
@@ -274,7 +274,7 @@ class Tput
         @cursor.x -= param
         put(cub?(param)) ||
           (has?(cub1?) && param.times{ put(cub1) }) ||
-            _print { |io| io << "\x1b[" << param << 'D' }
+            _print { |io| io << "\e[" << param << 'D' }
       end
       alias_previous cub, left, back
 
@@ -290,8 +290,8 @@ class Tput
         # NOTE: In xterm terminfo:
         # cnorm stops blinking cursor
         # cvvis starts blinking cursor
-        # return _write("\x1b[?12l\x1b[?25h"); // cursor_normal
-        # return _write("\x1b[?12;25h"); // cursor_visible
+        # return _write("\e[?12l\e[?25h"); // cursor_normal
+        # return _write("\e[?12;25h"); // cursor_visible
         put(cnorm?) || set_mode "?25"
       end
       alias_previous dectcem, cnorm, cvvis, cursor_visible
@@ -305,7 +305,7 @@ class Tput
       #     Ps = 4  -> steady underline.
       def set_cursor_style(style = CursorStyle::SteadyBlock)
         (put(_Se?) && return) if style.value == 2
-        put(_Ss?(param)) || _print { |io| io << "\x1b[" << style.value << " q" }
+        put(_Ss?(param)) || _print { |io| io << "\e[" << style.value << " q" }
       end
       alias_previous decscusr
 
@@ -314,7 +314,7 @@ class Tput
       def save_cursor_a
         @saved_position.x = @cursor.x
         @saved_position.y = @cursor.y
-        put(sc?) || _print "\x1b[s"
+        put(sc?) || _print "\e[s"
       end
       alias_previous sc_a
 
@@ -324,7 +324,7 @@ class Tput
         @cursor.x = @saved_position.x
         @cursor.y = @saved_position.y
         _ncoords
-        put(rc?) || _print "\x1b[u"
+        put(rc?) || _print "\e[u"
       end
       alias_previous rc_a
 
@@ -333,7 +333,7 @@ class Tput
       def cursor_forward_tab(param=1)
         @cursor.x += 8
         _ncoords
-        put(tab?(param)) || _print { |io| io << "\x1b[" << param << "I" }
+        put(tab?(param)) || _print { |io| io << "\e[" << param << "I" }
       end
       alias_previous cht
 
@@ -341,7 +341,7 @@ class Tput
       def cursor_backward_tab(param=1)
         @cursor.x -= 8
         _ncoords
-        put(cbt?(param)) || _print { |io| io << "\x1b[" << param << "Z" }
+        put(cbt?(param)) || _print { |io| io << "\e[" << param << "Z" }
       end
       alias_previous cbt
 
@@ -360,7 +360,7 @@ class Tput
       def char_pos_absolute(param=1)
         @x = param
         _ncoords
-        put(hpa?(param)) || _print { |io| io << "\x1b[" << param << '`' }
+        put(hpa?(param)) || _print { |io| io << "\e[" << param << '`' }
       end
       alias_previous hpa
 
@@ -375,7 +375,7 @@ class Tput
         # Disabled originally
         # Does not exist:
         # if (@terminfo) return put "hpr", param
-        _print { |io| io << "\x1b[" << param << "a" }
+        _print { |io| io << "\e[" << param << "a" }
       end
       alias_previous hpr
 
@@ -389,7 +389,7 @@ class Tput
           # Disabled originally
           # Does not exist:
           # if (@terminfo) return put "vpr", param
-          _print { |io| io << "\x1b[" << param << "e" }
+          _print { |io| io << "\e[" << param << "e" }
       end
       alias_previous vpr
 
@@ -404,7 +404,7 @@ class Tput
         # Does not exist (?):
         # put(hvp", row, col);
         put(cup?(row, col)) ||
-          _print { |io| io << "\x1b[" << row + 1 << ';' << col + 1 << "f" }
+          _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << "f" }
       end
       alias_previous hvp
 
