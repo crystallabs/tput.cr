@@ -13,7 +13,7 @@ require "./tput/keys"
 require "./tput/output"
 require "./tput/input"
 require "./tput/coordinates"
-require "./tput/data"
+require "./tput/acsc"
 require "./tput/features"
 require "./tput/emulator"
 
@@ -121,7 +121,7 @@ class Tput
   #end
 
   include Namespace
-  include Data
+  include ACSC
   include Output
   include Input
   

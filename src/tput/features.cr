@@ -1,5 +1,14 @@
 require "json"
 
+struct Char
+  def to_json_object_key
+    to_s
+  end
+  def to_json(b : JSON::Builder)
+    b.string to_s
+  end
+end
+
 class Tput
   # Terminal features auto-detection.
   #
@@ -13,7 +22,7 @@ class Tput
     include Crystallabs::Helpers::Logging
     include Crystallabs::Helpers::Boolean
 
-    alias ACSHash = Hash(String, String)
+    alias ACSHash = Hash(Char, Char)
 
     # Is unicode supported?
     getter? unicode : Bool
@@ -172,7 +181,7 @@ class Tput
 
       ENV["TERM"]?.try do |term|
         if md = /(\d+)colors?$/.match term
-          colors = md[0].to_i
+          colors = md[1].to_i
         end
       end
 
@@ -195,15 +204,15 @@ class Tput
       return {acsc, acscr} if @pc_rom_charset
 
       acs_chars = @tput.shim.try(&.acs_chars.try { |v| String.new v }) || ""
-      ACSC.each do |ch, _|
+      ACSC::Data.each do |ch, data|
         next unless i = acs_chars.index ch
 
-        nxt = acs_chars[(i + 1)..(i + 1)]?
+        nxt = acs_chars[i + 1]?
+        next if !nxt || !ACSC::Data[nxt]?
+        ch2 = ACSC::Data[nxt][ broken_acs? ? 2 : 1 ].as Char
 
-        next if !nxt || !ACSC[nxt]?
-
-        acsc[ch] = ACSC[nxt]
-        acscr[ACSC[nxt]] = ch
+        acsc[ch] = ch2
+        acscr[ch2] = acsc[ch]
       end
 
       {acsc, acscr}
