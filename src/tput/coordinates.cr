@@ -47,6 +47,15 @@ class Tput
     end
 
     # Generic method used to keep cursor within screen bounds.
+    #
+    # This function handles both x and y coordinates, even though
+    # it is customary to call it with one of those being 0, to
+    # effectively only adjust the other coordinate.
+    #
+    # Since the code for x and y is identical except for the max/bounds
+    # value (screen.width vs. screen.height), it would be possible to
+    # make this function operate on one coordinate at a time; only the
+    # max value (width or height) would have be supplied as an extra argument.
     private def _adjust_xy(x=0, y=0, sx=0, sy=0, wrap=false)
       s=@screen
 

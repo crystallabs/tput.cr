@@ -9,6 +9,7 @@ require "crystallabs-helpers"
 
 require "./tput/ext"
 require "./tput/macros"
+require "./tput/options"
 require "./tput/namespace"
 require "./tput/keys"
 require "./tput/output"
@@ -51,6 +52,8 @@ class Tput
 
   getter? cursor_hidden : Bool = false
 
+  getter? force_unicode : Bool
+
   @name : String
   #@aliases : Array[String]
 
@@ -78,9 +81,18 @@ class Tput
     @input = STDIN,
     @output = STDOUT.dup,
     @error = STDERR.dup,
-    @force_unicode = false,
+    force_unicode = nil,
     @use_buffer = true,
   )
+
+    options = Options.new
+
+    @force_unicode = unless force_unicode.nil?
+      force_unicode
+    else
+      options.force_unicode
+    end
+
     @screen = get_screen_size
     @cursor = Point.new
 

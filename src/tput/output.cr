@@ -77,7 +77,8 @@ class Tput
       # https://github.com/crystal-lang/crystal/pull/10152
       args.join io: @output
     end
-    private def _oprint(&block : IO -> Nil)
+
+    def _with_io(&block : IO -> Nil)
       yield @output
     end
 
@@ -116,7 +117,7 @@ class Tput
       if use_buffer?
         _buffer_print &block
       else
-        _oprint &block
+        _with_io &block
       end
     end
 
@@ -182,7 +183,7 @@ class Tput
     private def _buffer_print(&block : IO -> Nil)
       if @exiting
         flush
-        _oprint &block
+        _with_io &block
       else
         yield @_buf
       end
