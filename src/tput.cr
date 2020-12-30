@@ -7,6 +7,7 @@ require "unibilium"
 require "unibilium-shim"
 require "crystallabs-helpers"
 
+require "./tput/ext"
 require "./tput/macros"
 require "./tput/namespace"
 require "./tput/keys"
