@@ -456,17 +456,31 @@ class Tput
       end
       alias_previous ich
 
-      # CSI Ps L
-      # Insert Ps Line(s) (default = 1) (IL).
-      def insert_lines(param=1)
-        put(il?(param)) || _print { |io| io << "\e[" << param << "L" }
+      # Insert line(s).
+      #     CSI Ps L
+      #     Insert Ps Line(s) (default = 1) (IL).
+      def insert_line(param : Int = 1)
+        param>0 || raise ArgumentError.new "param > 0"
+
+        if param == 1
+          put(il1?) || put(il?(param))
+        else
+          put(il?(param))
+        end || _print { |io| io << "\e[" << param << "L" }
       end
       alias_previous il
 
-      # CSI Ps M
-      # Delete Ps Line(s) (default = 1) (DL).
-      def delete_lines(param=1)
-        put(dl?(param)) || _print { |io| io << "\e[" << param << "M" }
+      # Delete line(s).
+      #     CSI Ps M
+      #     Delete Ps Line(s) (default = 1) (DL).
+      def delete_line(param : Int = 1)
+        param>0 || raise ArgumentError.new "param > 0"
+
+        if param == 1
+          put(dl1?) || put(dl?(param))
+        else
+          put(dl?(param))
+        end || _print { |io| io << "\e[" << param << "M" }
       end
       alias_previous dl
 
@@ -477,12 +491,13 @@ class Tput
       end
       alias_previous dch
 
-      # CSI Ps X
-      # Erase Ps Character(s) (default = 1) (ECH).
-      def erase_chars(param=1)
+      # Erase character(s).
+      #     CSI Ps X
+      #     Erase Ps Character(s) (default = 1) (ECH).
+      def erase_character(param : Int = 1)
         put(ech?(param)) || _print { |io| io << "\e[" << param << "X" }
       end
-      alias_previous ech
+      alias_previous ech, erase_chars
 
       # ESC # 3 DEC line height/width
       def line_height
@@ -496,42 +511,32 @@ class Tput
         put(_Ms?(a,b)) || _tprint "\e]52;#{a};#{b}\x07"
       end
 
-      # CSI Ps K  Erase in Line (EL).
-      #     Ps = 0  -> Erase to Right (default).
-      #     Ps = 1  -> Erase to Left.
-      #     Ps = 2  -> Erase All.
-      # CSI ? Ps K
-      #   Erase in Line (DECSEL).
-      #     Ps = 0  -> Selective Erase to Right (default).
-      #     Ps = 1  -> Selective Erase to Left.
-      #     Ps = 2  -> Selective Erase All.
-      def erase_in_line(param)
+      # Erase in line.
+      #     CSI Ps K  Erase in Line (EL).
+      #         Ps = 0  -> Erase to Right (default).
+      #         Ps = 1  -> Erase to Left.
+      #         Ps = 2  -> Erase All.
+      #     CSI ? Ps K
+      #       Erase in Line (DECSEL).
+      #         Ps = 0  -> Selective Erase to Right (default).
+      #         Ps = 1  -> Selective Erase to Left.
+      #         Ps = 2  -> Selective Erase All.
+      def erase_in_line(param = LineDirection::Right)
+        # NOTE xterm terminfo does not seem to have parametric 'el'?
+        #   clr_eol                   / el         = \e[K
+        # How did this work originally then?
 
-        @shim.try { |shim|
-          # Disabled originally
-          #if (tput.back_color_erase) ...
-          case (param)
-            when "left"
-              param = 1
-            when "all"
-              param = 2
-            when "right"
-              param = 0
-            else
-              param = 0
-          end
-          put(el?(param))
-        } ||
-
+        #put(el?(param.value)) ||
         case (param)
-          when "left"
-            _print "\e[1K"
-          when "all"
-            _print "\e[2K"
-          when "right"
-            _print "\e[K"
-          else
-            _print "\e[K"
+        when LineDirection::Right
+          put(clr_eol?) || _print "\e[K"
+        when LineDirection::Left
+          put(clr_bol?) || _print "\e[1K"
+        when LineDirection::All
+          _print "\e[2K" # <- if no el?, why would this succeed?
+          # Should we do instead manual erase to left and right?:
+          #_print "\e[1K"
+          #_print "\e[K"
         end
       end
       alias_previous el

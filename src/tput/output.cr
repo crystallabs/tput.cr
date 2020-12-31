@@ -76,10 +76,12 @@ class Tput
     def _oprint(*args)
       # https://github.com/crystal-lang/crystal/pull/10152
       args.join io: @output
+      true
     end
 
     def _with_io(&block : IO -> Nil)
       yield @output
+      true
     end
 
     #def _owrite(text : String)
@@ -155,7 +157,8 @@ class Tput
     private def _buffer_write(*args) #bytes : Bytes)
       if @exiting
         flush
-        return _owrite *args
+        _owrite *args
+        return true
       end
       # Not needed any more since buf is now an IO rather than slice.
       # Essentially a += operation for Bytes
@@ -170,23 +173,24 @@ class Tput
     private def _buffer_print(*args)
       if @exiting
         flush
-        return _oprint *args
+        _oprint *args
+        return true
       end
 
       # https://github.com/crystal-lang/crystal/pull/10152
-      v = args.join io: @_buf
+      args.join io: @_buf
       flush
-      v
+      true
     end
     private def _buffer_print(&block : IO -> Nil)
-      v = if @exiting
+      if @exiting
         flush
         _with_io &block
       else
         yield @_buf
       end
       flush
-      v
+      true
     end
     #private def _buffer(&block : IO -> Nil)
     #  with @_buf yield @_buf

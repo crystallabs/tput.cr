@@ -66,7 +66,7 @@ class Tput
       # Set cursor position.
       #     CSI Ps ; Ps H
       #     Cursor Position [row;column] (default = [1,1]) (CUP).
-      def cursor_position(row=0, column=0)
+      def cursor_position(row : Int = 0, column : Int = 0)
         @cursor.x, @cursor.y = _adjust_xy_abs column, row
         put(cup?(@cursor.y, @cursor.x)) ||
           _print { |io| io << "\e[" << @cursor.y+1 << ';' << @cursor.x+1 << 'H' }
@@ -199,17 +199,20 @@ class Tput
       end
       alias_previous cursor_reset
 
+      # Save cursor position.
+      #
       # ESC 7 Save Cursor (DECSC).
-      def save_cursor(key=nil)
+      def save_cursor(key : String? = nil)
         return lsave_cursor(key) if key
-        @saved_cursor.x = @cursor.x
-        @saved_cursor.y = @cursor.y
+        @saved_cursor = @cursor.dup
         put(sc?) || _print "\e7"
       end
       alias_previous sc
 
+      # Restore saved cursor position.
+      #
       # ESC 8 Restore Cursor (DECRC).
-      def restore_cursor(key, hide)
+      def restore_cursor(key : String? = nil, hide : Bool = false)
         return lrestore_cursor(key, hide) if (key)
         if sp = @saved_cursor
           @cursor.x = sp.x
@@ -257,16 +260,17 @@ class Tput
       end
       alias_previous cud, down
 
-      # CSI Ps A
-      # Cursor Up Ps Times (default = 1) (CUU).
-      def cursor_forward(param=1)
+      # Cursor forward.
+      #     CSI Ps C
+      #     Cursor Forward Ps Times (default = 1) (CUF).
+      def cursor_forward(param : Int = 1)
         param, _ = _adjust_xy_rel param
         @cursor.x += param
         put(cuf?(param)) ||
-          (has?(cuf1?) && param.times{ put(cuf1) }) ||
+          (has?(cuf1?) && param.times{put(cuf1 )} ) ||
             _print { |io| io << "\e[" << param << 'C' }
       end
-      alias_previous cuf, forward, right
+      alias_previous cuf, forward, right, cursor_right, parm_right_cursor
 
       # CSI Ps A
       # Cursor Up Ps Times (default = 1) (CUU).

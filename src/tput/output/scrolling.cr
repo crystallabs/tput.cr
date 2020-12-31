@@ -50,7 +50,7 @@ class Tput
       #
       # NOTE: Similarly, there is no checking that the `top` value is
       # smaller than `bottom`.
-      def set_scroll_region(top=0, bottom=(@screen.height - 1))
+      def set_scroll_region(top : Int = 0, bottom : Int = (@screen.height - 1))
         _, top = _adjust_xy_abs 0, top
         _, bottom = _adjust_xy_abs 0, bottom
         @scroll_top = top

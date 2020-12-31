@@ -61,7 +61,7 @@ class Tput
 
   getter screen : Size
   getter cursor : Point
-  @saved_cursor : Point?
+  getter saved_cursor : Point?
 
   @[JSON::Field(ignore: true)]
   @_buf = IO::Memory.new

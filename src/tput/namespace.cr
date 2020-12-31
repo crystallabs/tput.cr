@@ -1776,6 +1776,12 @@ class Tput
       High3 = 7
       High4 = 8
     end
+
+    enum LineDirection
+      Right = 0
+      Left = 1
+      All = 2
+    end
   end
 end
 

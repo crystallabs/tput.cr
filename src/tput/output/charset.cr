@@ -7,7 +7,11 @@ class Tput
 
       alias C = Tput::Namespace::Charset
 
-      # ESC (,),*,+,-,. Designate G0-G2 Character Set.
+      # Activate a different charset.
+      #
+      # Empty value resets to terminal default.
+      #
+      #     ESC (,),*,+,-,. Designate G0-G2 Character Set.
       #
       #     See also:
       #     acs_chars / acsc / ac
@@ -103,17 +107,23 @@ class Tput
         _print { |io| io << "\e(" << val }
       end
 
-      # Enter alternate (DEC TV100/ACS/SCLD) character set
+      # Enter alternate (DEC TV100/ACS/SCLD) character set.
+      #
+      # Equivalent to:
+      #     charset= Tput::Namespace::Charset::ACS
       def enter_alt_charset_mode 
         self.charset= Tput::Namespace::Charset::ACS
       end
       alias_previous smacs #, as # TODO can't alias to 'as'
 
-      # Exit any alternate character set by returning to terminal's default
+      # Exit any alternate character set by returning to terminal's default.
+      #
+      # Equivalent to:
+      #     charset=()
       def exit_alt_charset_mode
         self.charset=()
       end
-      alias_previous rmacs, ae
+      alias_previous rmacs # , ae # Unclear name avoid aliasing to this
 
       # Set G character set.
       #

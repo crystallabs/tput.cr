@@ -6,10 +6,10 @@ describe Tput::Output::Charset do
 
   describe "generic alt_charset_mode" do
     it "works with terminfo" do
-      x.t.smacs
+      x.t.enter_alt_charset_mode
       x.o.should eq "\e(0"
 
-      x.t.rmacs
+      x.t.exit_alt_charset_mode
       x.o.should eq "\e(B"
     end
 
