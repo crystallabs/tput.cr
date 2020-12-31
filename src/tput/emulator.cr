@@ -14,34 +14,34 @@ class Tput
     include Crystallabs::Helpers::Boolean
 
     # Is the emulator Mac OS X terminal?
-    getter? osxterm : Bool
+    property? osxterm : Bool
 
     # Is the emulator iTerm2?
-    getter? iterm2 : Bool
+    property? iterm2 : Bool
 
     # Is the emulator XFCE's terminal?
-    getter? xfce : Bool
+    property? xfce : Bool
 
     # Is the emulator terminator?
-    getter? terminator : Bool
+    property? terminator : Bool
 
     # Is the emulator LXDE's lxterm?
-    getter? lxterm : Bool
+    property? lxterm : Bool
 
     # Is the emulator based on VTE?
-    getter? vte : Bool
+    property? vte : Bool
 
     # Is the emulator rxvt?
-    getter? rxvt : Bool
+    property? rxvt : Bool
 
     # Is the emulator xterm?
-    getter? xterm : Bool
+    property? xterm : Bool
 
     # Is the emulator tmux?
-    getter? tmux : Bool
+    property? tmux : Bool
 
     # Is the emulator screen?
-    getter? screen : Bool
+    property? screen : Bool
 
     @[JSON::Field(ignore: true)]
     # :nodoc:

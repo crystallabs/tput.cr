@@ -37,16 +37,26 @@ class Tput
       end
       alias_previous sd
 
-      # CSI Ps ; Ps r
-      #   Set Scrolling Region [top;bottom] (default = full size of win-
-      #   dow) (DECSTBM).
-      # CSI ? Pm r
+      # Set scroll region.
+      #
+      #     CSI Ps ; Ps r
+      #       Set Scrolling Region [top;bottom] (default = full size of win-
+      #       dow) (DECSTBM).
+      #     CSI ? Pm r
+      #
+      # NOTE: This function uses absolute values, so negative numbers
+      # are not brought back to 0, but instead count from the bottom of the
+      # screen up.
+      #
+      # NOTE: Similarly, there is no checking that the `top` value is
+      # smaller than `bottom`.
       def set_scroll_region(top=0, bottom=(@screen.height - 1))
+        _, top = _adjust_xy_abs 0, top
+        _, bottom = _adjust_xy_abs 0, bottom
         @scroll_top = top
         @scroll_bottom = bottom
         @cursor.x = 0
         @cursor.y = 0
-        _ncoords
         put(csr?(top,bottom)) || _print { |io| io << "\e[" << top+1 << ';' << bottom+1 << 'r' }
       end
       alias_previous decstbm, csr

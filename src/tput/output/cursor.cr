@@ -11,8 +11,8 @@ class Tput
       # Cursor Next Line Ps Times (default = 1) (CNL).
       # same as CSI Ps B ?
       def cursor_next_line(param=1)
+        _, param = _adjust_xy_rel 0, param
         @cursor.y += param
-        _ncoords
         _print { |io| io << "\e[" << param << 'E' }
       end
       alias_previous cnl
@@ -21,8 +21,9 @@ class Tput
       # Cursor Preceding Line Ps Times (default = 1) (CNL).
       # reuse CSI Ps A ?
       def cursor_preceding_line(param=1)
+        _, param = _adjust_xy_rel 0, -param
+        param *= -1
         @cursor.y -= param
-        _ncoords
         _print { |io| io << "\e[" << param << 'F' }
       end
       alias_previous cpl, cursor_previous_line
@@ -62,14 +63,15 @@ class Tput
       end
       alias_previous vpa, sety, line_pos_absolute, cursor_line_absolute, set_y
 
-      # CSI Ps ; Ps H
-      # Cursor Position [row;column] (default = [1,1]) (CUP).
-      def cursor_pos(row=0, col=0)
-        @cursor.x, @cursor.y = _adjust_xy_abs col, row
+      # Set cursor position.
+      #     CSI Ps ; Ps H
+      #     Cursor Position [row;column] (default = [1,1]) (CUP).
+      def cursor_position(row=0, column=0)
+        @cursor.x, @cursor.y = _adjust_xy_abs column, row
         put(cup?(@cursor.y, @cursor.x)) ||
-          _print { |io| io << "\e[" << @cursor.y << ';' << @cursor.x << 'H' }
+          _print { |io| io << "\e[" << @cursor.y+1 << ';' << @cursor.x+1 << 'H' }
       end
-      alias_previous cup, pos
+      alias_previous cursor_pos, cup, pos
 
       # Moves cursor to desired point by using absolute coordinate instructions
       def move(point : Point)
@@ -200,8 +202,8 @@ class Tput
       # ESC 7 Save Cursor (DECSC).
       def save_cursor(key=nil)
         return lsave_cursor(key) if key
-        @saved_position.x = @cursor.x
-        @saved_position.y = @cursor.y
+        @saved_cursor.x = @cursor.x
+        @saved_cursor.y = @cursor.y
         put(sc?) || _print "\e7"
       end
       alias_previous sc
@@ -209,7 +211,7 @@ class Tput
       # ESC 8 Restore Cursor (DECRC).
       def restore_cursor(key, hide)
         return lrestore_cursor(key, hide) if (key)
-        if sp = @saved_position
+        if sp = @saved_cursor
           @cursor.x = sp.x
           @cursor.y = sp.y
           put(rc?) || _print "\e8"
@@ -312,8 +314,8 @@ class Tput
       # CSI s
       #   Save cursor (ANSI.SYS).
       def save_cursor_a
-        @saved_position.x = @cursor.x
-        @saved_position.y = @cursor.y
+        @saved_cursor.x = @cursor.x
+        @saved_cursor.y = @cursor.y
         put(sc?) || _print "\e[s"
       end
       alias_previous sc_a
@@ -321,8 +323,8 @@ class Tput
       # CSI u
       #   Restore cursor (ANSI.SYS).
       def restore_cursor_a
-        @cursor.x = @saved_position.x
-        @cursor.y = @saved_position.y
+        @cursor.x = @saved_cursor.x
+        @cursor.y = @saved_cursor.y
         _ncoords
         put(rc?) || _print "\e[u"
       end
@@ -407,6 +409,22 @@ class Tput
           _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << "f" }
       end
       alias_previous hvp
+
+      # OSC Ps ; Pt ST
+      # OSC Ps ; Pt BEL
+      #   Reset colors
+      def reset_cursor_color
+        # TODO - enable when put supports extended caps, unpend test
+        #put(_Cr?) ||
+        _tprint "\e]112\x07"
+      end
+
+      # OSC Ps ; Pt ST
+      # OSC Ps ; Pt BEL
+      #   Change dynamic colors
+      def dynamic_cursor_color(param)
+        put(_Cs?(param)) || _tprint "\e]12;#{param}\x07"
+      end
 
     end
   end

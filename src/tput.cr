@@ -24,7 +24,7 @@ class Tput
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
 
-  DEFAULT_SCREEN_SIZE = {24, 80} # Opinions vary: 24, 25, 27
+  DEFAULT_SCREEN_SIZE = Size.new 80, 24 # Opinions vary: 24, 25, 27
 
   @[JSON::Field(ignore: true)]
   @input : IO
@@ -74,6 +74,9 @@ class Tput
 
   getter is_alt = false
 
+  getter scroll_top = 0
+  getter scroll_bottom = 0
+
   include Coordinates
 
   def initialize(
@@ -83,6 +86,7 @@ class Tput
     @error = STDERR.dup,
     force_unicode = nil,
     @use_buffer = true,
+    screen_size = nil,
   )
 
     options = Options.new
@@ -93,7 +97,7 @@ class Tput
       options.force_unicode
     end
 
-    @screen = get_screen_size
+    @screen = screen_size || get_screen_size
     @cursor = Point.new
 
     @name = (@terminfo.try(&.name) || ENV["TERM"]? || "xterm").downcase

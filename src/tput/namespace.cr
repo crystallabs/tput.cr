@@ -1626,7 +1626,7 @@ class Tput
       def self.[](width, height)
         new width, height
       end
-      def inspect(io)
+      def to_s(io)
         io << "Size[" << @width << ", " << @height << ']'
       end
     end
@@ -1639,7 +1639,7 @@ class Tput
       def self.[](x, y)
         new x, y
       end
-      def inspect(io)
+      def to_s(io)
         io << "Point[" << @x << ", " << @y << ']'
       end
     end
@@ -1740,6 +1740,20 @@ class Tput
       Swedish
       Swiss
       Isolatin
+
+      DECCyrillic
+      DECRussian
+      DECSupplemental
+      DECSupplemental94
+      DECTechnical
+      Greek
+      Greek94
+      Hebrew
+      Hebrew94
+      Portugese
+      SCS_NRCS
+      Turkish
+      Turkish94
     end
 
     enum Erase

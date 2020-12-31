@@ -5,22 +5,6 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
-      # OSC Ps ; Pt ST
-      # OSC Ps ; Pt BEL
-      #   Reset colors
-      def reset_colors(param)
-        put(_Cr?(param)) || _tprint "\e]112\x07"
-        # Disabled originally:
-        #_tprint "\e]112;#{param}\x07"
-      end
-
-      # OSC Ps ; Pt ST
-      # OSC Ps ; Pt BEL
-      #   Change dynamic colors
-      def dynamic_colors(param)
-        put(_Cs?(param)) || _tprint "\e]12;#{param}\x07"
-      end
-
     end
   end
 end

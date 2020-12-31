@@ -10,7 +10,7 @@ class Tput
         Term::Screen.size_from_ioctl ||
         Term::Screen.size_from_env ||
         Term::Screen.size_from_ansicon ||
-        DEFAULT_SCREEN_SIZE
+        {DEFAULT_SCREEN_SIZE.height, DEFAULT_SCREEN_SIZE.width}
       s = Size.new c, r
       Log.trace { my s }
       s

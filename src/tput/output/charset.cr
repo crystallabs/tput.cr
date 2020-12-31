@@ -39,22 +39,47 @@ class Tput
           when C::ASCII
             return true if put(rmacs?)
             :"B"
+          when C::DECCyrillic
+            :"&4"
+          when C::DECRussian
+            :"&5"
+          when C::DECSupplemental
+            :"<"
+          when C::DECSupplemental94
+            :"%5"
+          when C::DECTechnical
+            :">"
           when C::Dutch
             :"4"
           when C::Finnish
             #:"C"
             :"5"
           when C::French
+            #:"f"
             :"R"
           when C::FrenchCanadian
+            #:"9"
             :"Q"
           when C::German
             :"K"
+          when C::Greek
+            :"\">"
+          when C::Greek94
+            :"\"?"
+          when C::Hebrew
+            :"%="
+          when C::Hebrew94
+            :"\"4"
           when C::Italian
             :"Y"
           when C::NorwegianDanish
+            #:"`"
             #:"E"
             :"6"
+          when C::Portugese
+            :"%6"
+          when C::SCS_NRCS
+            :"%3"
           when C::Spanish
             :"Z"
           when C::Swedish
@@ -62,6 +87,10 @@ class Tput
             :"7"
           when C::Swiss
             :"="
+          when C::Turkish
+            :"%2"
+          when C::Turkish94
+            :"%0"
           when C::Isolatin
             :"/A"
           when nil # Default
