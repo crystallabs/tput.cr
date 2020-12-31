@@ -30,6 +30,43 @@ describe Tput::Output::Cursor do
 
   end
 
+  describe "hide & show cursor" do
+    it "works with terminfo" do
+      x.t.hide_cursor.should be_true
+      x.o.should eq "\e[?25l"
+      x.t.dectcemh.should be_true
+      x.o.should eq "\e[?25l"
+      x.t.cursor_invisible.should be_true
+      x.o.should eq "\e[?25l"
+      x.t.vi.should be_true
+      x.o.should eq "\e[?25l"
+      x.t.civis.should be_true
+      x.o.should eq "\e[?25l"
+      x.t.cursor_hidden?.should be_true
+
+      x.t.show_cursor.should be_true
+      x.o.should eq "\e[?12l\e[?25h"
+      x.t.dectcem.should be_true
+      x.o.should eq "\e[?12l\e[?25h"
+      x.t.cnorm.should be_true
+      x.o.should eq "\e[?12l\e[?25h"
+      x.t.cvvis.should be_true
+      x.o.should eq "\e[?12l\e[?25h"
+      x.t.cursor_visible.should be_true
+      x.o.should eq "\e[?12l\e[?25h"
+      x.t.cursor_hidden?.should be_false
+    end
+    it "works with plain" do
+      x.p.hide_cursor.should be_true
+      x.o.should eq "\e[?25l"
+      x.p.cursor_hidden?.should be_true
+
+      x.p.show_cursor.should be_true
+      x.o.should eq "\e[?25h"
+      x.p.cursor_hidden?.should be_false
+    end
+  end
+
   # ----
 
   describe "cursor_next_line" do
@@ -40,7 +77,7 @@ describe Tput::Output::Cursor do
     end
 
     it "works plain" do
-      x.t.sety 0; x.output.clear
+      x.p.sety 0; x.output.clear
       x.p.cursor_next_line 3
       x.o.should eq "\e[3E"
     end

@@ -288,7 +288,7 @@ class Tput
         @cursor_hidden = true
         put(civis?) || reset_mode "?25"
       end
-      alias_previous dectcemh, cursor_invisible, vi, civis, cursor_invisible
+      alias_previous dectcemh, cursor_invisible, vi, civis
 
       def show_cursor
         @cursor_hidden = false
