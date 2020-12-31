@@ -15,7 +15,7 @@ class Tput
       #     exit_alt_charset_mode / rmacs / ae
       #     enter_pc_charset_mode / smpch / S2
       #     exit_pc_charset_mode / rmpch / S3
-      def charset(charset : Tput::Namespace::Charset?) #, level = 0)
+      def charset=(charset : Tput::Namespace::Charset?) #, level = 0)
 
         #case (level)
         #  when 0
@@ -30,43 +30,43 @@ class Tput
 
         #name = val.is_a?(String) ? val.downcase : val
 
-        case (charset)
+        val = case (charset)
           when C::ACS, C::SCLD
             return true if put(smacs?)
-            val = "0"
+            :"0"
           when C::UK
-            val = "A"
+            :"A"
           when C::ASCII
             return true if put(rmacs?)
-            val = "B"
+            :"B"
           when C::Dutch
-            val = "4"
+            :"4"
           when C::Finnish
-            #val = "C"
-            val = "5"
+            #:"C"
+            :"5"
           when C::French
-            val = "R"
+            :"R"
           when C::FrenchCanadian
-            val = "Q"
+            :"Q"
           when C::German
-            val = "K"
+            :"K"
           when C::Italian
-            val = "Y"
+            :"Y"
           when C::NorwegianDanish
-            #val = "E"
-            val = "6"
+            #:"E"
+            :"6"
           when C::Spanish
-            val = "Z"
+            :"Z"
           when C::Swedish
-            #val = "H"
-            val = "7"
+            #:"H"
+            :"7"
           when C::Swiss
-            val = "="
+            :"="
           when C::Isolatin
-            val = "/A"
+            :"/A"
           when nil # Default
             return true if put(rmacs?)
-            val = "B"
+            :"B"
           else
             raise "Unsupported charset '#{charset}'"
         end
@@ -74,15 +74,15 @@ class Tput
         _print { |io| io << "\e(" << val }
       end
 
-      # Enter ACS/SCLD character set
+      # Enter alternate (DEC TV100/ACS/SCLD) character set
       def enter_alt_charset_mode 
-        charset Tput::Namespace::Charset::ACS
+        self.charset= Tput::Namespace::Charset::ACS
       end
       alias_previous smacs #, as # TODO can't alias to 'as'
 
-      # Exit any character set by returning back to ASCII
+      # Exit any alternate character set by returning to terminal's default
       def exit_alt_charset_mode
-        charset Tput::Namespace::Charset::ASCII
+        self.charset=()
       end
       alias_previous rmacs, ae
 
