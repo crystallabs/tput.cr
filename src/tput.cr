@@ -137,7 +137,6 @@ class Tput
   #  ret
   #end
 
-  include Namespace
   include ACSC
   include Output
   include Input

@@ -79,13 +79,13 @@ describe Tput::Output::Text do
         t[0].erase_in_line.should be_true
         x.o.should eq "\e[K"
 
-        t[0].el(Tput::Namespace::LineDirection::Right).should be_true
+        t[0].el(Tput::LineDirection::Right).should be_true
         x.o.should eq "\e[K"
 
-        t[0].el(Tput::Namespace::LineDirection::Left).should be_true
+        t[0].el(Tput::LineDirection::Left).should be_true
         x.o.should eq "\e[1K"
 
-        t[0].el(Tput::Namespace::LineDirection::All).should be_true
+        t[0].el(Tput::LineDirection::All).should be_true
         x.o.should eq "\e[2K"
       end
     end

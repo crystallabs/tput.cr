@@ -1,4 +1,4 @@
-alias C = Tput::Namespace::Charset
+alias C = Tput::Charset
 
 describe Tput::Output::Charset do
 

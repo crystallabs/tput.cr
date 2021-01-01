@@ -5,7 +5,7 @@ class Tput
       #include Crystallabs::Helpers::Boolean
       include Macros
 
-      alias C = Tput::Namespace::Charset
+      alias C = Tput::Charset
 
       # Activate a different charset.
       #
@@ -19,7 +19,7 @@ class Tput
       #     exit_alt_charset_mode / rmacs / ae
       #     enter_pc_charset_mode / smpch / S2
       #     exit_pc_charset_mode / rmpch / S3
-      def charset=(charset : Tput::Namespace::Charset?) #, level = 0)
+      def charset=(charset : Tput::Charset?) #, level = 0)
 
         #case (level)
         #  when 0
@@ -110,9 +110,9 @@ class Tput
       # Enter alternate (DEC TV100/ACS/SCLD) character set.
       #
       # Equivalent to:
-      #     charset= Tput::Namespace::Charset::ACS
+      #     charset= Tput::Charset::ACS
       def enter_alt_charset_mode 
-        self.charset= Tput::Namespace::Charset::ACS
+        self.charset= Tput::Charset::ACS
       end
       alias_previous smacs #, as # TODO can't alias to 'as'
 
