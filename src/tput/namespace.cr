@@ -1,8 +1,10 @@
 require "json"
 
 class Tput
+module Namespace
 
   enum Color
+    None = 0
     AliceBlue = 0xF0F8FF
     AntiqueWhite = 0xFAEBD7
     AntiqueWhite1 = 0xFFEFDB
@@ -1690,13 +1692,21 @@ class Tput
     property top : Int32
     property right : Int32
     property bottom : Int32
-    def initialize(@left=0, @top=0, @right=0, @bottom=0)
-    end
-    def width
-      raise "Not iplimented"
-    end
-    def height
-      raise "Not iplimented"
+    property width : Int32?
+    property height : Int32?
+    property? shrink = false
+    def initialize(@left=0, @top=0, @right=0, @bottom=0, width=0, height=0)
+      if width == "shrink"
+        @shrink = true
+      else
+        @width = width
+      end
+
+      if height == "shrink"
+        @shrink = true
+      else
+        @height = height
+      end
     end
   end
 
@@ -1704,7 +1714,7 @@ class Tput
     property artificial : Bool = false
     property shape = CursorShape::Block
     property blink = false
-    property color : Color? = nil
+    property color = Color::None
 
     property _set = false
     property _state = 1
@@ -1779,6 +1789,55 @@ class Tput
     Left = 1
     All = 2
   end
+
+  enum BorderType
+    None
+    Bg
+    Line
+    #Fg
+    #Dotted
+    #Dashed
+    #Solid
+    #Double
+    #DotDash
+    #DotDotDash
+    #Groove
+    #Ridge
+    #Inset
+    #Outset
+  end
+
+  class Border
+    property type = BorderType::Bg
+    property ch = ' '
+    property left : Bool = true
+    property top : Bool = true
+    property right : Bool = true
+    property bottom : Bool = true
+    def initialize(
+      @type = BorderType::Bg,
+      @ch = ' ',
+      @left = true,
+      @top = true,
+      @right = true,
+      @bottom = true
+    )
+    end
+  end
+
+  class BorderSomething
+    property fg
+    property bg
+  end
+
+  class HoverEffects
+    property bg
+  end
+  class FocusEffects
+    property bg
+  end
+
+end
 end
 
 #class KeyCombination

@@ -31,7 +31,7 @@ class Tput
     getter? setbuf : Bool
 
     # Number of colors supported by the terminal
-    getter? number_of_colors : Int32
+    getter number_of_colors : Int32
 
     # Color support flag (a yes/no)
     getter? color : Bool

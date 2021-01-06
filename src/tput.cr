@@ -21,6 +21,7 @@ require "./tput/emulator"
 
 class Tput
   VERSION = "0.1.0"
+  include Namespace
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
 
@@ -62,6 +63,8 @@ class Tput
   getter screen : Size
   getter cursor : Point
   getter saved_cursor : Point?
+
+  property _saved = Hash(String, CursorState).new
 
   @[JSON::Field(ignore: true)]
   @_buf = IO::Memory.new

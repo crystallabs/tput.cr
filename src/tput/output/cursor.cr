@@ -66,6 +66,10 @@ class Tput
       # Set cursor position.
       #     CSI Ps ; Ps H
       #     Cursor Position [row;column] (default = [1,1]) (CUP).
+      def cursor_position(point : Tput::Point)
+        cursor_position point.y, point.x
+      end
+      # :ditto:
       def cursor_position(row : Int = 0, column : Int = 0)
         @cursor.x, @cursor.y = _adjust_xy_abs column, row
         put(cup?(@cursor.y, @cursor.x)) ||
