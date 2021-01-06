@@ -1688,12 +1688,12 @@ module Namespace
   end
 
   class Position # XXX better name?
-    property left : Int32
-    property top : Int32
+    property left : Int32 | String
+    property top : Int32 | String
     property right : Int32
     property bottom : Int32
-    property width : Int32?
-    property height : Int32?
+    property width : Int32 | String | Nil
+    property height : Int32 | String | Nil
     property? shrink = false
     def initialize(@left=0, @top=0, @right=0, @bottom=0, width=0, height=0)
       if width == "shrink"
