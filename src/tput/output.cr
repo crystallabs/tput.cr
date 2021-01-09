@@ -1,4 +1,5 @@
 require "./output/*"
+
 class Tput
   module Output
     include Crystallabs::Helpers::Logging
@@ -31,7 +32,6 @@ class Tput
     #     Example: `DCS tmux; ESC Pt ST`
     #     Real: `DCS tmux; ESC Pt ESC \`
     def _tprint(data)
-
       iterations = 0
 
       if emulator.tmux?
@@ -42,9 +42,9 @@ class Tput
         data = "\ePtmux;\e" + data + "\e\\"
 
         # TODO
-        ## If we've never even flushed yet, it means we're still in
-        ## the normal buffer. Wait for alt screen buffer.
-        #if (this.output.bytesWritten === 0)
+        # # If we've never even flushed yet, it means we're still in
+        # # the normal buffer. Wait for alt screen buffer.
+        # if (this.output.bytesWritten === 0)
         #	timer = setInterval(function()
         #		if (self.output.bytesWritten > 0 || ++iterations === 50)
         #			clearInterval(timer)
@@ -53,7 +53,7 @@ class Tput
         #		end
         #	end 100)
         #	return true
-        #end
+        # end
 
         # NOTE: Flushing the buffer is required in some cases.
         # The DCS code must be at the start of the output.
@@ -66,7 +66,7 @@ class Tput
       end
     end
 
-    # Directly writes string to `@output` (usually STDOUT). 
+    # Directly writes string to `@output` (usually STDOUT).
     #
     # Mostly not used directly, but through `#_write`.
     def _owrite(*args)
@@ -86,18 +86,18 @@ class Tput
       true
     end
 
-    #def _owrite(text : String)
+    # def _owrite(text : String)
     #  @output.print text
-    #end
-    ## :ditto:
-    #def _owrite(data : Bytes)
+    # end
+    # # :ditto:
+    # def _owrite(data : Bytes)
     #  @output.write data
-    #end
-    ## :ditto:
-    #def _owrite(data : IO)
+    # end
+    # # :ditto:
+    # def _owrite(data : IO)
     #  @output << data
-    #end
-    ## :ditto:
+    # end
+    # # :ditto:
 
     # Standard output method.
     #
@@ -117,6 +117,7 @@ class Tput
         _oprint *args
       end
     end
+
     def _print(&block : IO -> Nil)
       if use_buffer?
         _buffer_print &block
@@ -125,26 +126,26 @@ class Tput
       end
     end
 
-    #def _write(bytes : Bytes)
+    # def _write(bytes : Bytes)
     #  #return text if @ret
     #  if use_buffer?
     #    _buffer bytes
     #  else
     #    _owrite bytes
     #  end
-    #end
-    ## :ditto:
-    #def _write(str : String)
+    # end
+    # # :ditto:
+    # def _write(str : String)
     #  _write str.to_slice
-    #end
-    ## :ditto:
-    #def _write(&block : IO -> Nil)
+    # end
+    # # :ditto:
+    # def _write(&block : IO -> Nil)
     #  if use_buffer?
     #    _buffer &block
     #  else
     #    _owrite &block
     #  end
-    #end
+    # end
 
     # Standard output method which takes terminal padding (software timing/delays) into account.
     #
@@ -156,7 +157,7 @@ class Tput
     end
 
     # Saves `bytes` to local buffer.
-    private def _buffer_write(*args) #bytes : Bytes)
+    private def _buffer_write(*args) # bytes : Bytes)
       if @exiting
         flush
         _owrite *args
@@ -164,14 +165,15 @@ class Tput
       end
       # Not needed any more since buf is now an IO rather than slice.
       # Essentially a += operation for Bytes
-      #_buf = Bytes.new @_buf.size + bytes.size
-      #@_buf.copy_to _buf
-      #bytes.copy_to _buf + @_buf.size
-      #@_buf = _buf
-      #@_buf.write bytes
+      # _buf = Bytes.new @_buf.size + bytes.size
+      # @_buf.copy_to _buf
+      # bytes.copy_to _buf + @_buf.size
+      # @_buf = _buf
+      # @_buf.write bytes
       args.each { |a| @_buf.write a }
       flush
     end
+
     private def _buffer_print(*args)
       if @exiting
         flush
@@ -184,6 +186,7 @@ class Tput
       flush
       true
     end
+
     private def _buffer_print(&block : IO -> Nil)
       if @exiting
         flush
@@ -194,15 +197,16 @@ class Tput
       flush
       true
     end
-    #private def _buffer(&block : IO -> Nil)
+
+    # private def _buffer(&block : IO -> Nil)
     #  with @_buf yield @_buf
     #  true
-    #end
+    # end
 
     # Flushes internal buffer into `@output` and calls `@output.flush`
     def flush
       unless @_buf.empty?
-        #IO.copy @_buf, @output
+        # IO.copy @_buf, @output
         @output << @_buf
         @_buf.clear
         @output.flush

@@ -2,7 +2,7 @@ class Tput
   module Output
     module Rectangles
       include Crystallabs::Helpers::Alias_Methods
-      #include Crystallabs::Helpers::Boolean
+      # include Crystallabs::Helpers::Boolean
       include Macros
 
       # CSI Pt; Pl; Pb; Pr; Ps$ r
@@ -13,6 +13,7 @@ class Tput
       def set_attr_in_rectangle(*arguments)
         _print "\e[#{arguments.join ';'}$r"
       end
+
       alias_previous deccara
 
       # CSI Pt; Pl; Pb; Pr; Ps$ t
@@ -24,6 +25,7 @@ class Tput
       def reverse_attr_in_rectangle(*arguments)
         _print "\e[#{arguments.join ';'}$t"
       end
+
       alias_previous decrara
 
       # CSI Pt; Pl; Pb; Pr; Pp; Pt; Pl; Pp$ v
@@ -36,15 +38,17 @@ class Tput
       def copy_rectangle(*arguments)
         _print "\e[#{arguments.join ';'}$v"
       end
+
       alias_previous deccra
 
       # CSI Ps x  Select Attribute Change Extent (DECSACE).
       #     Ps = 0  -> from start to end position, wrapped.
       #     Ps = 1  -> from start to end position, wrapped.
       #     Ps = 2  -> rectangle (exact).
-      def select_change_extent(param=0)
+      def select_change_extent(param = 0)
         _print "\e[#{param}x"
       end
+
       alias_previous decsace
 
       # CSI Pc; Pt; Pl; Pb; Pr$ x
@@ -55,6 +59,7 @@ class Tput
       def fill_rectangle(*arguments)
         _print "\e[#{arguments.join ';'}$x"
       end
+
       alias_previous decfra
 
       # CSI Pt; Pl; Pb; Pr$ z
@@ -64,6 +69,7 @@ class Tput
       def erase_rectangle(*arguments)
         _print "\e[#{arguments.join ';'}$z"
       end
+
       alias_previous decera
 
       # CSI Pt; Pl; Pb; Pr$ {
@@ -72,8 +78,8 @@ class Tput
       def selective_erase_rectangle(*arguments)
         _print "\e[#{arguments.join ';'}${"
       end
-      alias_previous decsera
 
+      alias_previous decsera
     end
   end
 end

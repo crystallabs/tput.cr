@@ -200,7 +200,7 @@ class Tput
 
         nxt = acs_chars[i + 1]?
         next if !nxt || !ACSC::Data[nxt]?
-        ch2 = ACSC::Data[nxt][ broken_acs? ? 2 : 1 ].as Char
+        ch2 = ACSC::Data[nxt][broken_acs? ? 2 : 1].as Char
 
         acsc[ch] = ch2
         acscr[ch2] = acsc[ch]

@@ -1,6 +1,5 @@
 class Tput
   module Macros
-
     # Outputs a string capability to the designated `@output`, if
     # the capability exists.
     #
@@ -15,7 +14,6 @@ class Tput
     # put(s.smcup?)
     #
     # put(s.cursor_pos?(10, 20))
-    #
     # ```
     macro put(arg)
       @shim.try { |s|
@@ -29,6 +27,5 @@ class Tput
     macro has?(arg)
       @shim.try { |s| s.{{arg}} ? true : false }
     end
-
   end
 end

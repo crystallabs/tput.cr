@@ -2,7 +2,7 @@ class Tput
   module Output
     module Terminal
       include Crystallabs::Helpers::Alias_Methods
-      #include Crystallabs::Helpers::Boolean
+      # include Crystallabs::Helpers::Boolean
       include Macros
 
       # ESC c Full Reset (RIS).
@@ -15,12 +15,13 @@ class Tput
       # http:#vt100.net/docs/vt220-rm/table4-10.html
       def soft_reset
         # Disabled originally:
-        #if (tput) put.init_2string()
-        #if (tput) put.reset_2string()
-        #_write('\e[!p')
-        #_write('\e[!p\e[?3;4l\e[4l\e>'); # init
+        # if (tput) put.init_2string()
+        # if (tput) put.reset_2string()
+        # _write('\e[!p')
+        # _write('\e[!p\e[?3;4l\e[4l\e>'); # init
         put(rs2?) || _print "\e[!p\e[?3;4l\e[4l\e>" # reset
       end
+
       alias_previous decstr, rs2
 
       # CSI Pm h  Set Mode (SM).
@@ -110,6 +111,7 @@ class Tput
       def set_mode(*arguments)
         _print { |io| io << "\e["; arguments.join(io, ';'); io << 'h' }
       end
+
       alias_previous sm
 
       # CSI Pm l  Reset Mode (RM).
@@ -195,6 +197,7 @@ class Tput
       def reset_mode(*arguments)
         _print { |io| io << "\e["; arguments.join(io, ';'); io << "l" }
       end
+
       alias_previous rm
 
       # CSI Ps$ p
@@ -207,21 +210,23 @@ class Tput
       #     2 - reset
       #     3 - permanently set
       #     4 - permanently reset
-      def request_ansi_mode(param="")
+      def request_ansi_mode(param = "")
         _print { |io| io << "\e[" << param << "$p" }
       end
+
       alias_previous decrqm
-  
+
       # CSI ? Ps$ p
       #   Request DEC private mode (DECRQM).  For VT300 and up, reply is
       #     CSI ? Ps; Pm$ p
       #   where Ps is the mode number as in DECSET, Pm is the mode value
       #   as in the ANSI DECRQM.
-      def request_private_mode(param="")
+      def request_private_mode(param = "")
         _print { |io| io << "\e[?" << param << "$p" }
       end
+
       alias_previous decrqmp
-  
+
       # CSI Ps ; Ps " p
       #   Set conformance level (DECSCL).  Valid values for the first
       #   parameter:
@@ -235,6 +240,7 @@ class Tput
       def set_conformance_level(*arguments)
         _print { |io| io << "\e["; arguments.join(io, ';'); io << "\"p" }
       end
+
       alias_previous decscl
 
       def decset(*arguments)
@@ -244,8 +250,6 @@ class Tput
       def decrst(*arguments)
         reset_mode "?#{arguments.join ';'}"
       end
-
-
     end
   end
 end

@@ -2,7 +2,7 @@ class Tput
   module Output
     module Screen
       include Crystallabs::Helpers::Alias_Methods
-      #include Crystallabs::Helpers::Boolean
+      # include Crystallabs::Helpers::Boolean
       include Macros
 
       def clear
@@ -21,11 +21,12 @@ class Tput
       #     Ps = 0  -> Selective Erase Below (default).
       #     Ps = 1  -> Selective Erase Above.
       #     Ps = 2  -> Selective Erase All.
-      def erase_in_display(param=Erase::Below)
+      def erase_in_display(param = Erase::Below)
         # Disabled originally
         # extended tput.E3 = ^[[3;J
         put(ed?(param.value)) || _print { |io| io << "\e[" << param.value << 'J' }
       end
+
       alias_previous ed
 
       def alternate_buffer
@@ -35,6 +36,7 @@ class Tput
         set_mode "?47"
         set_mode "?1049"
       end
+
       alias_previous alternate, smcup
 
       def normal_buffer
@@ -43,8 +45,8 @@ class Tput
         reset_mode "?47"
         reset_mode "?1049"
       end
-      alias_previous rmcup
 
+      alias_previous rmcup
     end
   end
 end

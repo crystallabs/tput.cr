@@ -2,20 +2,21 @@ class Tput
   module Output
     module Text
       include Crystallabs::Helpers::Alias_Methods
-      #include Crystallabs::Helpers::Boolean
+      # include Crystallabs::Helpers::Boolean
       include Crystallabs::Helpers::Logging
       include Macros
 
       # Prints text with optional attributes
-      def print(txt, attr=nil)
+      def print(txt, attr = nil)
         # XXX to_slice until it's replaced with direct io write
         _print (attr ? text(txt, attr) : txt)
       end
+
       alias_previous echo
 
       # Writes string `str` (repeated `i` times and with `attr` attributes)
-      def simple_insert(str, i=1, attr=nil)
-        if i> 1
+      def simple_insert(str, i = 1, attr = nil)
+        if i > 1
           _print str.to_s*i, attr
         else
           _print str, attr
@@ -23,7 +24,7 @@ class Tput
       end
 
       # Repeats string `str` `i` times.
-      def repeat(str,i = 1)
+      def repeat(str, i = 1)
         if (!i || i < 0)
           i = 0
         end
@@ -31,7 +32,7 @@ class Tput
       end
 
       def vtab
-        @cursor.y+=1
+        @cursor.y += 1
         _ncoords
         _print "\x0b"
       end
@@ -39,13 +40,15 @@ class Tput
       def form
         put(ff?) || _print "\x0c"
       end
+
       alias_previous ff, formfeed, form_feed
 
       def backspace
-        @cursor.x-=1
+        @cursor.x -= 1
         _ncoords
         put(kbs?) || _print "\x08"
       end
+
       alias_previous kbs
 
       def tab
@@ -53,15 +56,16 @@ class Tput
         _ncoords
         put(ht?) || _print "\t"
       end
+
       alias_previous ht
 
       def shift_out
-        #put(S2?) ||
+        # put(S2?) ||
         _print "\x0e"
       end
 
       def shift_in
-        #has_and_put("S3") ||
+        # has_and_put("S3") ||
         _print "\x0f"
       end
 
@@ -69,7 +73,8 @@ class Tput
         @cursor.x = 0
         put(cr?) || _print "\r"
       end
-      #alias_previous # TODO can't alias 'return'
+
+      # alias_previous # TODO can't alias 'return'
 
       def feed
         @shim.try do |s|
@@ -79,15 +84,16 @@ class Tput
         end
 
         @cursor.x = 0
-        @cursor.y+=1
+        @cursor.y += 1
         _ncoords()
         put(nel?) || _print "\n"
       end
+
       alias_previous nel, newline
 
       # ESC E Next Line (NEL is 0x85).
       def next_line
-        @cursor.y+=1
+        @cursor.y += 1
         @cursor.x = 0
         _ncoords
         put(nel?) || _print "\eE"
@@ -165,6 +171,7 @@ class Tput
       def char_attributes(param, val)
         _write _attr(param, val)
       end
+
       alias_previous sgr, attr
 
       def text(text, attr)
@@ -209,7 +216,7 @@ class Tput
             outbuf.push part
           end
 
-          #return outbuf.map{|e| "\e[#{e}m"}.join
+          # return outbuf.map{|e| "\e[#{e}m"}.join
           # TODO figure this out. Sequence gets aborted at some point
           # and the rest printed to the screen.
           return "\e[#{outbuf.join ';'}m"
@@ -226,157 +233,153 @@ class Tput
         # TODO turn to enum
         # TODO turn !val ? y : x   into  val ? x : y
         case param
-          # attributes
-          when "normal", "default"
-            return "" if !val
-            return "\e[m"
-          when "bold"
-            return !val ? "\e[22m" : "\e[1m"
-          when "ul", "underline", "underlined"
-            return !val ? "\e[24m" : "\e[4m"
-          when "blink"
-            return !val ? "\e[25m" : "\e[5m"
-          when "inverse"
-            return !val ? "\e[27m" : "\e[7m"
-          when "invisible"
-            return !val ? "\e[28m" : "\e[8m"
-
+        # attributes
+        when "normal", "default"
+          return "" if !val
+          return "\e[m"
+        when "bold"
+          return !val ? "\e[22m" : "\e[1m"
+        when "ul", "underline", "underlined"
+          return !val ? "\e[24m" : "\e[4m"
+        when "blink"
+          return !val ? "\e[25m" : "\e[5m"
+        when "inverse"
+          return !val ? "\e[27m" : "\e[7m"
+        when "invisible"
+          return !val ? "\e[28m" : "\e[8m"
           # 8-color foreground
-          when "black fg"
-            return !val ? "\e[39m" : "\e[30m"
-          when "red fg"
-            return !val ? "\e[39m" : "\e[31m"
-          when "green fg"
-            return !val ? "\e[39m" : "\e[32m"
-          when "yellow fg"
-            return !val ? "\e[39m" : "\e[33m"
-          when "blue fg"
-            return !val ? "\e[39m" : "\e[34m"
-          when "magenta fg"
-            return !val ? "\e[39m" : "\e[35m"
-          when "cyan fg"
-            return !val ? "\e[39m" : "\e[36m"
-          when "white fg", "light grey fg", "light gray fg", "bright grey fg", "bright gray fg"
-            return !val ? "\e[39m" : "\e[37m"
-          when "default fg"
-            return "" if !val
-            return "\e[39m"
+        when "black fg"
+          return !val ? "\e[39m" : "\e[30m"
+        when "red fg"
+          return !val ? "\e[39m" : "\e[31m"
+        when "green fg"
+          return !val ? "\e[39m" : "\e[32m"
+        when "yellow fg"
+          return !val ? "\e[39m" : "\e[33m"
+        when "blue fg"
+          return !val ? "\e[39m" : "\e[34m"
+        when "magenta fg"
+          return !val ? "\e[39m" : "\e[35m"
+        when "cyan fg"
+          return !val ? "\e[39m" : "\e[36m"
+        when "white fg", "light grey fg", "light gray fg", "bright grey fg", "bright gray fg"
+          return !val ? "\e[39m" : "\e[37m"
+        when "default fg"
+          return "" if !val
+          return "\e[39m"
 
           # 8-color background
-          when "black bg"
-            return !val ? "\e[49m" : "\e[40m"
-          when "red bg"
-            return !val ? "\e[49m" : "\e[41m"
-          when "green bg"
-            return !val ? "\e[49m" : "\e[42m"
-          when "yellow bg"
-            return !val ? "\e[49m" : "\e[43m"
-          when "blue bg"
-            return !val ? "\e[49m" : "\e[44m"
-          when "magenta bg"
-            return !val ? "\e[49m" : "\e[45m"
-          when "cyan bg"
-            return !val ? "\e[49m" : "\e[46m"
-          when "white bg", "light grey bg", "light gray bg", "bright grey bg", "bright gray bg"
-            return !val ? "\e[49m" : "\e[47m"
-          when "default bg"
-            return "" if !val
-            return "\e[49m"
+        when "black bg"
+          return !val ? "\e[49m" : "\e[40m"
+        when "red bg"
+          return !val ? "\e[49m" : "\e[41m"
+        when "green bg"
+          return !val ? "\e[49m" : "\e[42m"
+        when "yellow bg"
+          return !val ? "\e[49m" : "\e[43m"
+        when "blue bg"
+          return !val ? "\e[49m" : "\e[44m"
+        when "magenta bg"
+          return !val ? "\e[49m" : "\e[45m"
+        when "cyan bg"
+          return !val ? "\e[49m" : "\e[46m"
+        when "white bg", "light grey bg", "light gray bg", "bright grey bg", "bright gray bg"
+          return !val ? "\e[49m" : "\e[47m"
+        when "default bg"
+          return "" if !val
+          return "\e[49m"
 
           # 16-color foreground
-          when "light black fg", "bright black fg", "grey fg", "gray fg"
-            return !val ? "\e[39m" : "\e[90m"
-          when "light red fg", "bright red fg"
-            return !val ? "\e[39m" : "\e[91m"
-          when "light green fg", "bright green fg"
-            return !val ? "\e[39m" : "\e[92m"
-          when "light yellow fg", "bright yellow fg"
-            return !val ? "\e[39m" : "\e[93m"
-          when "light blue fg", "bright blue fg"
-            return !val ? "\e[39m" : "\e[94m"
-          when "light magenta fg", "bright magenta fg"
-            return !val ? "\e[39m" : "\e[95m"
-          when "light cyan fg", "bright cyan fg"
-            return !val ? "\e[39m" : "\e[96m"
-          when "light white fg", "bright white fg"
-            return !val ? "\e[39m" : "\e[97m"
-
+        when "light black fg", "bright black fg", "grey fg", "gray fg"
+          return !val ? "\e[39m" : "\e[90m"
+        when "light red fg", "bright red fg"
+          return !val ? "\e[39m" : "\e[91m"
+        when "light green fg", "bright green fg"
+          return !val ? "\e[39m" : "\e[92m"
+        when "light yellow fg", "bright yellow fg"
+          return !val ? "\e[39m" : "\e[93m"
+        when "light blue fg", "bright blue fg"
+          return !val ? "\e[39m" : "\e[94m"
+        when "light magenta fg", "bright magenta fg"
+          return !val ? "\e[39m" : "\e[95m"
+        when "light cyan fg", "bright cyan fg"
+          return !val ? "\e[39m" : "\e[96m"
+        when "light white fg", "bright white fg"
+          return !val ? "\e[39m" : "\e[97m"
           # 16-color background
-          when "light black bg", "bright black bg", "grey bg", "gray bg"
-            return !val ? "\e[49m" : "\e[100m"
-          when "light red bg", "bright red bg"
-            return !val ? "\e[49m" : "\e[101m"
-          when "light green bg", "bright green bg"
-            return !val ? "\e[49m" : "\e[102m"
-          when "light yellow bg", "bright yellow bg"
-            return !val ? "\e[49m" : "\e[103m"
-          when "light blue bg", "bright blue bg"
-            return !val ? "\e[49m" : "\e[104m"
-          when "light magenta bg", "bright magenta bg"
-            return !val ? "\e[49m" : "\e[105m"
-          when "light cyan bg", "bright cyan bg"
-            return !val ? "\e[49m" : "\e[106m"
-          when "light white bg", "bright white bg"
-            return !val ? "\e[49m" : "\e[107m"
-
+        when "light black bg", "bright black bg", "grey bg", "gray bg"
+          return !val ? "\e[49m" : "\e[100m"
+        when "light red bg", "bright red bg"
+          return !val ? "\e[49m" : "\e[101m"
+        when "light green bg", "bright green bg"
+          return !val ? "\e[49m" : "\e[102m"
+        when "light yellow bg", "bright yellow bg"
+          return !val ? "\e[49m" : "\e[103m"
+        when "light blue bg", "bright blue bg"
+          return !val ? "\e[49m" : "\e[104m"
+        when "light magenta bg", "bright magenta bg"
+          return !val ? "\e[49m" : "\e[105m"
+        when "light cyan bg", "bright cyan bg"
+          return !val ? "\e[49m" : "\e[106m"
+        when "light white bg", "bright white bg"
+          return !val ? "\e[49m" : "\e[107m"
           # non-16-color rxvt default fg and bg
-          when "default fg bg"
-            return "" if !val
-            return name?("rxvt") ? "\e[100m" : "\e[39;49m"
+        when "default fg bg"
+          return "" if !val
+          return name?("rxvt") ? "\e[100m" : "\e[39;49m"
+        else
+          # 256-color fg and bg
+          if param[0] == "#"
+            raise Exception.new "Not implemented yet; use less than 256colors+#ccc, or implement this."
+            # TODO This requires color functions as separate shard
+            # param = param.sub(/#(?:[0-9a-f]{3}){1,2}/i) { |s| color_match s }
+          end
 
-          else
-            # 256-color fg and bg
-            if param[0] == "#"
-              raise Exception.new "Not implemented yet; use less than 256colors+#ccc, or implement this."
-              # TODO This requires color functions as separate shard
-              #param = param.sub(/#(?:[0-9a-f]{3}){1,2}/i) { |s| color_match s }
+          m = /^(-?\d+) (fg|bg)$/.match param
+          if m
+            color = m[1].to_i
+
+            if !val || color == -1
+              return _attr "default #{m[2]}"
             end
 
-            m = /^(-?\d+) (fg|bg)$/.match param
-            if m
-              color = m[1].to_i
+            # TODO
+            # color = ::Crysterm::Colors.reduce(color, @tput.colors)
 
-              if !val || color == -1
-                return _attr "default #{m[2]}"
-              end
-
-              # TODO
-              #color = ::Crysterm::Colors.reduce(color, @tput.colors)
-
-              # XXX color < 16 or <=? Seems <= ?
-              if (color < 16) || @shim.try { |s| s.colors?.try { |c| c <= 16}}
-                if m[2] == "fg"
-                  if color < 8
-                    color += 30
-                  elsif color < 16
-                    color -= 8
-                    color += 90
-                  end
-                elsif m[2] == "bg"
-                  if color < 8
-                    color += 40
-                  elsif color < 16
-                    color -= 8
-                    color += 100
-                  end
-                end
-                return "\e[#{color}m"
-              end
-
+            # XXX color < 16 or <=? Seems <= ?
+            if (color < 16) || @shim.try { |s| s.colors?.try { |c| c <= 16 } }
               if m[2] == "fg"
-                return "\e[38;5;#{color}m"
+                if color < 8
+                  color += 30
+                elsif color < 16
+                  color -= 8
+                  color += 90
+                end
+              elsif m[2] == "bg"
+                if color < 8
+                  color += 40
+                elsif color < 16
+                  color -= 8
+                  color += 100
+                end
               end
-
-              if m[2] == "bg"
-                return "\e[48;5;#{color}m"
-              end
+              return "\e[#{color}m"
             end
 
-            if /^[\d;]*$/.match param
-              return "\e[#{param}m"
+            if m[2] == "fg"
+              return "\e[38;5;#{color}m"
             end
 
-            return ""
+            if m[2] == "bg"
+              return "\e[48;5;#{color}m"
+            end
+          end
+
+          if /^[\d;]*$/.match param
+            return "\e[#{param}m"
+          end
+
+          return ""
         end
       end
 
@@ -445,22 +448,24 @@ class Tput
       def char_attributes(param, val)
         _write _attr param, val
       end
+
       alias_previous sgr, attr
 
       # CSI Ps @
       # Insert Ps (Blank) Character(s) (default = 1) (ICH).
-      def insert_chars(param=1)
+      def insert_chars(param = 1)
         @cursor.x += param
         _ncoords
         put(ich?(param)) || _print { |io| io << "\e[" << param << "@" }
       end
+
       alias_previous ich
 
       # Insert line(s).
       #     CSI Ps L
       #     Insert Ps Line(s) (default = 1) (IL).
       def insert_line(param : Int = 1)
-        param>0 || raise ArgumentError.new "param > 0"
+        param > 0 || raise ArgumentError.new "param > 0"
 
         if param == 1
           put(il1?) || put(il?(param))
@@ -468,13 +473,14 @@ class Tput
           put(il?(param))
         end || _print { |io| io << "\e[" << param << "L" }
       end
+
       alias_previous il
 
       # Delete line(s).
       #     CSI Ps M
       #     Delete Ps Line(s) (default = 1) (DL).
       def delete_line(param : Int = 1)
-        param>0 || raise ArgumentError.new "param > 0"
+        param > 0 || raise ArgumentError.new "param > 0"
 
         if param == 1
           put(dl1?) || put(dl?(param))
@@ -482,13 +488,15 @@ class Tput
           put(dl?(param))
         end || _print { |io| io << "\e[" << param << "M" }
       end
+
       alias_previous dl
 
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
-      def delete_chars(param=1)
+      def delete_chars(param = 1)
         put(dch?(param)) || _print { |io| io << "\e[" << param << "P" }
       end
+
       alias_previous dch
 
       # Erase character(s).
@@ -497,6 +505,7 @@ class Tput
       def erase_character(param : Int = 1)
         put(ech?(param)) || _print { |io| io << "\e[" << param << "X" }
       end
+
       alias_previous ech, erase_chars
 
       # ESC # 3 DEC line height/width
@@ -507,8 +516,8 @@ class Tput
       # OSC Ps ; Pt ST
       # OSC Ps ; Pt BEL
       #   Sel data
-      def sel_data(a,b)
-        put(_Ms?(a,b)) || _tprint "\e]52;#{a};#{b}\x07"
+      def sel_data(a, b)
+        put(_Ms?(a, b)) || _tprint "\e]52;#{a};#{b}\x07"
       end
 
       # Erase in line.
@@ -526,7 +535,7 @@ class Tput
         #   clr_eol                   / el         = \e[K
         # How did this work originally then?
 
-        #put(el?(param.value)) ||
+        # put(el?(param.value)) ||
         case (param)
         when LineDirection::Right
           put(clr_eol?) || _print "\e[K"
@@ -535,10 +544,11 @@ class Tput
         when LineDirection::All
           _print "\e[2K" # <- if no el?, why would this succeed?
           # Should we do instead manual erase to left and right?:
-          #_print "\e[1K"
-          #_print "\e[K"
+          # _print "\e[1K"
+          # _print "\e[K"
         end
       end
+
       alias_previous el
 
       # CSI P m SP }
@@ -547,6 +557,7 @@ class Tput
       def insert_columns(*arguments)
         _print "\e[#{arguments.join ';'} }"
       end
+
       alias_previous decic
 
       # CSI P m SP ~
@@ -555,26 +566,30 @@ class Tput
       def delete_columns(*arguments)
         _print "\e[#{arguments.join ';'} ~"
       end
+
       alias_previous decdc
 
       def set_foreground(color, val)
         color = color.split(/\s*[,;]\s*/).join(" fg, ") + " fg"
         attr(color, val)
       end
+
       alias_previous fg
 
       def set_background(color, val)
         color = color.split(/\s*[,;]\s*/).join(" bg, ") + " bg"
         attr(color, val)
       end
+
       alias_previous bg
 
       # CSI Ps b  Repeat the preceding graphic character Ps times (REP).
-      def repeat_preceding_character(param=1)
+      def repeat_preceding_character(param = 1)
         @cursor.x += param
         _ncoords
         put(rep?(param)) || _print { |io| io << "\e[" << param << "b" }
       end
+
       alias_previous rep, rpc
 
       # CSI Ps g  Tab Clear (TBC).
@@ -583,9 +598,10 @@ class Tput
       # Potentially:
       #   Ps = 2  -> Clear Stops on Line.
       #   http:#vt100.net/annarbor/aaa-ug/section6.html
-      def tab_clear(param=0)
+      def tab_clear(param = 0)
         put(tbc?(param)) || _print { |io| io << "\e[" << param << "g" }
       end
+
       alias_previous tbc
 
       # CSI Ps " q
@@ -594,11 +610,11 @@ class Tput
       #     Ps = 0  -> DECSED and DECSEL can erase (default).
       #     Ps = 1  -> DECSED and DECSEL cannot erase.
       #     Ps = 2  -> DECSED and DECSEL can erase.
-      def set_char_protection_attr(param=0)
+      def set_char_protection_attr(param = 0)
         _print { |io| io << "\e[" << param << "\"q" }
       end
-      alias_previous decsca
 
+      alias_previous decsca
     end
   end
 end

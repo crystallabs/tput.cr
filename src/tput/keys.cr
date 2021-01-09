@@ -1,6 +1,5 @@
 class Tput
   enum Key
-
     CtrlA = 1
     CtrlB = 2
     CtrlC = 3
@@ -18,7 +17,7 @@ class Tput
     CtrlL = 12
 
     Return = 13
-    CtrlM = 13
+    CtrlM  = 13
 
     CtrlN = 14
     CtrlO = 15
@@ -34,7 +33,7 @@ class Tput
     CtrlY = 25
     CtrlZ = 26
 
-    Escape    = 27
+    Escape = 27
 
     Backspace = 127
     AltReturn
@@ -117,7 +116,7 @@ class Tput
     def self.read_control(char : Char) : Key?
       case char.ord
       when Key::Escape.value
-        read_escape_sequence(char){ yield }
+        read_escape_sequence(char) { yield }
       else
         Key.from_value?(char.ord)
       end || Key::Unknown
@@ -233,10 +232,10 @@ class Tput
         else
           nil
         end
-      # Alt-Letter keys
-      when 97 then Key::AltA
-      when 98 then Key::AltB
-      when 99 then Key::AltC
+        # Alt-Letter keys
+      when  97 then Key::AltA
+      when  98 then Key::AltB
+      when  99 then Key::AltC
       when 100 then Key::AltD
       when 101 then Key::AltE
       when 102 then Key::AltF

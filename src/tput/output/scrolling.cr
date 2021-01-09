@@ -2,39 +2,43 @@ class Tput
   module Output
     module Scrolling
       include Crystallabs::Helpers::Alias_Methods
-      #include Crystallabs::Helpers::Boolean
+      # include Crystallabs::Helpers::Boolean
       include Macros
 
       # ESC D Index (IND is 0x84).
       def index
-        @cursor.y+=1
+        @cursor.y += 1
         _ncoords
         put(ind?) || _print "\eD"
       end
+
       alias_previous ind
 
       # ESC M Reverse Index (RI is 0x8d).
       def reverseIndex
-        @cursor.y-=1
+        @cursor.y -= 1
         _ncoords
         put(ri?) || _print "\eM"
       end
+
       alias_previous ri, reverse
 
       # CSI Ps S  Scroll up Ps lines (default = 1) (SU).
-      def scroll_up(param=1)
+      def scroll_up(param = 1)
         @cursor.y -= param
         _ncoords
         put(parm_index?(param)) || _print { |io| io << "\e[" << param << "S" }
       end
+
       alias_previous su
 
       # CSI Ps T  Scroll down Ps lines (default = 1) (SD).
-      def scroll_down(param=1)
+      def scroll_down(param = 1)
         @cursor.y += param
         _ncoords
         put(parm_rindex?(param)) || _print { |io| io << "\e[" << param << "T" }
       end
+
       alias_previous sd
 
       # Set scroll region.
@@ -57,10 +61,10 @@ class Tput
         @scroll_bottom = bottom
         @cursor.x = 0
         @cursor.y = 0
-        put(csr?(top,bottom)) || _print { |io| io << "\e[" << top+1 << ';' << bottom+1 << 'r' }
+        put(csr?(top, bottom)) || _print { |io| io << "\e[" << top + 1 << ';' << bottom + 1 << 'r' }
       end
-      alias_previous decstbm, csr
 
+      alias_previous decstbm, csr
     end
   end
 end

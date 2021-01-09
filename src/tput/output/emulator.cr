@@ -2,7 +2,7 @@ class Tput
   module Output
     module Emulator
       include Crystallabs::Helpers::Alias_Methods
-      #include Crystallabs::Helpers::Boolean
+      # include Crystallabs::Helpers::Boolean
       include Macros
 
       # Sets terminal emulator's title.
@@ -101,7 +101,7 @@ class Tput
       #   keys to make an extended sequence of functions rather than
       #   adding a parameter to each function key to denote the modi-
       #   fiers.
-      def disableModifiers(param="")
+      def disableModifiers(param = "")
         _print { |io| io << "\e[>" << param << 'n' }
       end
 
@@ -113,10 +113,9 @@ class Tput
       #     Ps = 1  -> hide if the mouse tracking mode is not enabled.
       #     Ps = 2  -> always hide the pointer.  If no parameter is
       #     given, xterm uses the default, which is 1 .
-      def set_pointer_mode(param="")
+      def set_pointer_mode(param = "")
         _print { |io| io << "\e[>" << param << 'p' }
       end
-
     end
   end
 end

@@ -75,6 +75,5 @@ class Tput
         end
       end
     end
-
   end
 end
