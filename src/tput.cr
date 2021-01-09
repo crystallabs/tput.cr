@@ -56,7 +56,7 @@ class Tput
   getter? force_unicode : Bool
 
   @name : String
-  #@aliases : Array[String]
+  # @aliases : Array[String]
 
   @_title : String = ""
 
@@ -73,7 +73,7 @@ class Tput
 
   getter? exiting = false
 
-  #@ret = false # Unused. Return data instead of write()ing it?
+  # @ret = false # Unused. Return data instead of write()ing it?
 
   getter is_alt = false
 
@@ -83,15 +83,14 @@ class Tput
   include Coordinates
 
   def initialize(
-    @terminfo=nil,
+    @terminfo = nil,
     @input = STDIN,
     @output = STDOUT.dup,
     @error = STDERR.dup,
     force_unicode = nil,
     @use_buffer = true,
-    screen_size = nil,
+    screen_size = nil
   )
-
     options = Options.new
 
     @force_unicode = unless force_unicode.nil?
@@ -125,23 +124,23 @@ class Tput
     return true if @aliases.any? &.starts_with?(nam)
     @name.starts_with? nam
   end
+
   def name?(*names)
     names.any? { |name| name? name }
   end
 
-  ## Unused. Redirects all output into a variable and returns it
-  ## Maybe do with macros, or method_missing to be able to call any
-  ## method, or so.
-  #def out(args)
+  # # Unused. Redirects all output into a variable and returns it
+  # # Maybe do with macros, or method_missing to be able to call any
+  # # method, or so.
+  # def out(args)
   #  ret = Bytes.new
   #  @ret=true
   #  # ret += ...
   #  @ret=false
   #  ret
-  #end
+  # end
 
   include ACSC
   include Output
   include Input
-  
 end

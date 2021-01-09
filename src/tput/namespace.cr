@@ -1781,53 +1781,6 @@ module Namespace
     All = 2
   end
 
-  enum BorderType
-    None
-    Bg
-    Fg
-    Line
-    #Dotted
-    #Dashed
-    #Solid
-    #Double
-    #DotDash
-    #DotDotDash
-    #Groove
-    #Ridge
-    #Inset
-    #Outset
-  end
-
-  class Border
-    property type = BorderType::Bg
-    property ch = ' '
-    property left : Bool = true
-    property top : Bool = true
-    property right : Bool = true
-    property bottom : Bool = true
-    def initialize(
-      @type = BorderType::Bg,
-      @ch = ' ',
-      @left = true,
-      @top = true,
-      @right = true,
-      @bottom = true
-    )
-    end
-  end
-
-  class BorderSomething
-    property fg
-    property bg
-  end
-
-  class HoverEffects
-    property bg
-  end
-  class FocusEffects
-    property bg
-  end
-
 end
 end
 
