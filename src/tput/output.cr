@@ -71,6 +71,8 @@ class Tput
     # Mostly not used directly, but through `#_write`.
     def _owrite(*args)
       args.map { |arg| @output.write arg }
+      # TODO drop writes if in pause mode
+      # same for _oprint
     end
 
     def _oprint(*args)

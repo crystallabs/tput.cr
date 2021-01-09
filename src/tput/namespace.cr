@@ -1678,24 +1678,15 @@ module Namespace
     end
   end
 
-  class Padding
-    property left : Int32
-    property top : Int32
-    property right : Int32
-    property bottom : Int32
-    def initialize(@left=0, @top=0, @right=0, @bottom=0)
-    end
-  end
-
   class Position # XXX better name?
-    property left : Int32 | String
-    property top : Int32 | String
-    property right : Int32
-    property bottom : Int32
+    property left : Int32 | String | Nil
+    property top : Int32 | String | Nil
+    property right : Int32 | Nil
+    property bottom : Int32 | Nil
     property width : Int32 | String | Nil
     property height : Int32 | String | Nil
     property? shrink = false
-    def initialize(@left=0, @top=0, @right=0, @bottom=0, width=0, height=0)
+    def initialize(@left=nil, @top=nil, @right=nil, @bottom=nil, width=nil, height=nil)
       if width == "shrink"
         @shrink = true
       else
@@ -1793,8 +1784,8 @@ module Namespace
   enum BorderType
     None
     Bg
+    Fg
     Line
-    #Fg
     #Dotted
     #Dashed
     #Solid
