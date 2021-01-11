@@ -38,7 +38,7 @@ class Tput
       end
 
       def form
-        put(ff?) || _print "\x0c"
+        put(&.ff?) || _print "\x0c"
       end
 
       alias_previous ff, formfeed, form_feed
@@ -46,7 +46,7 @@ class Tput
       def backspace
         @cursor.x -= 1
         _ncoords
-        put(kbs?) || _print "\x08"
+        put(&.kbs?) || _print "\x08"
       end
 
       alias_previous kbs
@@ -54,24 +54,24 @@ class Tput
       def tab
         @cursor.x += 8
         _ncoords
-        put(ht?) || _print "\t"
+        put(&.ht?) || _print "\t"
       end
 
       alias_previous ht
 
       def shift_out
-        # put(S2?) ||
+        # put(&.S2?) ||
         _print "\x0e"
       end
 
       def shift_in
-        # has_and_put("S3") ||
+        # has_and_put(&."S3") ||
         _print "\x0f"
       end
 
       def cr
         @cursor.x = 0
-        put(cr?) || _print "\r"
+        put(&.cr?) || _print "\r"
       end
 
       # alias_previous # TODO can't alias 'return'
@@ -86,7 +86,7 @@ class Tput
         @cursor.x = 0
         @cursor.y += 1
         _ncoords()
-        put(nel?) || _print "\n"
+        put(&.nel?) || _print "\n"
       end
 
       alias_previous nel, newline
@@ -96,12 +96,12 @@ class Tput
         @cursor.y += 1
         @cursor.x = 0
         _ncoords
-        put(nel?) || _print "\eE"
+        put(&.nel?) || _print "\eE"
       end
 
       # ESC H Tab Set (HTS is 0x88).
       def tab_set
-        put(hts?) || _print "\eH"
+        put(&.hts?) || _print "\eH"
       end
 
       # CSI Pm m  Character Attributes (SGR).
@@ -456,7 +456,7 @@ class Tput
       def insert_chars(param = 1)
         @cursor.x += param
         _ncoords
-        put(ich?(param)) || _print { |io| io << "\e[" << param << "@" }
+        put(&.ich?(param)) || _print { |io| io << "\e[" << param << "@" }
       end
 
       alias_previous ich
@@ -468,9 +468,9 @@ class Tput
         param > 0 || raise ArgumentError.new "param > 0"
 
         if param == 1
-          put(il1?) || put(il?(param))
+          put(&.il1?) || put(&.il?(param))
         else
-          put(il?(param))
+          put(&.il?(param))
         end || _print { |io| io << "\e[" << param << "L" }
       end
 
@@ -483,9 +483,9 @@ class Tput
         param > 0 || raise ArgumentError.new "param > 0"
 
         if param == 1
-          put(dl1?) || put(dl?(param))
+          put(&.dl1?) || put(&.dl?(param))
         else
-          put(dl?(param))
+          put(&.dl?(param))
         end || _print { |io| io << "\e[" << param << "M" }
       end
 
@@ -494,7 +494,7 @@ class Tput
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
       def delete_chars(param = 1)
-        put(dch?(param)) || _print { |io| io << "\e[" << param << "P" }
+        put(&.dch?(param)) || _print { |io| io << "\e[" << param << "P" }
       end
 
       alias_previous dch
@@ -503,7 +503,7 @@ class Tput
       #     CSI Ps X
       #     Erase Ps Character(s) (default = 1) (ECH).
       def erase_character(param : Int = 1)
-        put(ech?(param)) || _print { |io| io << "\e[" << param << "X" }
+        put(&.ech?(param)) || _print { |io| io << "\e[" << param << "X" }
       end
 
       alias_previous ech, erase_chars
@@ -517,7 +517,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a, b)
-        put(_Ms?(a, b)) || _tprint "\e]52;#{a};#{b}\x07"
+        put(&._Ms?(a, b)) || _tprint "\e]52;#{a};#{b}\x07"
       end
 
       # Erase in line.
@@ -535,12 +535,12 @@ class Tput
         #   clr_eol                   / el         = \e[K
         # How did this work originally then?
 
-        # put(el?(param.value)) ||
+        # put(&.el?(param.value)) ||
         case (param)
         when LineDirection::Right
-          put(clr_eol?) || _print "\e[K"
+          put(&.clr_eol?) || _print "\e[K"
         when LineDirection::Left
-          put(clr_bol?) || _print "\e[1K"
+          put(&.clr_bol?) || _print "\e[1K"
         when LineDirection::All
           _print "\e[2K" # <- if no el?, why would this succeed?
           # Should we do instead manual erase to left and right?:
@@ -587,7 +587,7 @@ class Tput
       def repeat_preceding_character(param = 1)
         @cursor.x += param
         _ncoords
-        put(rep?(param)) || _print { |io| io << "\e[" << param << "b" }
+        put(&.rep?(param)) || _print { |io| io << "\e[" << param << "b" }
       end
 
       alias_previous rep, rpc
@@ -599,7 +599,7 @@ class Tput
       #   Ps = 2  -> Clear Stops on Line.
       #   http:#vt100.net/annarbor/aaa-ug/section6.html
       def tab_clear(param = 0)
-        put(tbc?(param)) || _print { |io| io << "\e[" << param << "g" }
+        put(&.tbc?(param)) || _print { |io| io << "\e[" << param << "g" }
       end
 
       alias_previous tbc

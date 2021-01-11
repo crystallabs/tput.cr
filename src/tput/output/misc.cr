@@ -45,25 +45,25 @@ class Tput
       alias_previous mc
 
       def mc0
-        put(mc0?) || put(mc?(0)) || false
+        put(&.mc0?) || put(mc?(0)) || false
       end
 
       alias_previous print_screen, ps
 
       def mc5
-        put(mc5?) || media_copy(5)
+        put(&.mc5?) || media_copy(5)
       end
 
       alias_previous prtr_on, po
 
       def mc4
-        put(mc4?) || media_copy(4)
+        put(&.mc4?) || media_copy(4)
       end
 
       alias_previous prtr_off, pf
 
       def mc5p
-        put(mc5p?) || media_copy("?5")
+        put(&.mc5p?) || media_copy("?5")
       end
 
       alias_previous prtr_non, p0

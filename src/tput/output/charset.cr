@@ -36,12 +36,12 @@ class Tput
 
         val = case (charset)
               when C::ACS, C::SCLD
-                return true if put(smacs?)
+                return true if put(&.smacs?)
                 :"0"
               when C::UK
                 :"A"
               when C::ASCII
-                return true if put(rmacs?)
+                return true if put(&.rmacs?)
                 :"B"
               when C::DECCyrillic
                 :"&4"
@@ -98,7 +98,7 @@ class Tput
               when C::Isolatin
                 :"/A"
               when nil # Default
-                return true if put(rmacs?)
+                return true if put(&.rmacs?)
                 :"B"
               else
                 raise "Unsupported charset '#{charset}'"

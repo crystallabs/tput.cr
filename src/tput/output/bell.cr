@@ -7,7 +7,7 @@ class Tput
 
       # Bell
       def bell
-        put(bel?) || _print "\x07"
+        put(&.bel?) || _print "\x07"
       end
 
       alias_previous bel

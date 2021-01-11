@@ -129,6 +129,30 @@ class Tput
     names.any? { |name| name? name }
   end
 
+  def has?
+    @shim.try { |s| yield(s) ? true : false }
+  end
+
+  # Outputs a string capability to the designated `@output`, if
+  # the capability exists.
+  #
+  # For this method to work, the Tput instance needs to be
+  # initialized with Terminfo data. If Terminfo data is not
+  # present, nil will be returned.
+  #
+  # ```
+  # put &.smcup?
+  #
+  # put &.cursor_pos?(10, 20)
+  # ```
+  def put
+    @shim.try { |s|
+      yield(s).try { |data|
+        features.padding? ? _pad_write(data) : _write(data)
+      }
+    }
+  end
+
   # # Unused. Redirects all output into a variable and returns it
   # # Maybe do with macros, or method_missing to be able to call any
   # # method, or so.

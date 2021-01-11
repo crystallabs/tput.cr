@@ -47,7 +47,7 @@ class Tput
       def cursor_char_absolute(param = 0)
         @cursor.x = param
         _ncoords
-        put(hpa?(param)) || _print { |io| io << "\e[" << param + 1 << 'G' }
+        put(&.hpa?(param)) || _print { |io| io << "\e[" << param + 1 << 'G' }
       end
 
       alias_previous cha, setx, set_x
@@ -65,7 +65,7 @@ class Tput
       def cursor_line_pos_absolute(param = 1)
         @cursor.y = param
         _ncoords
-        put(vpa?(param)) || _print { |io| io << "\e[" << param << 'd' }
+        put(&.vpa?(param)) || _print { |io| io << "\e[" << param << 'd' }
       end
 
       alias_previous vpa, sety, line_pos_absolute, cursor_line_absolute, set_y
@@ -80,7 +80,7 @@ class Tput
       # :ditto:
       def cursor_position(row : Int = 0, column : Int = 0)
         @cursor.x, @cursor.y = _adjust_xy_abs column, row
-        put(cup?(@cursor.y, @cursor.x)) ||
+        put(&.cup?(@cursor.y, @cursor.x)) ||
           _print { |io| io << "\e[" << @cursor.y + 1 << ';' << @cursor.x + 1 << 'H' }
       end
 
@@ -223,7 +223,7 @@ class Tput
       def save_cursor(key : String? = nil)
         return lsave_cursor(key) if key
         @saved_cursor = @cursor.dup
-        put(sc?) || _print "\e7"
+        put(&.sc?) || _print "\e7"
       end
 
       alias_previous sc
@@ -236,7 +236,7 @@ class Tput
         if sp = @saved_cursor
           @cursor.x = sp.x
           @cursor.y = sp.y
-          put(rc?) || _print "\e8"
+          put(&.rc?) || _print "\e8"
         end
       end
 
@@ -264,8 +264,8 @@ class Tput
         _, param = _adjust_xy_rel 0, -param
         param *= -1
         @cursor.y -= param
-        put(cuu?(param)) ||
-          (has?(cuu1?) && param.times { put(cuu1) }) ||
+        put(&.cuu?(param)) ||
+          (has? &.cuu1? && param.times { put(&.cuu1) }) ||
           _print { |io| io << "\e[" << param << 'A' }
       end
 
@@ -276,8 +276,8 @@ class Tput
       def cursor_down(param = 1)
         _, param = _adjust_xy_rel 0, param
         @cursor.y += param
-        put(cud?(param)) ||
-          (has?(cud1?) && param.times { put(cud1) }) ||
+        put(&.cud?(param)) ||
+          (has? &.cud1? && param.times { put(&.cud1) }) ||
           _print { |io| io << "\e[" << param << 'B' }
       end
 
@@ -289,8 +289,8 @@ class Tput
       def cursor_forward(param : Int = 1)
         param, _ = _adjust_xy_rel param
         @cursor.x += param
-        put(cuf?(param)) ||
-          (has?(cuf1?) && param.times { put(cuf1) }) ||
+        put(&.cuf?(param)) ||
+          (has? &.cuf1? && param.times { put(&.cuf1) }) ||
           _print { |io| io << "\e[" << param << 'C' }
       end
 
@@ -302,8 +302,8 @@ class Tput
         param, _ = _adjust_xy_rel -param
         param *= -1
         @cursor.x -= param
-        put(cub?(param)) ||
-          (has?(cub1?) && param.times { put(cub1) }) ||
+        put(&.cub?(param)) ||
+          (has? &.cub1? && param.times { put(&.cub1) }) ||
           _print { |io| io << "\e[" << param << 'D' }
       end
 
@@ -311,7 +311,7 @@ class Tput
 
       def hide_cursor
         @cursor_hidden = true
-        put(civis?) || reset_mode "?25"
+        put(&.civis?) || reset_mode "?25"
       end
 
       alias_previous dectcemh, cursor_invisible, vi, civis
@@ -324,7 +324,7 @@ class Tput
         # cvvis starts blinking cursor
         # return _write("\e[?12l\e[?25h"); // cursor_normal
         # return _write("\e[?12;25h"); // cursor_visible
-        put(cnorm?) || set_mode "?25"
+        put(&.cnorm?) || set_mode "?25"
       end
 
       alias_previous dectcem, cnorm, cvvis, cursor_visible
@@ -337,8 +337,8 @@ class Tput
       #     Ps = 3  -> blinking underline.
       #     Ps = 4  -> steady underline.
       def set_cursor_style(style = CursorStyle::SteadyBlock)
-        (put(_Se?) && return) if style.value == 2
-        put(_Ss?(param)) || _print { |io| io << "\e[" << style.value << " q" }
+        (put(&._Se?) && return) if style.value == 2
+        put(&._Ss?(param)) || _print { |io| io << "\e[" << style.value << " q" }
       end
 
       alias_previous decscusr
@@ -348,7 +348,7 @@ class Tput
       def save_cursor_a
         @saved_cursor.x = @cursor.x
         @saved_cursor.y = @cursor.y
-        put(sc?) || _print "\e[s"
+        put(&.sc?) || _print "\e[s"
       end
 
       alias_previous sc_a
@@ -359,7 +359,7 @@ class Tput
         @cursor.x = @saved_cursor.x
         @cursor.y = @saved_cursor.y
         _ncoords
-        put(rc?) || _print "\e[u"
+        put(&.rc?) || _print "\e[u"
       end
 
       alias_previous rc_a
@@ -369,7 +369,7 @@ class Tput
       def cursor_forward_tab(param = 1)
         @cursor.x += 8
         _ncoords
-        put(tab?(param)) || _print { |io| io << "\e[" << param << "I" }
+        put(&.tab?(param)) || _print { |io| io << "\e[" << param << "I" }
       end
 
       alias_previous cht
@@ -378,7 +378,7 @@ class Tput
       def cursor_backward_tab(param = 1)
         @cursor.x -= 8
         _ncoords
-        put(cbt?(param)) || _print { |io| io << "\e[" << param << "Z" }
+        put(&.cbt?(param)) || _print { |io| io << "\e[" << param << "Z" }
       end
 
       alias_previous cbt
@@ -386,7 +386,7 @@ class Tput
       def restore_reported_cursor
         @_rx.try do |rx|
           @_ry.try do |ry|
-            put(cup? ry, rx)
+            put(&.cup? ry, rx)
             # Disabled originally:
             # put "nel"
           end
@@ -398,7 +398,7 @@ class Tput
       def char_pos_absolute(param = 1)
         @x = param
         _ncoords
-        put(hpa?(param)) || _print { |io| io << "\e[" << param << '`' }
+        put(&.hpa?(param)) || _print { |io| io << "\e[" << param << '`' }
       end
 
       alias_previous hpa
@@ -407,7 +407,7 @@ class Tput
       # Horizontal Position Relative
       # reuse CSI Ps C ?
       def h_position_relative(param = 1)
-        put(cuf?(param)) && return
+        put(&.cuf?(param)) && return
 
         @cursor.x += param
         _ncoords
@@ -425,7 +425,7 @@ class Tput
         @cursor.y += param
         _ncoords
 
-        put(cud?(param)) ||
+        put(&.cud?(param)) ||
           # Disabled originally
           # Does not exist:
           # if (@terminfo) return put "vpr", param
@@ -443,8 +443,8 @@ class Tput
         _ncoords
         # Disabled originally
         # Does not exist (?):
-        # put(hvp", row, col);
-        put(cup?(row, col)) ||
+        # put(&.hvp", row, col);
+        put(&.cup?(row, col)) ||
           _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << "f" }
       end
 
@@ -455,7 +455,7 @@ class Tput
       #   Reset colors
       def reset_cursor_color
         # TODO - enable when put supports extended caps, unpend test
-        # put(_Cr?) ||
+        # put(&._Cr?) ||
         _tprint "\e]112\x07"
       end
 
@@ -463,7 +463,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Change dynamic colors
       def dynamic_cursor_color(param)
-        put(_Cs?(param)) || _tprint "\e]12;#{param}\x07"
+        put(&._Cs?(param)) || _tprint "\e]12;#{param}\x07"
       end
     end
   end
