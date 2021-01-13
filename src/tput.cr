@@ -73,7 +73,7 @@ class Tput
 
   getter? exiting = false
 
-  # @ret = false # Unused. Return data instead of write()ing it?
+  @ret : IO? = nil
 
   getter is_alt = false
 
@@ -116,6 +116,17 @@ class Tput
     end
   end
 
+  def sigtstp(callback)
+    r = pause
+    Signal::CONT.trap do
+      Signal::CONT.ignore
+      r.call
+      callback.try &.call
+    end
+
+    Process.signal Signal::TSTP, 0
+  end
+
   def name?(nam : String)
     # Aliases are checked first because aliases[0] is what we consider *the*
     # emulator name.
@@ -151,6 +162,54 @@ class Tput
         features.padding? ? _pad_write(data) : _write(data)
       }
     }
+  end
+
+  def pause(callback : Proc? = nil)
+    alt = is_alt
+    mouse = false #mouse_enabled? # XXX
+
+    # We should do something else here.
+    # Paused program should block writes rather than send them to null.
+
+    lsave_cursor "pause"
+    normal_buffer if alt
+    show_cursor
+    # XXX
+    #if mouse
+    #  disable_mouse
+    #end
+
+    # XXX
+    #wr = @output.write
+    #@output.write = nothing
+    #if @input.set_raw_mode
+    #  @input.set_raw_mode false
+    #end
+    #@input.pause
+
+    @_resume = ->() {
+      @_resume = nil
+
+      # XXX No support yet.
+      #@input.set_raw_mode true
+      #@input.resume
+      #@output.write = write
+
+      alternate_buffer if alt
+      # D O:
+      #csr 0, @screen.height - 1
+      # XXX no support yet
+      #if mouse
+      #  enable_mouse
+      #end
+
+      lrestore_cursor "pause", true
+      callback.try &.call
+    }
+  end
+
+  def resume
+    @_resume.try &.call
   end
 
   # # Unused. Redirects all output into a variable and returns it
