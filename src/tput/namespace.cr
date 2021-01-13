@@ -1687,17 +1687,17 @@ class Tput
       property bottom : Int32 | Nil
       property width : Int32 | String | Nil
       property height : Int32 | String | Nil
-      property? shrink = false
+      property? resizable = false
 
       def initialize(@left = nil, @top = nil, @right = nil, @bottom = nil, width = nil, height = nil)
-        if width == "shrink"
-          @shrink = true
+        if width == "resizable"
+          @resizable = true
         else
           @width = width
         end
 
-        if height == "shrink"
-          @shrink = true
+        if height == "resizable"
+          @resizable = true
         else
           @height = height
         end
