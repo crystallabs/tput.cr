@@ -70,14 +70,14 @@ class Tput
     #
     # Mostly not used directly, but through `#_write`.
     def _owrite(*args)
-      args.map { |arg| @output.write arg }
+      args.map { |arg| (@ret || @output).write arg }
       # TODO drop writes if in pause mode
       # same for _oprint
     end
 
     def _oprint(*args)
       # https://github.com/crystal-lang/crystal/pull/10152
-      args.join io: @output
+      args.join io: @ret || @output
       true
     end
 
@@ -85,19 +85,6 @@ class Tput
       yield @output
       true
     end
-
-    # def _owrite(text : String)
-    #  @output.print text
-    # end
-    # # :ditto:
-    # def _owrite(data : Bytes)
-    #  @output.write data
-    # end
-    # # :ditto:
-    # def _owrite(data : IO)
-    #  @output << data
-    # end
-    # # :ditto:
 
     # Standard output method.
     #
