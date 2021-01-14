@@ -69,7 +69,11 @@ class Tput
     # Directly writes string to `@output` (usually STDOUT).
     #
     # Mostly not used directly, but through `#_write`.
+    #
+    # This is plain `def write`. We're just not using the exact name "write".
     def _owrite(*args)
+      # No support for this yet:
+      # return unless @output.writable?
       args.map { |arg| (@ret || @output).write arg }
       # TODO drop writes if in pause mode
       # same for _oprint

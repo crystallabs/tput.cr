@@ -416,6 +416,30 @@ describe Tput::Output::Text do
         t[0].rc.should be_true
         sc.x.should eq 12 # Saved position should not change on restore
         sc.y.should eq 10
+
+        x.o # Read/empty the buffer
+      end
+    end
+  end
+
+  describe "delete_columns" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].delete_columns.should be_true
+        x.o.should eq "\e[1 ~"
+        t[0].decdc(7).should be_true
+        x.o.should eq "\e[7 ~"
+      end
+    end
+  end
+
+  describe "insert_columns" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].insert_columns.should be_true
+        x.o.should eq "\e[1 }"
+        t[0].decic(7).should be_true
+        x.o.should eq "\e[7 }"
       end
     end
   end

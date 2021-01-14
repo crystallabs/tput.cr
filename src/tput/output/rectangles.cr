@@ -62,21 +62,43 @@ class Tput
 
       alias_previous decfra
 
-      # CSI Pt; Pl; Pb; Pr$ z
-      #   Erase Rectangular Area (DECERA), VT400 and up.
-      #     Pt; Pl; Pb; Pr denotes the rectangle.
+      # Erases characters from the specified rectangular area in page memory.
+      # When an area is erased, all character positions are replaced with the space character.
+      # Character values and visual attributes from the specified area are erased.
+      # Line attributes are not erased.
+      #
+      #     CSI Pt; Pl; Pb; Pr$ z
+      #       Erase Rectangular Area (DECERA), VT400 and up.
+      #         Pt; Pl; Pb; Pr denotes the rectangle.
+      #
       # NOTE: xterm doesn't enable this code by default.
-      def erase_rectangle(*arguments)
-        _print "\e[#{arguments.join ';'}$z"
+      #
+      # Aliases: decera
+      def erase_rectangle(top=0, left=0, bottom=@screen.height-1, right=@screen.width-1)
+        _print { |io| io << "\e[" << (top+1) << ';' << (left+1) << ';' << (bottom+1) << ';' << (right+1) << "$z" }
       end
 
       alias_previous decera
 
-      # CSI Pt; Pl; Pb; Pr$ {
-      #   Selective Erase Rectangular Area (DECSERA), VT400 and up.
-      #     Pt; Pl; Pb; Pr denotes the rectangle.
-      def selective_erase_rectangle(*arguments)
-        _print "\e[#{arguments.join ';'}${"
+      # Erases all erasable characters from a specified rectangular area in page memory.
+      # The select character protection attribute (DECSCA) control function defines whether
+      # or not DECSERA can erase characters.
+      #
+      # When an area is erased, DECSERA replaces character positions with the space character (2/0). DECSERA does not change:
+      # - Visual attributes set by the select graphic rendition (SGR) function
+      # - Protection attributes set by DECSCA
+      # - Line attributes
+      #
+      # The coordinates of the rectangular area are affected by the setting of origin mode (DECOM).
+      # Method is not affected by the page margins.
+      #
+      #     CSI Pt; Pl; Pb; Pr$ {
+      #       Selective Erase Rectangular Area (DECSERA), VT400 and up.
+      #         Pt; Pl; Pb; Pr denotes the rectangle.
+      #
+      # Aliases: decsera
+      def selective_erase_rectangle(top=0, left=0, bottom=@screen.height-1, right=@screen.width-1)
+        _print { |io| io << "\e[" << (top+1) << ';' << (left+1) << ';' << (bottom+1) << ';' << (right+1) << "${" }
       end
 
       alias_previous decsera

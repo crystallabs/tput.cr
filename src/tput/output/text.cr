@@ -627,17 +627,30 @@ class Tput
 
       alias_previous el
 
-      # CSI P m SP }
-      # Insert P s Column(s) (default = 1) (DECIC), VT420 and up.
+      # Inserts `n` times columns into the scrolling region, starting with the column that has the cursor.
+      #
+      # As columns are inserted, the columns between the cursor and the right margin move to the right.
+      # Columns are inserted blank with no visual character attributes.
+      #
+      # Has no effect outside the scrolling margins.
+      #
+      #     CSI P m SP }
+      #     Insert P s Column(s) (default = 1) (DECIC), VT420 and up.
+      #
       # NOTE: xterm doesn't enable this code by default.
-      def insert_columns(*arguments)
-        _print "\e[#{arguments.join ';'} }"
+      #
+      # Aliases: decic
+      def insert_columns(n=1)
+        _print { |io| io << "\e[" << n << " }" }
       end
 
       alias_previous decic
 
-      # Deletes `ps` times columns at the cursor position for all lines with the scroll margins,
-      # moving content to the left. Blank columns are added at the right margin.
+      # Deletes `n` times columns, starting with the column that has the cursor.
+      #
+      # As columns are deleted, the remaining columns between the cursor and the right
+      # margin move to the left. The terminal adds blank columns with no visual
+      # character attributes at the right margin.
       #
       # Has no effect outside the scrolling margins.
       #
@@ -645,11 +658,13 @@ class Tput
       #     Delete P s Column(s) (default = 1) (DECDC), VT420 and up
       #
       # NOTE xterm doesn't enable this code by default.
-      def decdc(ps=1)
-        _print "\e[#{ps} ~"
+      #
+      # Aliases: decdc
+      def delete_columns(n=1)
+        _print { |io| io << "\e[" << n << " ~" }
       end
 
-      alias_previous delete_columns
+      alias_previous decdc
 
       def set_foreground(color, val)
         color = color.split(/\s*[,;]\s*/).join(" fg, ") + " fg"
