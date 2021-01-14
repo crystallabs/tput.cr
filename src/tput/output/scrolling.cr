@@ -5,14 +5,18 @@ class Tput
       # include Crystallabs::Helpers::Boolean
       include Macros
 
-      # ESC D Index (IND is 0x84).
+      # Moves the cursor one line down without changing column position, scrolling if needed.
+      #
+      #     ESC D Index (IND is 0x84).
+      #
+      # Aliases: ind, scroll_forward
       def index
-        @cursor.y += 1
-        _ncoords
+        _x, y = _adjust_xy_rel 0, 1
+        @cursor.y += y
         put(&.ind?) || _print "\eD"
       end
 
-      alias_previous ind
+      alias_previous ind, scroll_forward
 
       # ESC M Reverse Index (RI is 0x8d).
       def reverseIndex

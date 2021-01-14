@@ -4,12 +4,15 @@ describe Tput::Output::Bell do
 
   describe "bell" do
     it "works with terminfo" do
-      x.t.bell
+      x.t.bell.should be_true
+      x.o.should eq "\x07"
+      x.t.bel.should be_true
       x.o.should eq "\x07"
     end
-
     it "works plain" do
-      x.p.bel
+      x.p.bell.should be_true
+      x.o.should eq "\x07"
+      x.p.bel.should be_true
       x.o.should eq "\x07"
     end
   end

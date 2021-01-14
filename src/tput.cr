@@ -19,11 +19,45 @@ require "./tput/acsc"
 require "./tput/features"
 require "./tput/emulator"
 
+# Many Tput methods correspond to terminal sequences. Often times methods are named
+# according to their purpose, and then aliased to the names of sequences used behind
+# the scenes.
+#
+# For example, method `#delete_columns` is directly implemented using sequence `decdc`.
+# Therefore, it is also accessible under the alias `#decdc`.
+#
+# Furthermore, for understanding the instructions on terminal sequences, the following
+# names are important:
+#
+#     ESC - Sequence starting with ESC (\x1b)
+#     CSI - Control Sequence Introducer: sequence starting with ESC [ (7bit) or CSI (\x9B, 8bit)
+#     DCS - Device Control String: sequence starting with ESC P (7bit) or DCS (\x90, 8bit)
+#     OSC - Operating System Command: sequence starting with ESC ] (7bit) or OSC (\x9D, 8bit)
+#     C0: single byte command (7bit control codes, byte range \x00 .. \x1F, \x7F)
+#     C1: single byte command (8bit control codes, byte range \x80 .. \x9F)
+#
+# Some sequences accept arguments. Their naming and types correspond to those used in
+# XTerm documentation:
+#
+#     Ps: A single (usually optional) numeric parameter, composed of one or more decimal digits.
+#     Pm: A multiple numeric parameter composed of any number of single numeric parameters, separated by ; character(s), e.g. ` Ps ; Ps ; … `.
+#     Pt: A text parameter composed of printable characters.
+#
+# In all of the examples above, spaces exist just for clarity and are not part of actual escape
+# sequences. For example, in "ESC [" or " Ps ; Ps ;" there are no actual spaces.
 class Tput
   VERSION = "0.1.0"
   include Namespace
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
+
+  ESC = "\x1b"
+  CSI7 = "\x1b["
+  CSI8 = "\x9b"
+  DCS7 = "\x1bP"
+  DCS8 = "\x90"
+  OSC7 = "\x1b]"
+  OSC8 = "\x9d"
 
   DEFAULT_SCREEN_SIZE = Size.new 80, 24 # Opinions vary: 24, 25, 27
 
@@ -73,7 +107,7 @@ class Tput
 
   getter? exiting = false
 
-  @ret : IO? = nil
+  property ret : IO? = nil
 
   getter is_alt = false
 

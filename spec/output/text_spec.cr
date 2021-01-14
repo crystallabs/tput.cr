@@ -1,6 +1,250 @@
 describe Tput::Output::Text do
 
   x = Tput::Test.new
+  y = Tput::Test.new
+
+  describe "horizontal_tabulation_set" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].horizontal_tabulation_set.should be_true
+        x.o.should eq "\eH"
+        t[0].horizontal_tab_set.should be_true
+        x.o.should eq "\eH"
+        t[0].hts.should be_true
+        x.o.should eq "\eH"
+      end
+    end
+  end
+
+  describe "shift_out" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].shift_out.should be_true
+        x.o.should eq "\x0e"
+        t[0].so.should be_true
+        x.o.should eq "\x0e"
+      end
+    end
+  end
+
+  describe "shift_in" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].shift_in.should be_true
+        x.o.should eq "\x0f"
+        t[0].si.should be_true
+        x.o.should eq "\x0f"
+      end
+    end
+  end
+
+  describe "carriage_return" do
+    [{y.t, "terminfo"}, {y.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].setyx 0, 10
+        y.o
+        ypos = t[0].cursor.y
+
+        t[0].carriage_return.should be_true
+        y.o.should eq "\r"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 0
+
+        t[0].setyx 0, 10
+        y.o
+        ypos = t[0].cursor.y
+
+        t[0].cr.should be_true
+        y.o.should eq "\r"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 0
+      end
+    end
+  end
+
+  describe "form_feed" do
+    [{y.t, "terminfo"}, {y.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].setyx 0, 10
+        y.o
+        ypos = t[0].cursor.y
+
+        # Test all aliases
+
+        t[0].form_feed.should be_true
+        y.o.should eq "\f"
+        t[0].cursor.y.should eq ypos+1
+        t[0].cursor.x.should eq 10
+
+        t[0].ff.should be_true
+        y.o.should eq "\f"
+        t[0].cursor.y.should eq ypos+2
+        t[0].cursor.x.should eq 10
+
+        # Now test that at the end the y coordinate does not keep increasing
+        t[0].sety 10000 # Make sure we're on the last line of screen
+        y.o # Read/empty the buffer
+        ypos = t[0].cursor.y
+
+        t[0].ff.should be_true
+        y.o.should eq "\f"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 10
+
+        t[0].ff.should be_true
+        y.o.should eq "\f"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 10
+      end
+    end
+  end
+
+  describe "vertical_tab" do
+    [{y.t, "terminfo"}, {y.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].setyx 0, 10
+        y.o
+        ypos = t[0].cursor.y
+
+        # Test all aliases
+
+        t[0].vertical_tab.should be_true
+        y.o.should eq "\v"
+        t[0].cursor.y.should eq ypos+1
+        t[0].cursor.x.should eq 10
+
+        t[0].vtab.should be_true
+        y.o.should eq "\v"
+        t[0].cursor.y.should eq ypos+2
+        t[0].cursor.x.should eq 10
+
+        t[0].vt.should be_true
+        y.o.should eq "\v"
+        t[0].cursor.y.should eq ypos+3
+        t[0].cursor.x.should eq 10
+
+        # Now test that at the end the y coordinate does not keep increasing
+        t[0].sety 10000 # Make sure we're on the last line of screen
+        y.o # Read/empty the buffer
+        ypos = t[0].cursor.y
+
+        t[0].vtab.should be_true
+        y.o.should eq "\v"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 10
+
+        t[0].vt.should be_true
+        y.o.should eq "\v"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 10
+      end
+    end
+  end
+
+  describe "line_feed" do
+    [{y.t, "terminfo"}, {y.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].setyx 0, 10
+        y.o
+        ypos = t[0].cursor.y
+
+        # Test all aliases
+
+        t[0].line_feed.should be_true
+        y.o.should eq "\n"
+        t[0].cursor.y.should eq ypos+1
+        t[0].cursor.x.should eq 0
+
+        t[0].feed.should be_true
+        y.o.should eq "\n"
+        t[0].cursor.y.should eq ypos+2
+        t[0].cursor.x.should eq 0
+
+        t[0].nel.should be_true
+        y.o.should eq "\n"
+        t[0].cursor.y.should eq ypos+3
+        t[0].cursor.x.should eq 0
+
+        # Now test that at the end the y coordinate does not keep increasing
+        t[0].sety 10000 # Make sure we're on the last line of screen
+        y.o # Read/empty the buffer
+        ypos = t[0].cursor.y
+
+        t[0].next_line.should be_true
+        y.o.should eq "\n"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 0
+
+        t[0].nel.should be_true
+        y.o.should eq "\n"
+        t[0].cursor.y.should eq ypos
+        t[0].cursor.x.should eq 0
+      end
+    end
+  end
+
+  describe "backspace" do
+    it "works with terminfo" do
+      t = {y.t, "terminfo"}
+
+      t[0].setx 3
+      y.o # Read/empty the buffer
+
+      # Since we are at x==3, we can backspace 3 times:
+
+      t[0].backspace.should be_true
+      t[0].cursor.x.should eq 2
+      y.o.should eq "\u007F"
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 1
+      y.o.should eq "\u007F"
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 0
+      y.o.should eq "\u007F"
+
+      # After that, x remains at 0
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 0
+      y.o.should eq "\u007F"
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 0
+      y.o.should eq "\u007F"
+    end
+    it "works with plain" do
+      t = {y.p, "plain"}
+
+      t[0].setx 3
+      y.o # Read/empty the buffer
+
+      # Since we are at x==3, we can backspace 3 times:
+
+      t[0].backspace.should be_true
+      t[0].cursor.x.should eq 2
+      y.o.should eq "\b"
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 1
+      y.o.should eq "\b"
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 0
+      y.o.should eq "\b"
+
+      # After that, nothing happens:
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 0
+      y.o.should eq "\b"
+
+      t[0].bs.should be_true
+      t[0].cursor.x.should eq 0
+      y.o.should eq "\b"
+    end
+  end
 
   describe "insert_line" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|

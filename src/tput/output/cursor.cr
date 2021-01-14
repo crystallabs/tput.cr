@@ -84,7 +84,7 @@ class Tput
           _print { |io| io << "\e[" << @cursor.y + 1 << ';' << @cursor.x + 1 << 'H' }
       end
 
-      alias_previous cursor_pos, cup, pos
+      alias_previous cursor_pos, cup, pos, setyx
 
       # Moves cursor to desired point by using absolute coordinate instructions
       def move(point : Point)

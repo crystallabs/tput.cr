@@ -2,6 +2,83 @@ describe Tput::Output::Scrolling do
 
   x = Tput::Test.new
 
+  describe "index" do
+    it "works with terminfo" do
+      t = {x.t, "terminfo"}
+      t[0].setyx 10, 10
+      x.o
+      ypos = t[0].cursor.y
+
+      t[0].index.should be_true
+      x.o.should eq "\n"
+      t[0].cursor.y.should eq ypos+1
+      t[0].cursor.x.should eq 10
+
+      t[0].scroll_forward.should be_true
+      x.o.should eq "\n"
+      t[0].cursor.y.should eq ypos+2
+      t[0].cursor.x.should eq 10
+
+      t[0].ind.should be_true
+      x.o.should eq "\n"
+      t[0].cursor.y.should eq ypos+3
+      t[0].cursor.x.should eq 10
+
+      # Now test that at the end the y coordinate does not keep increasing
+      t[0].sety 10000 # Make sure we're on the last line of screen
+      x.o # Read/empty the buffer
+      ypos = t[0].cursor.y
+
+      t[0].index.should be_true
+      x.o.should eq "\n"
+      t[0].cursor.y.should eq ypos
+      t[0].cursor.x.should eq 10
+
+      t[0].ind.should be_true
+      x.o.should eq "\n"
+      t[0].cursor.y.should eq ypos
+      t[0].cursor.x.should eq 10
+    end
+
+    it "works with plain" do
+      t = {x.p, "plain"}
+      t[0].setyx 10, 10
+      x.o
+      ypos = t[0].cursor.y
+
+      t[0].index.should be_true
+      x.o.should eq "\eD"
+      t[0].cursor.y.should eq ypos+1
+      t[0].cursor.x.should eq 10
+
+      t[0].scroll_forward.should be_true
+      x.o.should eq "\eD"
+      t[0].cursor.y.should eq ypos+2
+      t[0].cursor.x.should eq 10
+
+      t[0].ind.should be_true
+      x.o.should eq "\eD"
+      t[0].cursor.y.should eq ypos+3
+      t[0].cursor.x.should eq 10
+
+      # Now test that at the end the y coordinate does not keep increasing
+      t[0].sety 10000 # Make sure we're on the last line of screen
+      x.o # Read/empty the buffer
+      ypos = t[0].cursor.y
+
+      t[0].index.should be_true
+      x.o.should eq "\eD"
+      t[0].cursor.y.should eq ypos
+      t[0].cursor.x.should eq 10
+
+      t[0].ind.should be_true
+      x.o.should eq "\eD"
+      t[0].cursor.y.should eq ypos
+      t[0].cursor.x.should eq 10
+    end
+
+  end
+
   describe "set_scroll_region" do
 
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|

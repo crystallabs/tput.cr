@@ -5,13 +5,30 @@ class Tput
       # include Crystallabs::Helpers::Boolean
       include Macros
 
-      def nul
-        # Disabled originally
+      # Inserts escape (ESC), indicating start of a new sequence.
+      #
+      # It cancels the stream of any other sequences.
+      #
+      # Aliases: esc
+      def escape
+        _print "\e"
+      end
+
+      alias_previous esc
+
+      # Inserts a pad -- NUL currently prints \x80 instead of being an ignored sequence.
+      #
+      # Aliases: nul, pad
+      def null
+        # D O:
         # #if (has('pad')) return put.pad
+
+        # Why are we not ignoring this and making it be a
+        # sequence \x00?
         _print "\x80"
       end
 
-      alias_previous pad
+      alias_previous pad, nul
 
       # CSI Ps q  Load LEDs (DECLL).
       #     Ps = 0  -> Clear all LEDS (default).

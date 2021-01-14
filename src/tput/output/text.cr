@@ -31,52 +31,75 @@ class Tput
         str * i
       end
 
-      def vtab
-        @cursor.y += 1
-        _ncoords
-        _print "\x0b"
-      end
-
-      def form
-        put(&.ff?) || _print "\x0c"
-      end
-
-      alias_previous ff, formfeed, form_feed
-
+      # Moves the cursor one position to the left.
+      #
+      # Aliases: kbs, bs
       def backspace
-        @cursor.x -= 1
-        _ncoords
-        put(&.kbs?) || _print "\x08"
+        x, _y = _adjust_xy_rel -1
+        x *= -1
+        if x > 0
+          @cursor.x -= 1
+        end
+        put(&.kbs?) || _print "\b" #"\x08"
       end
 
-      alias_previous kbs
+      alias_previous kbs, bs
 
-      def tab
+      # TODO - Horribly broken
+      #
+      # Moves the cursor to the next character tab stop.
+      #
+      # TODO Currently it assumes tabs are 8 characters wide. There is no support for detecting actual tab width.
+      # TODO Actually - look at tab_size. So at least the user can manually adjust.
+      # TODO But, TAB doesn't move +8. It moves to the next tab stop. And there is always one at very end of line.
+      #
+      # Aliases: ht, tab, htab
+      private def horizontal_tab
         @cursor.x += 8
         _ncoords
         put(&.ht?) || _print "\t"
       end
 
-      alias_previous ht
+      alias_previous ht, tab, htab
 
+      # Switches to an alternative character set.
+      #
+      # Aliases: so
       def shift_out
         # put(&.S2?) ||
         _print "\x0e"
       end
 
+      alias_previous so
+
+      # Switches back to regular character set after `#shift_out`.
+      #
+      # Aliases: si
       def shift_in
         # has_and_put(&."S3") ||
         _print "\x0f"
       end
 
-      def cr
+      alias_previous si
+
+      # Moves the cursor to column 0.
+      #
+      # Aliases: cr
+      def carriage_return
         @cursor.x = 0
         put(&.cr?) || _print "\r"
       end
 
-      # alias_previous # TODO can't alias 'return'
+      alias_previous cr
 
-      def feed
+      # Moves the cursor one row down and to column 0, scrolling if needed.
+      #
+      # Scrolling is restricted to scroll margins and will only happen on the bottom line.
+      #
+      # TODO Adjusting internal data based on scrolling is not yet supported. (Whether scroll offsets need to be adjusted internally is yet to be checked.)
+      #
+      # Aliases: feed, lf, next_line, nel
+      def line_feed
         @shim.try do |s|
           if s.eat_newline_glitch? && @cursor.x >= @screen.width
             return
@@ -84,25 +107,78 @@ class Tput
         end
 
         @cursor.x = 0
-        @cursor.y += 1
-        _ncoords()
-        put(&.nel?) || _print "\n"
+        # TODO - maybe it is not enough to check the bottom of the screen, but
+        # scroll region?
+        _x, y = _adjust_xy_rel 0, 1
+        @cursor.y += y
+
+        # TODO the IFs
+        #if y == 1
+        #  # We can proceed
+        # XXX really? we do nel here?
+          put(&.nel?) || _print "\n"
+        #else
+        #  # We are already on the last line; either ignoring the sequence
+        #  # or scrolling should happen.
+        #end
       end
 
-      alias_previous nel, newline
+      alias_previous feed, lf, next_line, nel
 
-      # ESC E Next Line (NEL is 0x85).
-      def next_line
-        @cursor.y += 1
-        @cursor.x = 0
-        _ncoords
-        put(&.nel?) || _print "\eE"
+      # Moves the cursor one row down without changing the column position.
+      #
+      # TODO What about scrolling?
+      #
+      # Aliases: vtab, vt
+      def vertical_tab
+        # TODO - maybe it is not enough to check the bottom of the screen, but
+        # scroll region?
+        _x, y = _adjust_xy_rel 0, 1
+        @cursor.y += y
+
+        # TODO the IFs
+        #if y == 1
+        #  # We can proceed
+          _print "\v"
+        #else
+        #  # We are already on the last line; what happens?
+        #end
       end
 
-      # ESC H Tab Set (HTS is 0x88).
-      def tab_set
+      alias_previous vtab, vt
+
+      # Moves the cursor one row down without changing the column position.
+      #
+      # TODO What about scrolling?
+      #
+      # Aliases: ff
+      def form_feed
+        # TODO - maybe it is not enough to check the bottom of the screen, but
+        # scroll region?
+        _x, y = _adjust_xy_rel 0, 1
+        @cursor.y += y
+
+        # TODO the IFs
+        #if y == 1
+        #  # We can proceed
+          _print "\f"
+        #else
+        #  # We are already on the last line; what happens?
+        #end
+      end
+
+      alias_previous ff
+
+      # Places a tab stop at the current cursor position.
+      #
+      #     ESC H Tab Set (HTS is 0x88).
+      #
+      # Aliases: horizontal_tab_set, hts
+      def horizontal_tabulation_set
         put(&.hts?) || _print "\eH"
       end
+
+      alias_previous horizontal_tab_set, hts
 
       # CSI Pm m  Character Attributes (SGR).
       #     Ps = 0  -> Normal (default).
@@ -560,14 +636,20 @@ class Tput
 
       alias_previous decic
 
-      # CSI P m SP ~
-      # Delete P s Column(s) (default = 1) (DECDC), VT420 and up
-      # NOTE: xterm doesn't enable this code by default.
-      def delete_columns(*arguments)
-        _print "\e[#{arguments.join ';'} ~"
+      # Deletes `ps` times columns at the cursor position for all lines with the scroll margins,
+      # moving content to the left. Blank columns are added at the right margin.
+      #
+      # Has no effect outside the scrolling margins.
+      #
+      #     CSI P m SP ~
+      #     Delete P s Column(s) (default = 1) (DECDC), VT420 and up
+      #
+      # NOTE xterm doesn't enable this code by default.
+      def decdc(ps=1)
+        _print "\e[#{ps} ~"
       end
 
-      alias_previous decdc
+      alias_previous delete_columns
 
       def set_foreground(color, val)
         color = color.split(/\s*[,;]\s*/).join(" fg, ") + " fg"

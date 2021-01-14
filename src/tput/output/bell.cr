@@ -5,9 +5,13 @@ class Tput
       # include Crystallabs::Helpers::Boolean
       include Macros
 
-      # Bell
+      # Ring the bell.
+      #
+      # TODO The bell is further subject to style and sound.
+      #
+      # Aliases: bel
       def bell
-        put(&.bel?) || _print "\x07"
+        put(&.bel?) || _print "\a" #"\x07"
       end
 
       alias_previous bel
