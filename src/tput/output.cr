@@ -149,7 +149,7 @@ class Tput
 
     # Saves `bytes` to local buffer.
     private def _buffer_write(*args) # bytes : Bytes)
-      if @exiting
+      if @_exiting
         flush
         _owrite *args
         return true
@@ -166,7 +166,7 @@ class Tput
     end
 
     private def _buffer_print(*args)
-      if @exiting
+      if @_exiting
         flush
         _oprint *args
         return true
@@ -179,7 +179,7 @@ class Tput
     end
 
     private def _buffer_print(&block : IO -> Nil)
-      if @exiting
+      if @_exiting
         flush
         _with_io &block
       else

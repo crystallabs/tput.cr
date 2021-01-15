@@ -31,6 +31,11 @@ class Tput
         str * i
       end
 
+      # Prints text at cursor position, possibly with attributes.
+      def echo(text, attr = nil)
+        _print attr ? text(text, attr) : text
+      end
+
       # Moves the cursor one position to the left.
       #
       # Aliases: kbs, bs

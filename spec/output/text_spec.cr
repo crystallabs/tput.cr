@@ -445,5 +445,15 @@ describe Tput::Output::Text do
   end
 
   # TODO test lsave/lrestore
+
+  describe "echo" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].echo("test").should be_true
+        x.o.should eq "test"
+        # TODO - test with attributes
+      end
+    end
+  end
   
 end

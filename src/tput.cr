@@ -62,13 +62,13 @@ class Tput
   DEFAULT_SCREEN_SIZE = Size.new 80, 24 # Opinions vary: 24, 25, 27
 
   @[JSON::Field(ignore: true)]
-  @input : IO
+  property input : IO
 
   @[JSON::Field(ignore: true)]
-  @output : IO
+  property output : IO
 
   @[JSON::Field(ignore: true)]
-  @error : IO
+  property error : IO
 
   @[JSON::Field(ignore: true)]
   @mode : LibC::Termios? = nil
@@ -105,7 +105,7 @@ class Tput
 
   getter? use_buffer : Bool
 
-  getter? exiting = false
+  property? _exiting = false
 
   property ret : IO? = nil
 
