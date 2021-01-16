@@ -1,5 +1,4 @@
 describe Tput::Output::Misc do
-
   x = Tput::Test.new
 
   describe "nul" do
@@ -25,5 +24,4 @@ describe Tput::Output::Misc do
       end
     end
   end
-  
 end

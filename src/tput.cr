@@ -51,7 +51,7 @@ class Tput
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
 
-  ESC = "\x1b"
+  ESC  = "\x1b"
   CSI7 = "\x1b["
   CSI8 = "\x9b"
   DCS7 = "\x1bP"
@@ -200,7 +200,7 @@ class Tput
 
   def pause(callback : Proc? = nil)
     alt = is_alt
-    mouse = false #mouse_enabled? # XXX
+    mouse = false # mouse_enabled? # XXX
 
     # We should do something else here.
     # Paused program should block writes rather than send them to null.
@@ -209,33 +209,33 @@ class Tput
     normal_buffer if alt
     show_cursor
     # XXX
-    #if mouse
+    # if mouse
     #  disable_mouse
-    #end
+    # end
 
     # XXX
-    #wr = @output.write
-    #@output.write = nothing
-    #if @input.set_raw_mode
+    # wr = @output.write
+    # @output.write = nothing
+    # if @input.set_raw_mode
     #  @input.set_raw_mode false
-    #end
-    #@input.pause
+    # end
+    # @input.pause
 
-    @_resume = ->() {
+    @_resume = ->{
       @_resume = nil
 
       # XXX No support yet.
-      #@input.set_raw_mode true
-      #@input.resume
-      #@output.write = write
+      # @input.set_raw_mode true
+      # @input.resume
+      # @output.write = write
 
       alternate_buffer if alt
       # D O:
-      #csr 0, @screen.height - 1
+      # csr 0, @screen.height - 1
       # XXX no support yet
-      #if mouse
+      # if mouse
       #  enable_mouse
-      #end
+      # end
 
       lrestore_cursor "pause", true
       callback.try &.call

@@ -1,5 +1,4 @@
 describe Tput::Output::Text do
-
   x = Tput::Test.new
   y = Tput::Test.new
 
@@ -73,17 +72,17 @@ describe Tput::Output::Text do
 
         t[0].form_feed.should be_true
         y.o.should eq "\f"
-        t[0].cursor.y.should eq ypos+1
+        t[0].cursor.y.should eq ypos + 1
         t[0].cursor.x.should eq 10
 
         t[0].ff.should be_true
         y.o.should eq "\f"
-        t[0].cursor.y.should eq ypos+2
+        t[0].cursor.y.should eq ypos + 2
         t[0].cursor.x.should eq 10
 
         # Now test that at the end the y coordinate does not keep increasing
         t[0].sety 10000 # Make sure we're on the last line of screen
-        y.o # Read/empty the buffer
+        y.o             # Read/empty the buffer
         ypos = t[0].cursor.y
 
         t[0].ff.should be_true
@@ -110,22 +109,22 @@ describe Tput::Output::Text do
 
         t[0].vertical_tab.should be_true
         y.o.should eq "\v"
-        t[0].cursor.y.should eq ypos+1
+        t[0].cursor.y.should eq ypos + 1
         t[0].cursor.x.should eq 10
 
         t[0].vtab.should be_true
         y.o.should eq "\v"
-        t[0].cursor.y.should eq ypos+2
+        t[0].cursor.y.should eq ypos + 2
         t[0].cursor.x.should eq 10
 
         t[0].vt.should be_true
         y.o.should eq "\v"
-        t[0].cursor.y.should eq ypos+3
+        t[0].cursor.y.should eq ypos + 3
         t[0].cursor.x.should eq 10
 
         # Now test that at the end the y coordinate does not keep increasing
         t[0].sety 10000 # Make sure we're on the last line of screen
-        y.o # Read/empty the buffer
+        y.o             # Read/empty the buffer
         ypos = t[0].cursor.y
 
         t[0].vtab.should be_true
@@ -152,22 +151,22 @@ describe Tput::Output::Text do
 
         t[0].line_feed.should be_true
         y.o.should eq "\n"
-        t[0].cursor.y.should eq ypos+1
+        t[0].cursor.y.should eq ypos + 1
         t[0].cursor.x.should eq 0
 
         t[0].feed.should be_true
         y.o.should eq "\n"
-        t[0].cursor.y.should eq ypos+2
+        t[0].cursor.y.should eq ypos + 2
         t[0].cursor.x.should eq 0
 
         t[0].nel.should be_true
         y.o.should eq "\n"
-        t[0].cursor.y.should eq ypos+3
+        t[0].cursor.y.should eq ypos + 3
         t[0].cursor.x.should eq 0
 
         # Now test that at the end the y coordinate does not keep increasing
         t[0].sety 10000 # Make sure we're on the last line of screen
-        y.o # Read/empty the buffer
+        y.o             # Read/empty the buffer
         ypos = t[0].cursor.y
 
         t[0].next_line.should be_true
@@ -318,7 +317,6 @@ describe Tput::Output::Text do
 
   describe "erase_in_line" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
-
       it "works with #{t[0]}" do
         t[0].erase_in_line.should be_true
         x.o.should eq "\e[K"
@@ -337,7 +335,6 @@ describe Tput::Output::Text do
 
   describe "erase_character" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
-
       it "works with #{t[0]}" do
         t[0].erase_character.should be_true
         x.o.should eq "\e[1X"
@@ -353,7 +350,6 @@ describe Tput::Output::Text do
 
   describe "cursor_forward" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
-
       it "works with #{t[0]}" do
         t[0].cursor_forward.should be_true
         x.o.should eq "\e[1C"
@@ -375,7 +371,7 @@ describe Tput::Output::Text do
         x.o.should eq "\e[2C"
         t[0].cursor.x.should eq 26
 
-        t[0].pos 0,0; x.output.clear
+        t[0].pos 0, 0; x.output.clear
         t[0].cursor.x.should eq 0
 
         t[0].forward(100_000).should be_true
@@ -387,9 +383,8 @@ describe Tput::Output::Text do
 
   describe "save & restore cursor" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
-
       it "works with #{t[0]}" do
-        t[0].pos 8,9; x.output.clear
+        t[0].pos 8, 9; x.output.clear
 
         t[0].saved_cursor.should be_nil
 
@@ -406,8 +401,8 @@ describe Tput::Output::Text do
         sc.x.should eq 12
         sc.y.should eq 10
 
-        t[0].cursor.x=0
-        t[0].cursor.y=0
+        t[0].cursor.x = 0
+        t[0].cursor.y = 0
 
         t[0].restore_cursor.should be_true
         t[0].cursor.x.should eq 12
@@ -455,5 +450,4 @@ describe Tput::Output::Text do
       end
     end
   end
-  
 end

@@ -45,7 +45,7 @@ class Tput
         if x > 0
           @cursor.x -= 1
         end
-        put(&.kbs?) || _print "\b" #"\x08"
+        put(&.kbs?) || _print "\b" # "\x08"
       end
 
       alias_previous kbs, bs
@@ -118,14 +118,14 @@ class Tput
         @cursor.y += y
 
         # TODO the IFs
-        #if y == 1
+        # if y == 1
         #  # We can proceed
         # XXX really? we do nel here?
-          put(&.nel?) || _print "\n"
-        #else
+        put(&.nel?) || _print "\n"
+        # else
         #  # We are already on the last line; either ignoring the sequence
         #  # or scrolling should happen.
-        #end
+        # end
       end
 
       alias_previous feed, lf, next_line, nel
@@ -142,12 +142,12 @@ class Tput
         @cursor.y += y
 
         # TODO the IFs
-        #if y == 1
+        # if y == 1
         #  # We can proceed
-          _print "\v"
-        #else
+        _print "\v"
+        # else
         #  # We are already on the last line; what happens?
-        #end
+        # end
       end
 
       alias_previous vtab, vt
@@ -164,12 +164,12 @@ class Tput
         @cursor.y += y
 
         # TODO the IFs
-        #if y == 1
+        # if y == 1
         #  # We can proceed
-          _print "\f"
-        #else
+        _print "\f"
+        # else
         #  # We are already on the last line; what happens?
-        #end
+        # end
       end
 
       alias_previous ff
@@ -331,7 +331,6 @@ class Tput
           return !val ? "\e[27m" : "\e[7m"
         when "invisible"
           return !val ? "\e[28m" : "\e[8m"
-
           # 8-color foreground
         when "black fg"
           return !val ? "\e[39m" : "\e[30m"
@@ -391,7 +390,6 @@ class Tput
           return !val ? "\e[39m" : "\e[96m"
         when "light white fg", "bright white fg"
           return !val ? "\e[39m" : "\e[97m"
-
           # 16-color background
         when "light black bg", "bright black bg", "grey bg", "gray bg"
           return !val ? "\e[49m" : "\e[100m"
@@ -650,7 +648,7 @@ class Tput
       # NOTE: xterm doesn't enable this code by default.
       #
       # Aliases: decic
-      def insert_columns(n=1)
+      def insert_columns(n = 1)
         _print { |io| io << "\e[" << n << " }" }
       end
 
@@ -670,7 +668,7 @@ class Tput
       # NOTE xterm doesn't enable this code by default.
       #
       # Aliases: decdc
-      def delete_columns(n=1)
+      def delete_columns(n = 1)
         _print { |io| io << "\e[" << n << " ~" }
       end
 

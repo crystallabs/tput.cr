@@ -1,9 +1,7 @@
 describe Tput::Output::Cursor do
-
   x = Tput::Test.new
 
   describe "cursor_pos" do
-
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[1]}" do
         t[0].cursor_pos(0, 0).should be_true
@@ -27,7 +25,6 @@ describe Tput::Output::Cursor do
         t[0].cursor.y.should eq 14
       end
     end
-
   end
 
   describe "hide & show cursor" do
@@ -85,16 +82,16 @@ describe Tput::Output::Cursor do
 
   describe "reset_cursor_color" do
     pending "works with terminfo" do
-      x.t.emulator.tmux= true
+      x.t.emulator.tmux = true
       x.t.reset_cursor_color
       x.o.should eq "\e]112\a"
     end
 
     it "works plain" do
-      x.p.emulator.tmux= true # Also test wrapping in DCS sequences
+      x.p.emulator.tmux = true # Also test wrapping in DCS sequences
       x.p.reset_cursor_color
       x.o.should eq "\ePtmux;\e\e]112\a\e\\"
-      x.p.emulator.tmux= false
+      x.p.emulator.tmux = false
     end
   end
 
@@ -102,5 +99,4 @@ describe Tput::Output::Cursor do
     pending "works" do
     end
   end
-  
 end

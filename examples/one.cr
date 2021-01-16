@@ -9,4 +9,3 @@ tput = Tput.new terminfo
 tput.set_title "Test 123"
 
 sleep 100
-

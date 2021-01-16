@@ -11,7 +11,7 @@ class Tput
       #
       # Aliases: bel
       def bell
-        put(&.bel?) || _print "\a" #"\x07"
+        put(&.bel?) || _print "\a" # "\x07"
       end
 
       alias_previous bel

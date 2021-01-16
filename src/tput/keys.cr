@@ -17,7 +17,7 @@ class Tput
     CtrlL = 12
 
     Enter = 13
-    CtrlM  = 13
+    CtrlM = 13
 
     CtrlN = 14
     CtrlO = 15
@@ -36,7 +36,7 @@ class Tput
     Escape = 27
 
     # TODO Do we want normal characters to have a representation as Key?
-    #Space = 32
+    # Space = 32
 
     Backspace = 127
     AltEnter
@@ -122,7 +122,7 @@ class Tput
         read_escape_sequence(char) { yield }
       else
         Key.from_value?(char.ord)
-      end #|| Key::Unknown
+      end # || Key::Unknown
     end
 
     # Reads further chars while determining the key that was pressed.
@@ -137,7 +137,6 @@ class Tput
         when 66 then Key::Down
         when 67 then Key::Right
         when 68 then Key::Left
-
         when 80 then Key::F1
         when 81 then Key::F2
         when 82 then Key::F3
@@ -234,7 +233,6 @@ class Tput
         when 66 then Key::Down
         when 67 then Key::Right
         when 68 then Key::Left
-
         when 70 then Key::End
         when 72 then Key::Home
         when 90 then Key::ShiftTab

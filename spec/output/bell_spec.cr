@@ -1,5 +1,4 @@
 describe Tput::Output::Bell do
-
   x = Tput::Test.new
 
   describe "bell" do
@@ -19,20 +18,19 @@ describe Tput::Output::Bell do
 
   describe "warning bell volume" do
     it "works" do
-      x.t.warning_bell_volume= Tput::Volume::High3
+      x.t.warning_bell_volume = Tput::Volume::High3
       x.o.should eq "\e[7} t"
-      x.p.decswbv= Tput::Volume::High3
+      x.p.decswbv = Tput::Volume::High3
       x.o.should eq "\e[7} t"
     end
   end
 
   describe "margin bell volume" do
     it "works" do
-      x.t.margin_bell_volume= Tput::Volume::Low2
+      x.t.margin_bell_volume = Tput::Volume::Low2
       x.o.should eq "\e[3 u"
-      x.p.decsmbv= Tput::Volume::Low2
+      x.p.decsmbv = Tput::Volume::Low2
       x.o.should eq "\e[3 u"
     end
   end
-  
 end

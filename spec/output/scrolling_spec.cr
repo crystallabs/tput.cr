@@ -1,5 +1,4 @@
 describe Tput::Output::Scrolling do
-
   x = Tput::Test.new
 
   describe "index" do
@@ -11,22 +10,22 @@ describe Tput::Output::Scrolling do
 
       t[0].index.should be_true
       x.o.should eq "\n"
-      t[0].cursor.y.should eq ypos+1
+      t[0].cursor.y.should eq ypos + 1
       t[0].cursor.x.should eq 10
 
       t[0].scroll_forward.should be_true
       x.o.should eq "\n"
-      t[0].cursor.y.should eq ypos+2
+      t[0].cursor.y.should eq ypos + 2
       t[0].cursor.x.should eq 10
 
       t[0].ind.should be_true
       x.o.should eq "\n"
-      t[0].cursor.y.should eq ypos+3
+      t[0].cursor.y.should eq ypos + 3
       t[0].cursor.x.should eq 10
 
       # Now test that at the end the y coordinate does not keep increasing
       t[0].sety 10000 # Make sure we're on the last line of screen
-      x.o # Read/empty the buffer
+      x.o             # Read/empty the buffer
       ypos = t[0].cursor.y
 
       t[0].index.should be_true
@@ -48,22 +47,22 @@ describe Tput::Output::Scrolling do
 
       t[0].index.should be_true
       x.o.should eq "\eD"
-      t[0].cursor.y.should eq ypos+1
+      t[0].cursor.y.should eq ypos + 1
       t[0].cursor.x.should eq 10
 
       t[0].scroll_forward.should be_true
       x.o.should eq "\eD"
-      t[0].cursor.y.should eq ypos+2
+      t[0].cursor.y.should eq ypos + 2
       t[0].cursor.x.should eq 10
 
       t[0].ind.should be_true
       x.o.should eq "\eD"
-      t[0].cursor.y.should eq ypos+3
+      t[0].cursor.y.should eq ypos + 3
       t[0].cursor.x.should eq 10
 
       # Now test that at the end the y coordinate does not keep increasing
       t[0].sety 10000 # Make sure we're on the last line of screen
-      x.o # Read/empty the buffer
+      x.o             # Read/empty the buffer
       ypos = t[0].cursor.y
 
       t[0].index.should be_true
@@ -76,11 +75,9 @@ describe Tput::Output::Scrolling do
       t[0].cursor.y.should eq ypos
       t[0].cursor.x.should eq 10
     end
-
   end
 
   describe "set_scroll_region" do
-
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[1]}" do
         t[0].set_scroll_region(0, 0).should be_true
@@ -88,12 +85,12 @@ describe Tput::Output::Scrolling do
         t[0].scroll_top.should eq 0
         t[0].scroll_bottom.should eq 0
 
-        t[0].csr(19, 21).should be_true
+        t[0].set_scroll_region(19, 21).should be_true
         x.o.should eq "\e[20;22r"
         t[0].scroll_top.should eq 19
         t[0].scroll_bottom.should eq 21
 
-        #Log.trace { t[0].screen }
+        # Log.trace { t[0].screen }
 
         t[0].decstbm(100_000, 100_000).should be_true
         x.o.should eq "\e[24;24r"
@@ -106,7 +103,5 @@ describe Tput::Output::Scrolling do
         t[0].scroll_bottom.should eq 18
       end
     end
-
   end
-  
 end

@@ -112,7 +112,7 @@ class Tput
       # Equivalent to:
       #     self.charset= Tput::Charset::ACS
       def enter_alt_charset_mode
-        self.charset= C::ACS
+        self.charset = C::ACS
       end
 
       alias_previous smacs # , as # TODO can't alias to 'as'

@@ -74,8 +74,8 @@ class Tput
       # NOTE: xterm doesn't enable this code by default.
       #
       # Aliases: decera
-      def erase_rectangle(top=0, left=0, bottom=@screen.height-1, right=@screen.width-1)
-        _print { |io| io << "\e[" << (top+1) << ';' << (left+1) << ';' << (bottom+1) << ';' << (right+1) << "$z" }
+      def erase_rectangle(top = 0, left = 0, bottom = @screen.height - 1, right = @screen.width - 1)
+        _print { |io| io << "\e[" << (top + 1) << ';' << (left + 1) << ';' << (bottom + 1) << ';' << (right + 1) << "$z" }
       end
 
       alias_previous decera
@@ -97,8 +97,8 @@ class Tput
       #         Pt; Pl; Pb; Pr denotes the rectangle.
       #
       # Aliases: decsera
-      def selective_erase_rectangle(top=0, left=0, bottom=@screen.height-1, right=@screen.width-1)
-        _print { |io| io << "\e[" << (top+1) << ';' << (left+1) << ';' << (bottom+1) << ';' << (right+1) << "${" }
+      def selective_erase_rectangle(top = 0, left = 0, bottom = @screen.height - 1, right = @screen.width - 1)
+        _print { |io| io << "\e[" << (top + 1) << ';' << (left + 1) << ';' << (bottom + 1) << ';' << (right + 1) << "${" }
       end
 
       alias_previous decsera
