@@ -2,9 +2,6 @@
 
 Tput (akin to `tput(1)`) is a complete term/console output library for Crystal.
 
-Is it any good? Yes, there are many, many functions supported. Check the API
-docs for a list.
-
 In general, when writing console apps, 4 layers can be identified:
 
 1. Low-level (terminal emulator & terminfo)
@@ -13,6 +10,9 @@ In general, when writing console apps, 4 layers can be identified:
 1. End-user apps
 
 Tput implements levels (1) and (2).
+
+Is it any good? Yes, there are many, many functions supported. Check the API
+docs for a list.
 
 It is a Crystal-native implementation (except for binding to a C Terminfo library
 called `unibilium`). Not even ncurses bindings are used; Tput is a standalone
@@ -27,6 +27,7 @@ API.
 dependencies:
   tput:
     github: crystallabs/tput.cr
+    version: 0.1.0
 ```
 
 2. Run `shards install`
