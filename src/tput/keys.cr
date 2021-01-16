@@ -16,7 +16,7 @@ class Tput
     CtrlK = 11
     CtrlL = 12
 
-    Return = 13
+    Enter = 13
     CtrlM  = 13
 
     CtrlN = 14
@@ -35,8 +35,11 @@ class Tput
 
     Escape = 27
 
+    # TODO Do we want normal characters to have a representation as Key?
+    #Space = 32
+
     Backspace = 127
-    AltReturn
+    AltEnter
     ShiftTab
 
     # Never used in code, just a hint for Crystal to not create collisions
@@ -119,7 +122,7 @@ class Tput
         read_escape_sequence(char) { yield }
       else
         Key.from_value?(char.ord)
-      end || Key::Unknown
+      end #|| Key::Unknown
     end
 
     # Reads further chars while determining the key that was pressed.
@@ -127,9 +130,14 @@ class Tput
       # TODO support alt+f keys, shift+f keys
       # many others too, but the framework is here.
       case yield.try(&.ord)
-      when 13 then Key::AltReturn
-      when 79 # F-keys
+      when 13 then Key::AltEnter
+      when 79 # Movement and F-keys
         case yield.try(&.ord)
+        when 65 then Key::Up
+        when 66 then Key::Down
+        when 67 then Key::Right
+        when 68 then Key::Left
+
         when 80 then Key::F1
         when 81 then Key::F2
         when 82 then Key::F3
@@ -226,6 +234,7 @@ class Tput
         when 66 then Key::Down
         when 67 then Key::Right
         when 68 then Key::Left
+
         when 70 then Key::End
         when 72 then Key::Home
         when 90 then Key::ShiftTab

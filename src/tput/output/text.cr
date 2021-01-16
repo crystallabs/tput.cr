@@ -289,9 +289,12 @@ class Tput
             # TODO having '? || ""' at the end makes for some errors
             # to creep in undetected. Like attr = "fg black, bg white".
             # (The second attr isn't honored)
-            part = (_attr(part, val) || "")
-            part = part[2..]? || ""
-            break if !part && (part == "")
+            part = _attr(part, val)
+            if part
+              part = part[2...-1]?
+            end
+
+            break unless part
             break if used[part]?
             used[part] = true
             outbuf.push part
@@ -303,10 +306,10 @@ class Tput
           return "\e[#{outbuf.join ';'}m"
         end
 
-        if param.index("no ") == 0
+        if param.starts_with? "no "
           param = param[3..]
           val = false
-        elsif param.index("!") == 0
+        elsif param.starts_with? "!"
           param = param[1..]
           val = false
         end
@@ -328,6 +331,7 @@ class Tput
           return !val ? "\e[27m" : "\e[7m"
         when "invisible"
           return !val ? "\e[28m" : "\e[8m"
+
           # 8-color foreground
         when "black fg"
           return !val ? "\e[39m" : "\e[30m"
@@ -387,6 +391,7 @@ class Tput
           return !val ? "\e[39m" : "\e[96m"
         when "light white fg", "bright white fg"
           return !val ? "\e[39m" : "\e[97m"
+
           # 16-color background
         when "light black bg", "bright black bg", "grey bg", "gray bg"
           return !val ? "\e[49m" : "\e[100m"
@@ -416,7 +421,7 @@ class Tput
             # param = param.sub(/#(?:[0-9a-f]{3}){1,2}/i) { |s| color_match s }
           end
 
-          m = /^(-?\d+) (fg|bg)$/.match param
+          m = param.match /^(-?\d+) (fg|bg)$/
           if m
             color = m[1].to_i
 
@@ -456,11 +461,11 @@ class Tput
             end
           end
 
-          if /^[\d;]*$/.match param
+          if param.match /^[\d;]*$/
             return "\e[#{param}m"
           end
 
-          return ""
+          return
         end
       end
 

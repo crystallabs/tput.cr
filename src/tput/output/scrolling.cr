@@ -68,7 +68,7 @@ class Tput
         put(&.csr?(top, bottom)) || _print { |io| io << "\e[" << top + 1 << ';' << bottom + 1 << 'r' }
       end
 
-      alias_previous decstbm, csr
+      alias_previous decstbm #, csr # <- don't alias to `csr`. Very confusing.
     end
   end
 end
