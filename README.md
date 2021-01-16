@@ -108,7 +108,7 @@ tput.clear
 ```
 
 Why no ncurses? Ncurses is an implementation sort-of specific to C. When not working
-in C, many of the ncurses methods make no sense; also in general ncurses API is arcane.
+in C, many of the ncurses methods make no sense. Also in general, the ncurses API is arcane.
 
 ## API documentation
 
