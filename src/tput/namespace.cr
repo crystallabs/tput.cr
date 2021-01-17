@@ -1628,15 +1628,15 @@ class Tput
       property x : Int32
       property y : Int32
 
-      def initialize(@x = 0, @y = 0)
+      def initialize(@y = 0, @x = 0)
       end
 
-      def self.[](x, y)
-        new x, y
+      def self.[](y, x)
+        new y, x
       end
 
       def to_s(io)
-        io << "Point[" << @x << ", " << @y << ']'
+        io << "Point[" << @y << ", " << @x << ']'
       end
     end
 
