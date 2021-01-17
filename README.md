@@ -27,7 +27,7 @@ API.
 dependencies:
   tput:
     github: crystallabs/tput.cr
-    version: 0.1.0
+    version: 0.6.0
 ```
 
 2. Run `shards install`
