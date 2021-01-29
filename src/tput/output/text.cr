@@ -6,13 +6,20 @@ class Tput
       include Crystallabs::Helpers::Logging
       include Macros
 
-      # Prints text with optional attributes
-      def print(txt, attr = nil)
-        # XXX to_slice until it's replaced with direct io write
-        _print (attr ? text(txt, attr) : txt)
+      # Repeats string `str` `i` times.
+      def repeat(str, i = 1)
+        if (!i || i < 0)
+          i = 0
+        end
+        str * i
       end
 
-      alias_previous echo
+      ## Prints text with optional attributes
+      #def print(txt, attr = nil)
+      #  # XXX to_slice until it's replaced with direct io write
+      #  _print (attr ? text(txt, attr) : txt)
+      #end
+      #alias_previous echo
 
       # Writes string `str` (repeated `i` times and with `attr` attributes)
       def simple_insert(str, i = 1, attr = nil)
@@ -23,17 +30,12 @@ class Tput
         end
       end
 
-      # Repeats string `str` `i` times.
-      def repeat(str, i = 1)
-        if (!i || i < 0)
-          i = 0
-        end
-        str * i
-      end
-
-      # Prints text at cursor position, possibly with attributes.
       def echo(text, attr = nil)
         _print attr ? text(text, attr) : text
+      end
+
+      def text(text, attr)
+        _attr(attr, true) + text + _attr(attr, false)
       end
 
       # Moves the cursor one position to the left.
@@ -254,10 +256,6 @@ class Tput
       end
 
       alias_previous sgr, attr
-
-      def text(text, attr)
-        _attr(attr, true) + text + _attr(attr, false)
-      end
 
       # NOTE this function is a mess. Rework and improve.
       #

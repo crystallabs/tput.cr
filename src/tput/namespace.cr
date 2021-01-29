@@ -588,23 +588,23 @@ class Tput
 
     @[Flags]
     enum AlignmentFlag
-      AlignLeft            = 0x0001
-      AlignLeading         = AlignLeft
-      AlignRight           = 0x0002
-      AlignTrailing        = AlignRight
-      AlignHCenter         = 0x0004
-      AlignJustify         = 0x0008
-      AlignAbsolute        = 0x0010
-      AlignHorizontal_Mask = AlignLeft | AlignRight | AlignHCenter | AlignJustify | AlignAbsolute
+      Left            = 0x0001
+      Leading         = Left
+      Right           = 0x0002
+      Trailing        = Right
+      HCenter         = 0x0004
+      #Justify         = 0x0008
+      #Absolute        = 0x0010
+      Horizontal_Mask = Left | Right | HCenter #| Justify | Absolute
 
-      AlignTop      = 0x0020
-      AlignBottom   = 0x0040
-      AlignVCenter  = 0x0080
-      AlignBaseline = 0x0100
+      Top      = 0x0020
+      Bottom   = 0x0040
+      VCenter  = 0x0080
+      #Baseline = 0x0100
 
-      AlignVertical_Mask = AlignTop | AlignBottom | AlignVCenter | AlignBaseline
+      Vertical_Mask = Top | Bottom | VCenter #| Baseline
 
-      AlignCenter = AlignVCenter | AlignHCenter
+      Center = VCenter | HCenter
     end
 
     enum TextFlag
@@ -1680,6 +1680,8 @@ class Tput
       end
     end
 
+    # XXX This is eventually to be replaced with RPosition (patch waiting but
+    # postponed for now)
     class Position # XXX better name?
       property left : Int32 | String | Nil
       property top : Int32 | String | Nil
@@ -1703,6 +1705,7 @@ class Tput
         end
       end
     end
+
 
     class Cursor
       property artificial : Bool = false
