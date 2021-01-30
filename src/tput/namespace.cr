@@ -587,7 +587,7 @@ class Tput
     end
 
     @[Flags]
-    enum AlignmentFlag
+    enum AlignFlag
       Left            = 0x0001
       Leading         = Left
       Right           = 0x0002
