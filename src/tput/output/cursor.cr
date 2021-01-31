@@ -244,12 +244,12 @@ class Tput
       alias_previous rc
 
       # Save Cursor Locally
-      def lsave_cursor(key = "local")
+      def lsave_cursor(key = :local)
         @_saved[key] = CursorState.new @cursor, @cursor_hidden
       end
 
       # Restore Cursor Locally
-      def lrestore_cursor(key = "local", hide = false)
+      def lrestore_cursor(key = :local, hide = false)
         @_saved[key]?.try do |state|
           # delete @_saved[key]
           cup state.position
