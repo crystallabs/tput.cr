@@ -205,7 +205,7 @@ class Tput
     # We should do something else here.
     # Paused program should block writes rather than send them to null.
 
-    lsave_cursor "pause"
+    lsave_cursor :pause
     normal_buffer if alt
     show_cursor
     # XXX
@@ -237,7 +237,7 @@ class Tput
       #  enable_mouse
       # end
 
-      lrestore_cursor "pause", true
+      lrestore_cursor :pause, true
       callback.try &.call
     }
   end
