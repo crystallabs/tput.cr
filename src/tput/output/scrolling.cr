@@ -19,9 +19,13 @@ class Tput
       alias_previous ind, scroll_forward
 
       # ESC M Reverse Index (RI is 0x8d).
-      def reverseIndex
-        @cursor.y -= 1
-        _ncoords
+      def reverse_index
+        _x, y = _adjust_xy_rel 0, -1
+        y *= -1
+        if y > 0
+          @cursor.y -= 1
+        end
+        # XXX should this go into the if?
         put(&.ri?) || _print "\eM"
       end
 

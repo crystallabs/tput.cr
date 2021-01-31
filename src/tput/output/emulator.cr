@@ -12,10 +12,10 @@ class Tput
       #     OSC Ps ; Pt ST
       #     OSC Ps ; Pt BEL
       #       Set Text Parameters.
-      def set_title(title)
+      def title=(title)
         @_title = title
 
-        # Disabled originally
+        # D O:
         # if (term('screen')) {
         #   # Tmux pane
         #   # if (tmux) {
@@ -101,7 +101,7 @@ class Tput
       #   keys to make an extended sequence of functions rather than
       #   adding a parameter to each function key to denote the modi-
       #   fiers.
-      def disableModifiers(param = "")
+      def disable_modifiers(param = "")
         _print { |io| io << "\e[>" << param << 'n' }
       end
 

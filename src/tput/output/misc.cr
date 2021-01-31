@@ -5,6 +5,15 @@ class Tput
       # include Crystallabs::Helpers::Boolean
       include Macros
 
+      # Repeats string `str` `i` times.
+      # TODO support io-based version of this
+      def repeat(str, i = 1)
+        if (!i || i < 0)
+          i = 0
+        end
+        str * i
+      end
+
       # Inserts escape (ESC), indicating start of a new sequence.
       #
       # It cancels the stream of any other sequences.

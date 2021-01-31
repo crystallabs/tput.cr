@@ -92,7 +92,7 @@ class Tput
   @name : String
   # @aliases : Array[String]
 
-  @_title : String = ""
+  getter _title : String = ""
 
   getter screen : Size
   getter cursor : Point

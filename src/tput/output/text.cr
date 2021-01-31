@@ -6,14 +6,6 @@ class Tput
       include Crystallabs::Helpers::Logging
       include Macros
 
-      # Repeats string `str` `i` times.
-      def repeat(str, i = 1)
-        if (!i || i < 0)
-          i = 0
-        end
-        str * i
-      end
-
       ## Prints text with optional attributes
       #def print(txt, attr = nil)
       #  # XXX to_slice until it's replaced with direct io write
@@ -260,6 +252,10 @@ class Tput
       # NOTE this function is a mess. Rework and improve.
       #
       # NOTE: sun-color may not allow multiple params for SGR.
+      #
+      # Allow printing to IO instead of returning strings. I suppose
+      # the places where this is called from should make it quite
+      # suitable to do so.
       #
       # XXX see if these attributes can somehow be combined with
       # Crystal's functionality in Colorize.
@@ -535,10 +531,11 @@ class Tput
 
       # CSI Ps @
       # Insert Ps (Blank) Character(s) (default = 1) (ICH).
+      # XXX switch to adjust_xy
       def insert_chars(param = 1)
         @cursor.x += param
         _ncoords
-        put(&.ich?(param)) || _print { |io| io << "\e[" << param << "@" }
+        put(&.ich?(param)) || _print { |io| io << "\e[" << param << '@' }
       end
 
       alias_previous ich
@@ -553,7 +550,7 @@ class Tput
           put(&.il1?) || put(&.il?(param))
         else
           put(&.il?(param))
-        end || _print { |io| io << "\e[" << param << "L" }
+        end || _print { |io| io << "\e[" << param << 'L' }
       end
 
       alias_previous il
@@ -568,7 +565,7 @@ class Tput
           put(&.dl1?) || put(&.dl?(param))
         else
           put(&.dl?(param))
-        end || _print { |io| io << "\e[" << param << "M" }
+        end || _print { |io| io << "\e[" << param << 'M' }
       end
 
       alias_previous dl
@@ -576,7 +573,7 @@ class Tput
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
       def delete_chars(param = 1)
-        put(&.dch?(param)) || _print { |io| io << "\e[" << param << "P" }
+        put(&.dch?(param)) || _print { |io| io << "\e[" << param << 'P' }
       end
 
       alias_previous dch
@@ -585,12 +582,13 @@ class Tput
       #     CSI Ps X
       #     Erase Ps Character(s) (default = 1) (ECH).
       def erase_character(param : Int = 1)
-        put(&.ech?(param)) || _print { |io| io << "\e[" << param << "X" }
+        put(&.ech?(param)) || _print { |io| io << "\e[" << param << 'X' }
       end
 
       alias_previous ech, erase_chars
 
       # ESC # 3 DEC line height/width
+      # XXX is this supposed to return result?
       def line_height
         _print "\e#"
       end
@@ -599,7 +597,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a, b)
-        put(&._Ms?(a, b)) || _tprint "\e]52;#{a};#{b}\x07"
+        put(&._Ms?(a, b)) || _tprint { |io| io << "\e]52;" << a << ';' << b << "\x07" }
       end
 
       # Erase in line.

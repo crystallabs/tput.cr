@@ -58,17 +58,18 @@ class Tput
       #     Line Position Absolute  [row] (default = [1,column]) (VPA).
       #
       # NOTE: Can't find in terminfo, no idea why it has multiple params.
-      def cursor_line_pos_absolute(point : Point)
-        cursor_line_pos_absolute point.y
+      def cursor_line_absolute(point : Point)
+        cursor_line_absolute point.y
       end
 
-      def cursor_line_pos_absolute(param = 1)
+      # TODO switch to adjust_xy
+      def cursor_line_absolute(param = 1)
         @cursor.y = param
         _ncoords
         put(&.vpa?(param)) || _print { |io| io << "\e[" << param << 'd' }
       end
 
-      alias_previous vpa, sety, line_pos_absolute, cursor_line_absolute, set_y
+      alias_previous vpa, sety, line_absolute, line_pos_absolute, set_y
 
       # Set cursor position.
       #     CSI Ps ; Ps H
@@ -204,7 +205,7 @@ class Tput
 
       def reset_cursor
         if name? "xterm", "rxvt", "screen"
-          # XXX Disabled originally
+          # D O: XXX
           # return reset_colors
           _tprint "\e[0 q"
           _tprint "\e]112\x07"
@@ -378,7 +379,7 @@ class Tput
       def cursor_backward_tab(param = 1)
         @cursor.x -= 8
         _ncoords
-        put(&.cbt?(param)) || _print { |io| io << "\e[" << param << "Z" }
+        put(&.cbt?(param)) || _print { |io| io << "\e[" << param << 'Z' }
       end
 
       alias_previous cbt
@@ -387,7 +388,7 @@ class Tput
         @_rx.try do |rx|
           @_ry.try do |ry|
             put(&.cup? ry, rx)
-            # Disabled originally:
+            # D O:
             # put "nel"
           end
         end
@@ -395,6 +396,7 @@ class Tput
 
       # CSI Pm `  Character Position Absolute
       #   [column] (default = [row,1]) (HPA).
+      # TODO switch to adjust_xy
       def char_pos_absolute(param = 1)
         @x = param
         _ncoords
@@ -406,6 +408,7 @@ class Tput
       # 141 61 a * HPR -
       # Horizontal Position Relative
       # reuse CSI Ps C ?
+      # TODO switch to adjust_xy; how can we put cuf() without adjusting state?
       def h_position_relative(param = 1)
         put(&.cuf?(param)) && return
 
@@ -414,13 +417,14 @@ class Tput
         # Disabled originally
         # Does not exist:
         # if (@terminfo) return put "hpr", param
-        _print { |io| io << "\e[" << param << "a" }
+        _print { |io| io << "\e[" << param << 'a' }
       end
 
       alias_previous hpr
 
       # 145 65 e * VPR - Vertical Position Relative
       # reuse CSI Ps B ?
+      # TODO adjust_xy
       def v_position_relative(param = 1)
         @cursor.y += param
         _ncoords
@@ -429,7 +433,7 @@ class Tput
           # Disabled originally
           # Does not exist:
           # if (@terminfo) return put "vpr", param
-          _print { |io| io << "\e[" << param << "e" }
+          _print { |io| io << "\e[" << param << 'e' }
       end
 
       alias_previous vpr
@@ -437,15 +441,16 @@ class Tput
       # CSI Ps ; Ps f
       #   Horizontal and Vertical Position [row;column] (default =
       #   [1,1]) (HVP).
+      # TODO adjust_xy
       def hv_position(row = 0, col = 0)
         @cursor.y = row
         @cursor.x = col
         _ncoords
-        # Disabled originally
+        # D O:
         # Does not exist (?):
         # put(&.hvp", row, col);
         put(&.cup?(row, col)) ||
-          _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << "f" }
+          _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << 'f' }
       end
 
       alias_previous hvp

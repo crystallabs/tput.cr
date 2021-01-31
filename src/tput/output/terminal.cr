@@ -243,10 +243,12 @@ class Tput
 
       alias_previous decscl
 
+      # TODO avoid strings
       def decset(*arguments)
         set_mode "?#{arguments.join ';'}"
       end
 
+      # TODO avoid strings
       def decrst(*arguments)
         reset_mode "?#{arguments.join ';'}"
       end
