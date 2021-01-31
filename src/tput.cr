@@ -62,13 +62,13 @@ class Tput
   DEFAULT_SCREEN_SIZE = Size.new 80, 24 # Opinions vary: 24, 25, 27
 
   @[JSON::Field(ignore: true)]
-  property input : IO
+  property input : IO::FileDescriptor
 
   @[JSON::Field(ignore: true)]
-  property output : IO
+  property output : IO::FileDescriptor
 
   @[JSON::Field(ignore: true)]
-  property error : IO
+  property error : IO::FileDescriptor
 
   @[JSON::Field(ignore: true)]
   @mode : LibC::Termios? = nil
@@ -113,6 +113,18 @@ class Tput
 
   getter scroll_top = 0
   getter scroll_bottom = 0
+
+  # Timeout when reading escape sequences. If an escape sequence (ESC)
+  # comes in on input, we have no way of telling whether this is an
+  # ESC key or the start of an escape sequence.
+  # So we read with a timeout. If there is no input by the time it
+  # times out, we consider it was a key press.
+  #
+  # All other apps like Vi
+  # etc. read the escape key in the terminal this way.
+  #
+  # The default timeout is 400 milliseconds, the same as in Qt.
+  getter read_timeout : Time::Span = 400.milliseconds
 
   include Coordinates
 

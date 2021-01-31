@@ -119,7 +119,7 @@ class Tput
     def self.read_control(char : Char) : Key?
       case char.ord
       when Key::Escape.value
-        read_escape_sequence(char) { yield }
+        read_escape_sequence(char) { yield } || Key::Escape
       else
         Key.from_value?(char.ord)
       end # || Key::Unknown
@@ -131,6 +131,7 @@ class Tput
       # many others too, but the framework is here.
       case yield.try(&.ord)
       when 13 then Key::AltEnter
+      #when 27 then Key::Escape
       when 79 # Movement and F-keys
         case yield.try(&.ord)
         when 65 then Key::Up

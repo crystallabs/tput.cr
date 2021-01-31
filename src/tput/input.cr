@@ -55,11 +55,27 @@ class Tput
       end
     end
 
-    def next_char
-      @input.read_char.try do |c|
-        yield << c
-        c
+    def next_char(timeout : Bool = false)
+      input = @input
+      if timeout
+        input.read_timeout = @read_timeout
       end
+
+      begin
+        c = input.read_char
+      rescue IO::TimeoutError
+        c = nil
+      end
+
+      if c
+        yield << c
+      end
+
+      if timeout
+        input.read_timeout = nil
+      end
+
+      c
     end
 
     def listen(&block : Proc(Char, Key?, Array(Char), Nil))
@@ -68,7 +84,7 @@ class Tput
         while char = next_char { sequence }
           key = nil
           if char.control?
-            key = Key.read_control(char) { next_char { sequence } }
+            key = Key.read_control(char) { next_char(true) { sequence } }
           end
           yield char, key, sequence.dup
           sequence.clear
