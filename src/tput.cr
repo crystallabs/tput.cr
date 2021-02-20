@@ -137,7 +137,8 @@ class Tput
     @use_buffer = true,
     screen_size = nil
   )
-    options = Options.new
+    # XXX Disable for now
+    options = Options.new [] of String
 
     @force_unicode = unless force_unicode.nil?
       force_unicode

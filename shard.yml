@@ -17,7 +17,7 @@ dependencies:
     version: 0.1.0
   crystallabs-helpers:
     github: crystallabs/crystallabs-helpers.cr
-    version: 0.1.0
+    branch: master
   term-screen:
     github: crystal-term/screen
   toka:
