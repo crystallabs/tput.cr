@@ -17,6 +17,6 @@ dependencies:
     version: ~> 1.0
   crystallabs-helpers:
     github: crystallabs/crystallabs-helpers.cr
-    branch: master
+    version: ~> 1.0
   term-screen:
     github: crystal-term/screen
