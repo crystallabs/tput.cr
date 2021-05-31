@@ -120,6 +120,6 @@ Run `crystal spec` as usual.
 
 ## Thanks
 
-* All the fine folks on FreeNode IRC channel #crystal-lang and on Crystal's Gitter channel https://gitter.im/crystal-lang/crystal
+* All the fine folks on Libera.Chat IRC channel #crystal-lang and on Crystal's Gitter channel https://gitter.im/crystal-lang/crystal
 
 * Blacksmoke16, Asterite, HertzDevil, Raz, Oprypin, Straight-shoota, Watzon, Naqvis, and others!
