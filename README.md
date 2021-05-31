@@ -58,7 +58,7 @@ p tput.features.to_json
 p tput.emulator.to_json
 
 # Set terminal emulator's title, if possible
-tput.set_title "Test 123"
+tput.title = "Test 123"
 
 # Set cursor to red block:
 tput.cursor_shape Tput::CursorShape::Block, blink: false
