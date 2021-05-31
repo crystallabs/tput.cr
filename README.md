@@ -67,21 +67,21 @@ tput.cursor_color Tput::Color::Red
 # Switch to "alternate buffer", print some text
 tput.alternate
 tput.cursor_pos 10, 20
-tput.print "Text at position y=10, x=20"
+tput.echo "Text at position y=10, x=20"
 tput.bell
 tput.cr
 tput.lf
 
-tput.print "Now displaying ACS chars:"
+tput.echo "Now displaying ACS chars:"
 tput.cr
 tput.lf
 tput.smacs
-tput.print "``aaffggiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~"
+tput.echo "``aaffggiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~"
 tput.rmacs
 
 tput.cr
 tput.lf
-tput.print "Press any keys; q to exit."
+tput.echo "Press any keys; q to exit."
 
 # Listen for keypresses:
 tput.listen do |char, key, sequence|
@@ -100,7 +100,7 @@ tput.listen do |char, key, sequence|
   else
     tput.cr
     tput.lf
-    tput.print "Char=#{char.inspect}, Key=#{key.inspect}, Sequence=#{sequence.inspect}"
+    tput.echo "Char=#{char.inspect}, Key=#{key.inspect}, Sequence=#{sequence.inspect}"
   end
 end
 
