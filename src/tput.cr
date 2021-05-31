@@ -9,7 +9,6 @@ require "crystallabs-helpers"
 
 require "./tput/ext"
 require "./tput/macros"
-require "./tput/options"
 require "./tput/namespace"
 require "./tput/keys"
 require "./tput/output"
@@ -46,7 +45,7 @@ require "./tput/emulator"
 # In all of the examples above, spaces exist just for clarity and are not part of actual escape
 # sequences. For example, in "ESC [" or " Ps ; Ps ;" there are no actual spaces.
 class Tput
-  VERSION = "0.6.0"
+  VERSION = "1.0.0"
   include Namespace
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
@@ -137,14 +136,8 @@ class Tput
     @use_buffer = true,
     screen_size = nil
   )
-    # XXX Disable for now
-    options = Options.new [] of String
 
-    @force_unicode = unless force_unicode.nil?
-      force_unicode
-    else
-      options.force_unicode
-    end
+    @force_unicode = true
 
     @screen = screen_size || get_screen_size
     @cursor = Point.new
