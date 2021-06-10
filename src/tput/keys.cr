@@ -35,8 +35,7 @@ class Tput
 
     Escape = 27
 
-    # TODO Do we want normal characters to have a representation as Key?
-    # Space = 32
+    Space = 32
 
     Backspace = 127
     AltEnter

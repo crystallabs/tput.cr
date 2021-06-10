@@ -97,7 +97,7 @@ class Tput
   getter cursor : Point
   getter saved_cursor : Point?
 
-  property _saved = Hash(String | Symbol, CursorState).new
+  property _saved = Hash(String | Symbol | UInt64, CursorState).new
 
   @[JSON::Field(ignore: true)]
   @_buf = IO::Memory.new
