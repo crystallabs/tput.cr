@@ -150,10 +150,6 @@ class Tput
 
     @features = Features.new self
     @emulator = Emulator.new self
-
-    Signal::WINCH.trap do
-      reset_screen_size
-    end
   end
 
   def sigtstp(callback)
