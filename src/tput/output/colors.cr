@@ -13,7 +13,7 @@ class Tput
         #def reset_colors(param)
         #  put(&._Cr?(param)) || _twrite "\e]112\x07"
         #  # Why not?
-        #  #_twrite "\x1b]112;" + param + "\x07"
+        #  #_twrite "\e]112;" + param + "\x07"
         #end
 
         ## OSC Ps ; Pt ST

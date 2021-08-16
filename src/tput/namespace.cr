@@ -998,6 +998,7 @@ class Tput
       UI_AnimateToolBox
     end
 
+    @[Flags]
     enum CursorShape
       Block = 0
       Box   = 0
@@ -1708,14 +1709,16 @@ class Tput
 
 
     class Cursor
-      property artificial : Bool = false
       property shape = CursorShape::Block
       property blink = false
-      property color = Color::None
 
       property _set = false
+
+      # Related to artificial cursor
+      property? artificial : Bool = false
       property _state = 1
       property _hidden = true
+      property char = '▮'
     end
 
     class CursorState
