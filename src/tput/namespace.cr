@@ -1681,33 +1681,6 @@ class Tput
       end
     end
 
-    # XXX This is eventually to be replaced with RPosition (patch waiting but
-    # postponed for now)
-    class Position # XXX better name?
-      property left : Int32 | String | Nil
-      property top : Int32 | String | Nil
-      property right : Int32 | Nil
-      property bottom : Int32 | Nil
-      property width : Int32 | String | Nil
-      property height : Int32 | String | Nil
-      property? resizable = false
-
-      def initialize(@left = nil, @top = nil, @right = nil, @bottom = nil, width = nil, height = nil)
-        if width == "resizable"
-          @resizable = true
-        else
-          @width = width
-        end
-
-        if height == "resizable"
-          @resizable = true
-        else
-          @height = height
-        end
-      end
-    end
-
-
     class Cursor
       property shape = CursorShape::Block
       property blink = false
