@@ -136,7 +136,6 @@ class Tput
     @use_buffer = true,
     screen_size = nil
   )
-
     @force_unicode = true
 
     @screen = screen_size || get_screen_size

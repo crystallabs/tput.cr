@@ -6,12 +6,12 @@ class Tput
       include Crystallabs::Helpers::Logging
       include Macros
 
-      ## Prints text with optional attributes
-      #def print(txt, attr = nil)
+      # # Prints text with optional attributes
+      # def print(txt, attr = nil)
       #  # XXX to_slice until it's replaced with direct io write
       #  _print (attr ? text(txt, attr) : txt)
-      #end
-      #alias_previous echo
+      # end
+      # alias_previous echo
 
       # Writes string `str` (repeated `i` times and with `attr` attributes)
       def simple_insert(str, i = 1, attr = nil)

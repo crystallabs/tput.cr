@@ -588,21 +588,21 @@ class Tput
 
     @[Flags]
     enum AlignFlag
-      Left            = 0x0001
-      Leading         = Left
-      Right           = 0x0002
-      Trailing        = Right
-      HCenter         = 0x0004
-      #Justify         = 0x0008
-      #Absolute        = 0x0010
-      Horizontal_Mask = Left | Right | HCenter #| Justify | Absolute
+      Left     = 0x0001
+      Leading  = Left
+      Right    = 0x0002
+      Trailing = Right
+      HCenter  = 0x0004
+      # Justify         = 0x0008
+      # Absolute        = 0x0010
+      Horizontal_Mask = Left | Right | HCenter # | Justify | Absolute
 
-      Top      = 0x0020
-      Bottom   = 0x0040
-      VCenter  = 0x0080
-      #Baseline = 0x0100
+      Top     = 0x0020
+      Bottom  = 0x0040
+      VCenter = 0x0080
+      # Baseline = 0x0100
 
-      Vertical_Mask = Top | Bottom | VCenter #| Baseline
+      Vertical_Mask = Top | Bottom | VCenter # | Baseline
 
       Center = VCenter | HCenter
     end

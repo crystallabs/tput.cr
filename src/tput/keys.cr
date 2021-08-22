@@ -130,7 +130,7 @@ class Tput
       # many others too, but the framework is here.
       case yield.try(&.ord)
       when 13 then Key::AltEnter
-      #when 27 then Key::Escape
+        # when 27 then Key::Escape
       when 79 # Movement and F-keys
         case yield.try(&.ord)
         when 65 then Key::Up
