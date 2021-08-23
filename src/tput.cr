@@ -28,7 +28,7 @@ require "./tput/emulator"
 # Furthermore, for understanding the instructions on terminal sequences, the following
 # names are important:
 #
-#     ESC - Sequence starting with ESC (\x1b)
+#     ESC - Sequence starting with ESC (\e)
 #     CSI - Control Sequence Introducer: sequence starting with ESC [ (7bit) or CSI (\x9B, 8bit)
 #     DCS - Device Control String: sequence starting with ESC P (7bit) or DCS (\x90, 8bit)
 #     OSC - Operating System Command: sequence starting with ESC ] (7bit) or OSC (\x9D, 8bit)
@@ -45,17 +45,17 @@ require "./tput/emulator"
 # In all of the examples above, spaces exist just for clarity and are not part of actual escape
 # sequences. For example, in "ESC [" or " Ps ; Ps ;" there are no actual spaces.
 class Tput
-  VERSION = "1.0.2"
+  VERSION = "1.0.3"
   include Namespace
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
 
-  ESC  = "\x1b"
-  CSI7 = "\x1b["
+  ESC  = "\e"
+  CSI7 = "\e["
   CSI8 = "\x9b"
-  DCS7 = "\x1bP"
+  DCS7 = "\eP"
   DCS8 = "\x90"
-  OSC7 = "\x1b]"
+  OSC7 = "\e]"
   OSC8 = "\x9d"
 
   DEFAULT_SCREEN_SIZE = Size.new 80, 24 # Opinions vary: 24, 25, 27
