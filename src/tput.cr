@@ -45,7 +45,7 @@ require "./tput/emulator"
 # In all of the examples above, spaces exist just for clarity and are not part of actual escape
 # sequences. For example, in "ESC [" or " Ps ; Ps ;" there are no actual spaces.
 class Tput
-  VERSION = "1.0.4"
+  VERSION = "1.0.5"
   include Namespace
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
@@ -61,10 +61,10 @@ class Tput
   DEFAULT_SCREEN_SIZE = Size.new 80, 24 # Opinions vary: 24, 25, 27
 
   @[JSON::Field(ignore: true)]
-  property input : IO::FileDescriptor
+  property input : IO
 
   @[JSON::Field(ignore: true)]
-  property output : IO::FileDescriptor
+  property output : IO
 
   @[JSON::Field(ignore: true)]
   property error : IO::FileDescriptor
