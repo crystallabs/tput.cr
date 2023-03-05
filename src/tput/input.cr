@@ -57,7 +57,8 @@ class Tput
 
     def next_char(timeout : Bool = false)
       input = @input
-      if timeout
+
+      if timeout && input.responds_to? :"read_timeout="
         input.read_timeout = @read_timeout
       end
 
@@ -71,7 +72,7 @@ class Tput
         yield << c
       end
 
-      if timeout
+      if timeout && input.responds_to? :"read_timeout="
         input.read_timeout = nil
       end
 
