@@ -106,6 +106,7 @@ tput.listen do |char, key, sequence|
   # were consumed as part of identifying the key that was
   # pressed.
   if char == 'q'
+    tput.cursor_reset
     break
   else
     tput.cr
