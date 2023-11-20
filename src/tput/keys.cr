@@ -42,7 +42,7 @@ class Tput
     ShiftTab
 
     # Never used in code, just a hint for Crystal to not create collisions
-    # while assign enum numbers for the following, unnumbered fields.
+    # while assigning enum numbers to the following, unnumbered fields.
     FixAutonumbering = 1000
 
     Home
@@ -126,8 +126,9 @@ class Tput
 
     # Reads further chars while determining the key that was pressed.
     private def self.read_escape_sequence(char)
-      # TODO support alt+f keys, shift+f keys
-      # many others too, but the framework is here.
+      # TODO add support alt+Fn keys, shift+Fn keys, and
+      # many others too, but the complete framework is here,
+      # it just comes down to adding tree elements.
       case yield.try(&.ord)
       when 13 then Key::AltEnter
         # when 27 then Key::Escape

@@ -111,8 +111,8 @@ class Tput
       # if (acsc.indexOf('+\x10,\x11-\x18.\x190') === 0) {
       return true if detect_pc_rom_charset
 
-      # XXX Possibly enable when tcap support is in. While we only support
-      # terminfo, this is not relevant.
+      # XXX Possibly enable when termcap support gets added. Since we only support
+      # terminfo for now, this is not relevant.
       #  // screen termcap is bugged?
       #  if (@termcap
       #      && @tput.terminfo.name.indexOf('screen') === 0

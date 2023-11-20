@@ -32,13 +32,13 @@ class Tput
       end
     end
 
-    # Copied from IO::FileDescriptor, as this method is sadly `private`.
+    # Copied from IO::FileDescriptor, as this method is sadly `private` there.
     private def raw_from_tc_mode!(fd, mode)
       LibC.cfmakeraw(pointerof(mode))
       LibC.tcsetattr(fd, Termios::LineControl::TCSANOW, pointerof(mode))
     end
 
-    # Copied from IO::FileDescriptor, as this method is sadly `private`.
+    # Copied from IO::FileDescriptor, as this method is sadly `private` there.
     private def preserving_tc_mode(fd)
       if LibC.tcgetattr(fd, out mode) != 0
         raise RuntimeError.from_errno("Failed to enable raw mode on output")

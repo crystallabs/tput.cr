@@ -126,7 +126,7 @@ class Tput
         self.charset=()
       end
 
-      alias_previous rmacs # , ae # Unclear name avoid aliasing to this
+      alias_previous rmacs # , ae # Unclear name, avoid aliasing to 'ae'
 
       # Set G character set.
       #

@@ -59,7 +59,7 @@ class Tput
 
       @terminator = to_b ENV["TERMINATOR_UUID"]?
 
-      # NOTE: lxterminal does not provide an enviable to check for.
+      # NOTE: lxterminal does not provide an env variable to check for.
       @lxterm = false
 
       # gnome-terminal and sakura use a later version of VTE which provides VTE_VERSION as well as supports SGR events.

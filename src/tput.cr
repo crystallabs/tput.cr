@@ -39,7 +39,7 @@ require "./tput/emulator"
 # XTerm documentation:
 #
 #     Ps: A single (usually optional) numeric parameter, composed of one or more decimal digits.
-#     Pm: A multiple numeric parameter composed of any number of single numeric parameters, separated by ; character(s), e.g. ` Ps ; Ps ; … `.
+#     Pm: A multiple numeric parameter composed of any number of single numeric parameters, separated by ";", e.g. ` Ps ; Ps ; … `.
 #     Pt: A text parameter composed of printable characters.
 #
 # In all of the examples above, spaces exist just for clarity and are not part of actual escape

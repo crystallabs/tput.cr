@@ -57,6 +57,17 @@ class Tput
     # value (screen.width vs. screen.height), it would be possible to
     # make this function operate on one coordinate at a time; only the
     # max value (width or height) would have be supplied as an extra argument.
+    #
+    # The difference between this function and `#_ncoords` is that
+    # `#_ncoords` performs live adjustment, and only brings the cursor
+    # the minimum amount of places to the left and to the top to make the
+    # cursor appear within screen.
+    # This function, on the other hand, only performs calculation on
+    # x and y and returns the (possibly adjusted) x and y which would be
+    # within screen. It supports negative x/y values, which mean to take
+    # them as being offset from right/bottom edge (rather than left/top),
+    # and also checks for cursor being out of (0,0), and not just out of
+    # (screen.width,screen.height).
     private def _adjust_xy(x = 0, y = 0, sx = 0, sy = 0, wrap = false)
       s = @screen
 

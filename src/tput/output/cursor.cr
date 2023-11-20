@@ -39,11 +39,6 @@ class Tput
       end
 
       # :ditto:
-      def cursor_char_absolute(point : Point)
-        cursor_char_absolute point.x
-      end
-
-      # :ditto:
       def cursor_char_absolute(param = 0)
         @cursor.x = param
         _ncoords
@@ -57,13 +52,13 @@ class Tput
       #     CSI Pm d
       #     Line Position Absolute  [row] (default = [1,column]) (VPA).
       #
-      # NOTE: Can't find in terminfo, no idea why it has multiple params.
+      # NOTE: Can't find in terminfo, no idea why it has multiple params (Pm).
       def cursor_line_absolute(point : Point)
         cursor_line_absolute point.y
       end
 
-      # TODO switch to adjust_xy
       def cursor_line_absolute(param = 1)
+        # TODO switch to adjust_xy
         @cursor.y = param
         _ncoords
         put(&.vpa?(param)) || _print { |io| io << "\e[" << param << 'd' }

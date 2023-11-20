@@ -19,6 +19,9 @@ called `unibilium`). Not even ncurses bindings are used; Tput is a standalone
 library that implements all the needed functions itself and provides a much nicer
 API.
 
+Why no ncurses? Ncurses is an implementation sort-of specific to C. When not working
+in C, many of the ncurses methods make no sense. Also in general, the ncurses API is arcane.
+
 ## Installation
 
 1. Add the dependency to your `shard.yml`:
@@ -35,14 +38,14 @@ dependencies:
 ## Overview
 
 If/when initialized with term name, terminfo data will be looked up. If no terminfo
-data is found (or one wishes not to use terminfo), Tput's built-in replacements will
-be used.
+data is found (or one wishes not to use terminfo), Tput's built-in, generic sequences
+will be used.
 
 As part of initialization, Tput will also detect terminal features and the
 terminal emulator program in use.
 
 There is zero configuration or considerations to have in mind when using
-this library. Everything is set up automatically.
+this library. Everything shoud be set up automatically.
 
 For example:
 
@@ -53,25 +56,30 @@ require "tput"
 terminfo = Unibilium::Terminfo.from_env
 tput = Tput.new terminfo
 
-# Print detected features and environment
-p tput.features.to_json
-p tput.emulator.to_json
-
 # Set terminal emulator's title, if possible
 tput.title = "Test 123"
 
-# Set cursor to red block:
+# Set cursor to red block
 tput.cursor_shape Tput::CursorShape::Block, blink: false
 tput.cursor_color Tput::Color::Red
 
-# Switch to "alternate buffer", print some text
+# Switch to "alternate buffer"
 tput.alternate
-tput.cursor_pos 10, 20
-tput.echo "Text at position y=10, x=20"
+tput.clear
+
+# Print detected features and environment
+puts "Term type and features:"
+puts tput.emulator.to_json
+puts tput.features.to_json
+
+# Print some more text
+tput.cursor_pos 15, 20
+tput.echo "Text at position y=15, x=20"
 tput.bell
 tput.cr
 tput.lf
 
+# Enter ACS mode, print some ACS chars, and exit ACS mode
 tput.echo "Now displaying ACS chars:"
 tput.cr
 tput.lf
@@ -81,14 +89,16 @@ tput.rmacs
 
 tput.cr
 tput.lf
-tput.echo "Press any keys; q to exit."
+tput.echo "Press keys to see their inspected value; press q to exit."
+tput.cr
+tput.lf
 
-# Listen for keypresses:
+# Listen for keypresses
 tput.listen do |char, key, sequence|
-  # Char is a single typed character, or the first character
+  # `char` is a single typed character, or the first character
   # of a sequence which led to a particular key.
 
-  # Key is a keyboard key, if any. Ordinary characters like
+  # `key` is a keyboard key, if any. Ordinary characters like
   # 'a' or '1' don't have a representation as Key. Special
   # keys like Enter, F1, Esc etc. do.
 
@@ -96,7 +106,7 @@ tput.listen do |char, key, sequence|
   # were consumed as part of identifying the key that was
   # pressed.
   if char == 'q'
-    exit
+    break
   else
     tput.cr
     tput.lf
@@ -106,9 +116,6 @@ end
 
 tput.clear
 ```
-
-Why no ncurses? Ncurses is an implementation sort-of specific to C. When not working
-in C, many of the ncurses methods make no sense. Also in general, the ncurses API is arcane.
 
 ## API documentation
 
