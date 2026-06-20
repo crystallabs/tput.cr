@@ -19,6 +19,7 @@ require "./tput/acsc"
 require "./tput/features"
 require "./tput/emulator"
 require "./tput/probe"
+require "./tput/dump"
 
 # Many Tput methods correspond to terminal sequences. Often times methods are named
 # according to their purpose, and then aliased to the names of sequences used behind
@@ -99,6 +100,9 @@ class Tput
   getter cursor : Point
   getter saved_cursor : Point?
 
+  # Internal cursor-save state. Keys can be Symbol/UInt64, which aren't valid
+  # JSON object keys, so it's excluded from serialization.
+  @[JSON::Field(ignore: true)]
   property _saved = Hash(String | Symbol | UInt64, CursorState).new
 
   @[JSON::Field(ignore: true)]
@@ -108,6 +112,7 @@ class Tput
 
   property? _exiting = false
 
+  @[JSON::Field(ignore: true)]
   property ret : IO? = nil
 
   getter is_alt = false
@@ -134,6 +139,7 @@ class Tput
   # etc. read the escape key in the terminal this way.
   #
   # The default timeout is 400 milliseconds, the same as in Qt.
+  @[JSON::Field(ignore: true)]
   getter read_timeout : Time::Span = 400.milliseconds
 
   include Coordinates

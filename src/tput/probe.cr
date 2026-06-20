@@ -15,6 +15,10 @@ class Tput
   #
   # * OSC 10 / OSC 11      -> default foreground / background color
   # * OSC 4 ; 0..15        -> the 16 indexed palette colors
+  # * SGR 48;2 + DECRQSS   -> whether 24-bit ("true") color survives a round
+  #                           trip: we set a distinctive RGB background, ask the
+  #                           terminal to report its current SGR, and check the
+  #                           reply still carries the RGB triplet.
   # * print `…` + DSR/CPR  -> measured width of an ambiguous-width char
   # * DA1 (`CSI c`)        -> device attributes, *and* a universal terminator:
   #                           every terminal answers DA1, but not all answer
@@ -63,7 +67,10 @@ class Tput
         end
       end
 
-      features.ambiguous_width = result.ambiguous_width if result.ambiguous_width
+      if w = result.ambiguous_width
+        features.ambiguous_width = w
+        features.sources["ambiguous_width"] = "probed via DSR/CPR cursor-position measurement"
+      end
 
       Log.trace { "probe!: #{result}" }
       result.got_da
@@ -94,6 +101,7 @@ class Tput
           when 'c'
             # DA1 reply. Doubles as the end-of-responses sentinel.
             f.da_params = probe_ints params
+            f.sources["da_params"] = "probed via DA1 (CSI c) reply"
             got_da = true
             break
           when 'R'
@@ -104,6 +112,10 @@ class Tput
           end
         when ']'.ord # OSC
           apply_osc_color f, probe_read_osc(io, timeout)
+        when 'P'.ord # DCS (DECRQSS reply to the truecolor probe)
+          if truecolor_confirmed? probe_read_dcs(io, timeout)
+            f.confirm_truecolor! "probed via DECRQSS (24-bit SGR readback)"
+          end
         end
       end
 
@@ -120,6 +132,11 @@ class Tput
         io << "\e]4"               # indexed palette 0..15
         16.times { |i| io << ';' << i << ";?" }
         io << '\a'
+        # Truecolor probe: set bg to RGB(1,2,3), ask for the current SGR via
+        # DECRQSS (DCS $q m ST), then reset. If the terminal kept the 24-bit
+        # value its reply echoes `1;2;3`; if it lacks truecolor it downsamples
+        # (or doesn't answer DECRQSS at all).
+        io << "\e[48;2;1;2;3m\eP$qm\e\\\e[m"
         io << "\e7\r…\e[6n" # save cursor, print ambiguous char, CPR
         io << "\e[c"        # DA1: capabilities + terminator
       end
@@ -186,6 +203,38 @@ class Tput
       end
     end
 
+    # Reads the payload of a DCS sequence (everything after `ESC P`) up to its
+    # string terminator (ST = `ESC \`, or BEL). Returns the payload without the
+    # terminator. The DECRQSS reply we care about looks like `1$rPm` where `P`
+    # is the active SGR parameter list, e.g. `1$r0;48:2::1:2:3m`.
+    private def probe_read_dcs(io : IO, timeout : Time::Span) : String
+      data = String::Builder.new
+      loop do
+        b = probe_read_byte io, timeout
+        return data.to_s unless b
+        case b
+        when 0x07_u8 # BEL
+          return data.to_s
+        when 0x1b_u8 # possible ST: ESC \
+          nxt = probe_read_byte io, timeout
+          return data.to_s if nxt.nil? || nxt == '\\'.ord
+          data << '\e'
+          data << nxt.chr
+        else
+          data << b.chr
+        end
+      end
+    end
+
+    # Decides whether a DECRQSS SGR reply confirms 24-bit color. A valid reply
+    # starts with `1$r`; truecolor terminals echo the background we set back as
+    # an RGB triplet (`48:2:…1:2:3` or `48;2;1;2;3`). A 256-color terminal
+    # downsamples (e.g. `48;5;N`) and fails the match; one without DECRQSS never
+    # sends a DCS reply at all.
+    private def truecolor_confirmed?(data : String) : Bool
+      data.includes?("$r") && !!data.match(/48[:;]2[:;].*1[:;]2[:;]3/)
+    end
+
     # Splits a CSI parameter string like `"0;36"` (or `"?62;1;6"`) into its
     # numeric components. A leading private marker (`?`/`>`/`=`/`<`), as used
     # by DA1 replies, is stripped first so the first parameter parses.
@@ -202,15 +251,22 @@ class Tput
 
       case parts[0]
       when "10"
-        f.default_foreground = parse_rgb parts[1]
+        if rgb = parse_rgb parts[1]
+          f.default_foreground = rgb
+          f.sources["default_foreground"] = "probed via OSC 10 reply"
+        end
       when "11"
-        f.default_background = parse_rgb parts[1]
+        if rgb = parse_rgb parts[1]
+          f.default_background = rgb
+          f.sources["default_background"] = "probed via OSC 11 reply"
+        end
       when "4"
         return if parts.size < 3
         idx = parts[1].to_i?
         return unless idx && 0 <= idx < 16
         if rgb = parse_rgb parts[2]
           f.palette[idx] = rgb
+          f.sources["palette"] = "probed via OSC 4 replies"
         end
       end
     end

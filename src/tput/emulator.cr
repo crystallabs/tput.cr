@@ -47,32 +47,49 @@ class Tput
     # :nodoc:
     getter tput : Tput
 
+    # For each emulator flag (by name), a human-readable description of *how* it
+    # was determined (which environment variable, terminfo/TERM name, etc.).
+    # Surfaced via `Tput#dump`.
+    @[JSON::Field(ignore: true)]
+    getter sources = Hash(String, String).new
+
     # Creates an instance of `Features` and performs the autodetection.
     def initialize(@tput : Tput)
+      @sources = Hash(String, String).new
       term_program = ENV["TERM_PROGRAM"]? || ""
 
       @osxterm = term_program == "Apple_Terminal"
+      @sources["osxterm"] = %(env TERM_PROGRAM == "Apple_Terminal")
 
       @iterm2 = (term_program == "iTerm.app") || (to_b ENV["ITERM_SESSION_ID"]?)
+      @sources["iterm2"] = %(env TERM_PROGRAM == "iTerm.app" or ITERM_SESSION_ID set)
 
       @xfce = to_b((ENV["COLORTERM"]? || "") =~ /xfce/i)
+      @sources["xfce"] = %(env COLORTERM matches /xfce/i)
 
       @terminator = to_b ENV["TERMINATOR_UUID"]?
+      @sources["terminator"] = %(env TERMINATOR_UUID set)
 
       # NOTE: lxterminal does not provide an env variable to check for.
       @lxterm = false
+      @sources["lxterm"] = "not detectable (lxterminal exposes no env var)"
 
       # gnome-terminal and sakura use a later version of VTE which provides VTE_VERSION as well as supports SGR events.
       @vte = to_b(ENV["VTE_VERSION"]?) || @xfce || @terminator || @lxterm
+      @sources["vte"] = %(env VTE_VERSION set, or implied by xfce/terminator/lxterm)
 
       @rxvt = ENV["COLORTERM"]?.try(&.starts_with?("rxvt")) || (@tput.name? "rxvt")
+      @sources["rxvt"] = %(env COLORTERM starts with "rxvt", or terminal name matches "rxvt")
 
       @xterm = to_b ENV["XTERM_VERSION"]?
+      @sources["xterm"] = %(env XTERM_VERSION set)
 
       @tmux = to_b(ENV["TMUX"]?)
+      @sources["tmux"] = %(env TMUX set)
       # XXX Detect TMUX version?
 
       @screen = (ENV["TERM"]? == "screen")
+      @sources["screen"] = %(env TERM == "screen")
 
       Log.trace { my self }
     end

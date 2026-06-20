@@ -1609,6 +1609,8 @@ class Tput
     end
 
     class Size
+      include JSON::Serializable
+
       property width : Int32
       property height : Int32
 
@@ -1635,6 +1637,8 @@ class Tput
     end
 
     class Point
+      include JSON::Serializable
+
       property x : Int32
       property y : Int32
 
@@ -1651,6 +1655,8 @@ class Tput
     end
 
     class Rect
+      include JSON::Serializable
+
       property x : Int32
       property y : Int32
       property width : Int32
