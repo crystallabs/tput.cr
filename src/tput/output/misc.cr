@@ -71,7 +71,7 @@ class Tput
       alias_previous mc
 
       def mc0
-        put(&.mc0?) || put(mc?(0)) || false
+        put(&.mc0?) || media_copy(0)
       end
 
       alias_previous print_screen, ps

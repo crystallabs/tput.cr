@@ -111,11 +111,17 @@ class Tput
 
     Menu = 16777301
 
+    # Sentinel returned by `read_control` when a mouse-reporting introducer
+    # (`\e[M` for X10, `\e[<` for SGR) is detected. The remaining payload bytes
+    # are not consumed here; `Tput::Input#listen` reads and parses them into a
+    # `Tput::Mouse::Event`.
+    Mouse = 16777302
+
     Unknown = 33554431
 
     # Reads a `Control` input from *char*.  If an escape sequence was detected,
     # calls the given block for the next `Char?`.
-    def self.read_control(char : Char) : Key?
+    def self.read_control(char : Char, &) : Key?
       case char.ord
       when Key::Escape.value
         read_escape_sequence(char) { yield } || Key::Escape
@@ -125,7 +131,7 @@ class Tput
     end
 
     # Reads further chars while determining the key that was pressed.
-    private def self.read_escape_sequence(char)
+    private def self.read_escape_sequence(char, &)
       # TODO add support alt+Fn keys, shift+Fn keys, and
       # many others too, but the complete framework is here,
       # it just comes down to adding tree elements.
@@ -138,6 +144,11 @@ class Tput
         when 66 then Key::Down
         when 67 then Key::Right
         when 68 then Key::Left
+          # SS3-encoded Home/End, sent by terminals in application cursor keys
+          # mode (DECCKM, which this library enables). Without these, `\eOH`/`\eOF`
+          # fall through to `nil` and the leading `\e` is read as a bare Escape.
+        when 72 then Key::Home
+        when 70 then Key::End
         when 80 then Key::F1
         when 81 then Key::F2
         when 82 then Key::F3
@@ -237,6 +248,8 @@ class Tput
         when 70 then Key::End
         when 72 then Key::Home
         when 90 then Key::ShiftTab
+        when 77 then Key::Mouse # `\e[M` -> X10 mouse report
+        when 60 then Key::Mouse # `\e[<` -> SGR mouse report
         else
           nil
         end

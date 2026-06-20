@@ -11,12 +11,12 @@ license: AGPLv3
 dependencies:
   unibilium:
     github: crystallabs/unibilium.cr
-    version: ~> 1.0
+    branch: master
   unibilium-shim:
     github: crystallabs/unibilium-shim.cr
-    version: ~> 1.0
+    branch: master
   crystallabs-helpers:
     github: crystallabs/crystallabs-helpers.cr
-    version: ~> 1.0
+    branch: master
   term-screen:
     github: crystal-term/screen

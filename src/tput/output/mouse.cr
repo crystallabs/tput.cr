@@ -56,6 +56,30 @@ class Tput
       end
 
       alias_previous decelr
+
+      # Enables xterm mouse reporting. We turn on:
+      #   * 1000 - report button press and release
+      #   * 1002 - additionally report motion while a button is held (drag)
+      #   * 1003 - additionally report all motion
+      #   * 1006 - SGR extended encoding (coordinates beyond column/row 223,
+      #            and unambiguous press/release)
+      #
+      # 1006 is what makes `Tput::Input#listen` receive the modern `\e[<…M/m`
+      # reports it prefers to parse. (Focus reporting, mode 1004, is left out.)
+      def enable_mouse
+        decset 1000
+        decset 1002
+        decset 1003
+        decset 1006
+      end
+
+      # Disables the xterm mouse reporting modes enabled by `#enable_mouse`.
+      def disable_mouse
+        decrst 1000
+        decrst 1002
+        decrst 1003
+        decrst 1006
+      end
     end
   end
 end

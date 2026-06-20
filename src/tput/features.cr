@@ -168,6 +168,15 @@ class Tput
     def detect_number_of_colors
       colors = 2
 
+      # TrueColor (24-bit) is advertised out-of-band via COLORTERM rather than
+      # by TERM/terminfo, so check it first: a "truecolor"/"24bit" value means
+      # the terminal can render the full 16M-color space.
+      if ct = ENV["COLORTERM"]?
+        if ct == "truecolor" || ct == "24bit"
+          return 0x1000000 # 16_777_216
+        end
+      end
+
       # NOTE Which of these 2 tests should come first?
 
       ENV["TERM"]?.try do |term|
@@ -203,7 +212,7 @@ class Tput
         ch2 = ACSC::Data[nxt][broken_acs? ? 2 : 1].as Char
 
         acsc[ch] = ch2
-        acscr[ch2] = acsc[ch]
+        acscr[ch2] = ch
       end
 
       {acsc, acscr}

@@ -55,7 +55,7 @@ class Tput
 
       @iterm2 = (term_program == "iTerm.app") || (to_b ENV["ITERM_SESSION_ID"]?)
 
-      @xfce = to_b ((ENV["COLORTERM"]? || "") =~ /xfce/i)
+      @xfce = to_b((ENV["COLORTERM"]? || "") =~ /xfce/i)
 
       @terminator = to_b ENV["TERMINATOR_UUID"]?
 
@@ -69,7 +69,7 @@ class Tput
 
       @xterm = to_b ENV["XTERM_VERSION"]?
 
-      @tmux = to_b (ENV["TMUX"]?)
+      @tmux = to_b(ENV["TMUX"]?)
       # XXX Detect TMUX version?
 
       @screen = (ENV["TERM"]? == "screen")

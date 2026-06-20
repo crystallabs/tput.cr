@@ -61,7 +61,7 @@ class Tput
         # TODO switch to adjust_xy
         @cursor.y = param
         _ncoords
-        put(&.vpa?(param)) || _print { |io| io << "\e[" << param << 'd' }
+        put(&.vpa?(param)) || _print { |io| io << "\e[" << param + 1 << 'd' }
       end
 
       alias_previous vpa, sety, line_absolute, line_pos_absolute, set_y
@@ -333,8 +333,10 @@ class Tput
       #     Ps = 3  -> blinking underline.
       #     Ps = 4  -> steady underline.
       def set_cursor_style(style = CursorStyle::SteadyBlock)
-        (put(&._Se?) && return) if style.value == 2
-        put(&._Ss?(param)) || _print { |io| io << "\e[" << style.value << " q" }
+        # TODO - enable when put supports extended caps (Se/Ss)
+        # (put(&._Se?) && return) if style.value == 2
+        # put(&._Ss?(style.value)) ||
+        _print { |io| io << "\e[" << style.value << " q" }
       end
 
       alias_previous decscusr
@@ -342,8 +344,7 @@ class Tput
       # CSI s
       #   Save cursor (ANSI.SYS).
       def save_cursor_a
-        @saved_cursor.x = @cursor.x
-        @saved_cursor.y = @cursor.y
+        @saved_cursor = @cursor.dup
         put(&.sc?) || _print "\e[s"
       end
 
@@ -352,9 +353,11 @@ class Tput
       # CSI u
       #   Restore cursor (ANSI.SYS).
       def restore_cursor_a
-        @cursor.x = @saved_cursor.x
-        @cursor.y = @saved_cursor.y
-        _ncoords
+        if sp = @saved_cursor
+          @cursor.x = sp.x
+          @cursor.y = sp.y
+          _ncoords
+        end
         put(&.rc?) || _print "\e[u"
       end
 
@@ -363,7 +366,7 @@ class Tput
       # CSI Ps I
       #   Cursor Forward Tabulation Ps tab stops (default = 1) (CHT).
       def cursor_forward_tab(param = 1)
-        @cursor.x += 8
+        @cursor.x += param * 8
         _ncoords
         put(&.tab?(param)) || _print { |io| io << "\e[" << param << "I" }
       end
@@ -372,7 +375,7 @@ class Tput
 
       # CSI Ps Z  Cursor Backward Tabulation Ps tab stops (default = 1) (CBT).
       def cursor_backward_tab(param = 1)
-        @cursor.x -= 8
+        @cursor.x -= param * 8
         _ncoords
         put(&.cbt?(param)) || _print { |io| io << "\e[" << param << 'Z' }
       end
@@ -393,9 +396,9 @@ class Tput
       #   [column] (default = [row,1]) (HPA).
       # TODO switch to adjust_xy
       def char_pos_absolute(param = 1)
-        @x = param
+        @cursor.x = param
         _ncoords
-        put(&.hpa?(param)) || _print { |io| io << "\e[" << param << '`' }
+        put(&.hpa?(param)) || _print { |io| io << "\e[" << param + 1 << '`' }
       end
 
       alias_previous hpa
@@ -463,7 +466,9 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Change dynamic colors
       def dynamic_cursor_color(param)
-        put(&._Cs?(param)) || _tprint "\e]12;#{param}\x07"
+        # TODO - enable when put supports extended caps (Cs)
+        # put(&._Cs?(param)) ||
+        _tprint "\e]12;#{param}\x07"
       end
     end
   end

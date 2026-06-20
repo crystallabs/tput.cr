@@ -21,11 +21,7 @@ class Tput
       # ESC M Reverse Index (RI is 0x8d).
       def reverse_index
         _x, y = _adjust_xy_rel 0, -1
-        y *= -1
-        if y > 0
-          @cursor.y -= 1
-        end
-        # XXX should this go into the if?
+        @cursor.y += y
         put(&.ri?) || _print "\eM"
       end
 

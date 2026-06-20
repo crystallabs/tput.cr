@@ -998,10 +998,19 @@ class Tput
       UI_AnimateToolBox
     end
 
-    @[Flags]
     enum CursorShape
-      Block = 0
-      Box   = 0
+      # No predefined shape: the cursor is drawn from its own `style` (a custom
+      # glyph and/or colors). Used by the artificial cursor; the hardware cursor
+      # has no equivalent and ignores this value.
+      #
+      # This member is also why `CursorShape` is a plain enum rather than
+      # `@[Flags]`: a flags enum auto-generates `None = 0`, which collided with
+      # `Block = 0` (making `Block == None` and the `block?` predicate always
+      # true). The shapes are mutually exclusive, so a plain enum is correct.
+      None = 0
+
+      Block = 1
+      Box   = 1
 
       Underline  = 2
       Underscore = 2
@@ -1629,15 +1638,15 @@ class Tput
       property x : Int32
       property y : Int32
 
-      def initialize(@y = 0, @x = 0)
+      def initialize(@x = 0, @y = 0)
       end
 
-      def self.[](y, x)
-        new y, x
+      def self.[](x, y)
+        new x, y
       end
 
       def to_s(io)
-        io << "Point[" << @y << ", " << @x << ']'
+        io << "Point[" << @x << ", " << @y << ']'
       end
     end
 

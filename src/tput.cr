@@ -11,6 +11,7 @@ require "./tput/ext"
 require "./tput/macros"
 require "./tput/namespace"
 require "./tput/keys"
+require "./tput/mouse"
 require "./tput/output"
 require "./tput/input"
 require "./tput/coordinates"
@@ -76,7 +77,7 @@ class Tput
   getter? force_unicode
 
   @[JSON::Field(ignore: true)]
-  getter terminfo : Unibilium::Terminfo?
+  getter terminfo : Unibilium?
 
   @[JSON::Field(ignore: true)]
   getter shim : Unibilium::Terminfo::Shim?
@@ -113,6 +114,15 @@ class Tput
   getter scroll_top = 0
   getter scroll_bottom = 0
 
+  # Resume continuation set by `#pause` and invoked by `#resume`.
+  @[JSON::Field(ignore: true)]
+  @_resume : Proc(Nil)? = nil
+
+  # Last reported cursor position (parsed from a DSR response), used by
+  # `#restore_reported_cursor`.
+  @_rx : Int32? = nil
+  @_ry : Int32? = nil
+
   # Timeout when reading escape sequences. If an escape sequence (ESC)
   # comes in on input, we have no way of telling whether this is an
   # ESC key or the start of an escape sequence.
@@ -130,11 +140,15 @@ class Tput
   def initialize(
     @terminfo = nil,
     @input = STDIN,
-    @output = STDOUT.dup,
-    @error = STDERR.dup,
+    # NOTE: not `.dup` — `Object#dup` shallow-copies the IO and aliases the same
+    # fd with close_on_finalize=true; the discarded alias closes the shared fd on
+    # GC, causing spurious EBADF ("File not open for ...") errors. Use the std
+    # stream directly (a single, never-collected global).
+    @output = STDOUT,
+    @error = STDERR,
     force_unicode = nil,
     @use_buffer = true,
-    screen_size = nil
+    screen_size = nil,
   )
     @force_unicode = true
 
@@ -175,7 +189,7 @@ class Tput
     names.any? { |name| name? name }
   end
 
-  def has?
+  def has?(&)
     @shim.try { |s| yield(s) ? true : false }
   end
 
@@ -191,7 +205,7 @@ class Tput
   #
   # put &.cursor_pos?(10, 20)
   # ```
-  def put
+  def put(&)
     @shim.try { |s|
       yield(s).try { |data|
         features.padding? ? _pad_write(data) : _write(data)
@@ -222,7 +236,7 @@ class Tput
     # end
     # @input.pause
 
-    @_resume = ->{
+    @_resume = -> {
       @_resume = nil
 
       # XXX No support yet.

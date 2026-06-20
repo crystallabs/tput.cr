@@ -38,7 +38,7 @@ class Tput
       #      end
       def copy_to_clipboard(text)
         if emulator.iterm2?
-          _tprint "\e]50;CopyToCliboard=#{text}\x07"
+          _tprint "\e]50;CopyToClipboard=#{text}\x07"
           return true
         end
         false
@@ -85,7 +85,7 @@ class Tput
       #   If no parameters are given, all resources are reset to their
       #   initial values.
       def set_resources(*arguments)
-        _print { |io| "\e[>"; arguments.join(io, ";"); io << "m" }
+        _print { |io| io << "\e[>"; arguments.join(io, ";"); io << "m" }
       end
 
       # CSI > Ps n

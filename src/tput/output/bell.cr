@@ -22,7 +22,7 @@ class Tput
       #     Ps = 2 , 3  or 4  -> low.
       #     Ps = 5 , 6 , 7 , or 8  -> high.
       def warning_bell_volume=(param : Volume)
-        _print { |io| io << "\e[" << param.value << "} t" }
+        _print { |io| io << "\e[" << param.value << " t" }
       end
 
       alias_previous :decswbv=

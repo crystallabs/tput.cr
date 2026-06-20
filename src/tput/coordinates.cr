@@ -6,6 +6,11 @@ class Tput
     # Gets terminal/screen size as number of columns and rows.
     def get_screen_size
       r, c = ENV["TPUT_SCREEN_SIZE"]?.try { |s| s.split('x', 2).map &.to_i } ||
+             # Size *this* terminal by querying its own output fd, so multiple
+             # `Tput`s on different terminals each get their real dimensions
+             # rather than all sharing the launching terminal's (which is what
+             # `Term::Screen.size` probes via STDIN/STDOUT/STDERR).
+             Term::Screen.size_from_ioctl(@output) ||
              Term::Screen.size ||
              {DEFAULT_SCREEN_SIZE.height, DEFAULT_SCREEN_SIZE.width}
       s = Size.new c, r
