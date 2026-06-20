@@ -41,6 +41,31 @@ class Tput
     @[JSON::Field(ignore: true)]
     getter acscr : ACSHash
 
+    # Runtime-probed results, filled in by `Tput#probe!` (see `Tput::Probe`).
+    # They stay `nil`/empty until probing runs and the terminal replies.
+
+    # Rendered width (in cells) of an ambiguous-width character, as actually
+    # measured via DSR/CPR. 1 = narrow, 2 = wide; `nil` if not probed.
+    @[JSON::Field(ignore: true)]
+    property ambiguous_width : Int32? = nil
+
+    # Default foreground color reported via OSC 10.
+    @[JSON::Field(ignore: true)]
+    property default_foreground : RGB? = nil
+
+    # Default background color reported via OSC 11.
+    @[JSON::Field(ignore: true)]
+    property default_background : RGB? = nil
+
+    # The 16 indexed palette colors reported via OSC 4 (`nil` per entry until
+    # probed / if the terminal didn't answer for that index).
+    @[JSON::Field(ignore: true)]
+    property palette : Array(RGB?) = Array(RGB?).new(16, nil)
+
+    # Numeric parameters from the DA1 (`CSI c`) device-attributes reply.
+    @[JSON::Field(ignore: true)]
+    property da_params : Array(Int32)? = nil
+
     @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput

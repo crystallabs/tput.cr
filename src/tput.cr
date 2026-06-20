@@ -18,6 +18,7 @@ require "./tput/coordinates"
 require "./tput/acsc"
 require "./tput/features"
 require "./tput/emulator"
+require "./tput/probe"
 
 # Many Tput methods correspond to terminal sequences. Often times methods are named
 # according to their purpose, and then aliased to the names of sequences used behind
@@ -149,6 +150,7 @@ class Tput
     force_unicode = nil,
     @use_buffer = true,
     screen_size = nil,
+    probe = true,
   )
     @force_unicode = true
 
@@ -163,6 +165,12 @@ class Tput
 
     @features = Features.new self
     @emulator = Emulator.new self
+
+    # Augment the static (ENV/terminfo) detection above with live probing:
+    # round-trip a batch of query sequences and read the terminal's replies.
+    # Only runs when attached to a real terminal; safely skipped for pipes,
+    # files, and test doubles.
+    probe! if probe && probe_capable?
   end
 
   def sigtstp(callback)
@@ -275,4 +283,5 @@ class Tput
   include ACSC
   include Output
   include Input
+  include Probe
 end

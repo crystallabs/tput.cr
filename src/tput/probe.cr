@@ -1,0 +1,240 @@
+class Tput
+  # A 24-bit color parsed from an OSC color report (`rgb:rr/gg/bb`).
+  record RGB, r : UInt8, g : UInt8, b : UInt8 do
+    def to_s(io)
+      io << "#%02x%02x%02x" % {r, g, b}
+    end
+  end
+
+  # Runtime terminal probing.
+  #
+  # Unlike `Features`/`Emulator`, which infer capabilities statically from
+  # `ENV` and terminfo, this module discovers them by *literally trying*: it
+  # writes a batch of query escape sequences to the terminal and reads the
+  # replies back. This is the same technique used by Microsoft's `edit`:
+  #
+  # * OSC 10 / OSC 11      -> default foreground / background color
+  # * OSC 4 ; 0..15        -> the 16 indexed palette colors
+  # * print `…` + DSR/CPR  -> measured width of an ambiguous-width char
+  # * DA1 (`CSI c`)        -> device attributes, *and* a universal terminator:
+  #                           every terminal answers DA1, but not all answer
+  #                           the OSC queries, so its reply tells us when to
+  #                           stop reading.
+  #
+  # Results are stored on `Tput#features` (`Features#default_foreground`,
+  # `#default_background`, `#palette`, `#ambiguous_width`, `#da_params`).
+  module Probe
+    include Crystallabs::Helpers::Logging
+
+    # Outcome of consuming the terminal's probe replies.
+    record ProbeResult,
+      ambiguous_width : Int32? = nil,
+      got_da : Bool = false
+
+    # Whether probing is possible (both ends must be a real terminal).
+    def probe_capable? : Bool
+      i, o = @input, @output
+      i.responds_to?(:fd) && i.tty? && o.responds_to?(:fd) && o.tty?
+    end
+
+    # Probes the terminal for its features by round-tripping query sequences.
+    #
+    # Returns `true` if at least the DA1 terminator came back (i.e. the
+    # terminal participated), `false` if probing was skipped or timed out
+    # with no response. *timeout* bounds the wait for each individual reply;
+    # a responsive terminal returns almost immediately thanks to the DA1
+    # sentinel.
+    def probe!(timeout : Time::Span = 3.seconds) : Bool
+      return false unless probe_capable?
+
+      result = ProbeResult.new
+      with_raw_input do
+        with_sync_output do
+          probe_write build_probe_query
+          result = probe_consume @input, timeout
+
+          # Erase the `…` we printed for the width probe and restore the
+          # cursor we saved (DECSC) before it.
+          if w = result.ambiguous_width
+            probe_write "\r#{" " * {w, 1}.max}\e8"
+          else
+            probe_write "\r\e[K\e8"
+          end
+        end
+      end
+
+      features.ambiguous_width = result.ambiguous_width if result.ambiguous_width
+
+      Log.trace { "probe!: #{result}" }
+      result.got_da
+    end
+
+    # Reads and parses the terminal's replies from *io* until DA1 arrives or a
+    # read times out. OSC color replies are applied to `features` as they come
+    # in; the ambiguous-width measurement and DA1 presence are returned.
+    #
+    # Decoupled from `@input` so it can be exercised against an `IO::Memory`
+    # holding canned responses, without a real terminal.
+    def probe_consume(io : IO, timeout : Time::Span) : ProbeResult
+      f = features
+      width : Int32? = nil
+      got_da = false
+
+      loop do
+        b = probe_read_byte io, timeout
+        break unless b
+        # Anything that isn't the start of a sequence (stray NUL, etc.) is
+        # ignored; real replies all begin with ESC.
+        next unless b == 0x1b_u8
+
+        case probe_read_byte io, timeout
+        when '['.ord # CSI
+          params, final = probe_read_csi io, timeout
+          case final
+          when 'c'
+            # DA1 reply. Doubles as the end-of-responses sentinel.
+            f.da_params = probe_ints params
+            got_da = true
+            break
+          when 'R'
+            # CPR `row ; col`. The char was printed at column 1, so the
+            # reported column minus one is its rendered width.
+            ints = probe_ints params
+            width = ints[1] - 1 if ints.size >= 2
+          end
+        when ']'.ord # OSC
+          apply_osc_color f, probe_read_osc(io, timeout)
+        end
+      end
+
+      ProbeResult.new ambiguous_width: width, got_da: got_da
+    end
+
+    # Builds the single batched query string. Order matters only for the
+    # width probe: `DECSC` (`\e7`) saves the cursor, `\r` parks it at column
+    # 1, then the ambiguous char and the CPR request follow; DA1 goes last so
+    # its reply terminates the read loop.
+    def build_probe_query : String
+      String.build do |io|
+        io << "\e]10;?\a\e]11;?\a" # default fg / bg
+        io << "\e]4"               # indexed palette 0..15
+        16.times { |i| io << ';' << i << ";?" }
+        io << '\a'
+        io << "\e7\r…\e[6n" # save cursor, print ambiguous char, CPR
+        io << "\e[c"        # DA1: capabilities + terminator
+      end
+    end
+
+    # Writes *data* straight to the terminal, bypassing the output buffer,
+    # and flushes so the query actually leaves before we start reading.
+    private def probe_write(data : String) : Nil
+      @output.print data
+      @output.flush
+    end
+
+    # Reads a single byte from *io*, honoring *timeout*. Returns `nil` on
+    # timeout or EOF.
+    private def probe_read_byte(io : IO, timeout : Time::Span) : UInt8?
+      if io.responds_to? :"read_timeout="
+        io.read_timeout = timeout
+      end
+      begin
+        io.read_byte
+      rescue IO::TimeoutError
+        nil
+      ensure
+        if io.responds_to? :"read_timeout="
+          io.read_timeout = nil
+        end
+      end
+    end
+
+    # Reads the remainder of a CSI sequence (parameter and intermediate
+    # bytes) up to and including the final byte. Returns the raw parameter
+    # string and the final byte as a `Char`.
+    private def probe_read_csi(io : IO, timeout : Time::Span) : {String, Char}
+      params = String::Builder.new
+      loop do
+        b = probe_read_byte io, timeout
+        return {params.to_s, '\0'} unless b
+        # Final bytes are 0x40..0x7e; everything before is param/intermediate.
+        if 0x40_u8 <= b <= 0x7e_u8
+          return {params.to_s, b.chr}
+        end
+        params << b.chr
+      end
+    end
+
+    # Reads the payload of an OSC sequence up to its terminator (BEL, or
+    # ST = `ESC \`). Returns the payload without the terminator.
+    private def probe_read_osc(io : IO, timeout : Time::Span) : String
+      data = String::Builder.new
+      loop do
+        b = probe_read_byte io, timeout
+        return data.to_s unless b
+        case b
+        when 0x07_u8 # BEL
+          return data.to_s
+        when 0x1b_u8 # possible ST: ESC \
+          nxt = probe_read_byte io, timeout
+          return data.to_s if nxt.nil? || nxt == '\\'.ord
+          data << '\e'
+          data << nxt.chr
+        else
+          data << b.chr
+        end
+      end
+    end
+
+    # Splits a CSI parameter string like `"0;36"` (or `"?62;1;6"`) into its
+    # numeric components. A leading private marker (`?`/`>`/`=`/`<`), as used
+    # by DA1 replies, is stripped first so the first parameter parses.
+    private def probe_ints(params : String) : Array(Int32)
+      params = params.lstrip "?>=<"
+      params.split(';').map { |p| p.to_i? || 0 }
+    end
+
+    # Applies one parsed OSC color reply to *f*. Recognized forms:
+    # `10;rgb:…` (fg), `11;rgb:…` (bg), `4;<n>;rgb:…` (palette entry).
+    private def apply_osc_color(f : Features, data : String) : Nil
+      parts = data.split(';')
+      return if parts.size < 2
+
+      case parts[0]
+      when "10"
+        f.default_foreground = parse_rgb parts[1]
+      when "11"
+        f.default_background = parse_rgb parts[1]
+      when "4"
+        return if parts.size < 3
+        idx = parts[1].to_i?
+        return unless idx && 0 <= idx < 16
+        if rgb = parse_rgb parts[2]
+          f.palette[idx] = rgb
+        end
+      end
+    end
+
+    # Parses an `rgb:RR/GG/BB` spec (1-4 hex digits per channel) into an
+    # `RGB`, scaling each channel down to 8 bits.
+    private def parse_rgb(spec : String) : RGB?
+      return nil unless spec.starts_with? "rgb:"
+      comps = spec[4..].split('/')
+      return nil unless comps.size == 3
+
+      vals = comps.map do |c|
+        v = c.to_i?(16)
+        return nil unless v
+        case c.size
+        when 1 then (v * 0xff // 0xf).to_u8
+        when 2 then v.to_u8
+        when 3 then ((v * 0xff + 0x7ff) // 0xfff).to_u8
+        when 4 then ((v * 0xff + 0x7fff) // 0xffff).to_u8
+        else        return nil
+        end
+      end
+
+      RGB.new vals[0], vals[1], vals[2]
+    end
+  end
+end
