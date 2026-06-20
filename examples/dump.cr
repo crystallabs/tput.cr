@@ -51,9 +51,9 @@ full = ARGV.includes?("--full")
 truncate = ->(s : String, w : Int32) { full || s.size <= w ? s : "#{s[0, w - 1]}…" }
 
 # Column widths, sized to the data but capped so a full row fits in 80 columns.
-name_w  = {rows.map(&.[0].size).max, "SETTING".size}.max
+name_w = {rows.map(&.[0].size).max, "SETTING".size}.max
 value_w = { {rows.map(&.[1].size).max, 20}.min, "VALUE".size }.max
-src_w   = WIDTH - name_w - value_w - GAP.size * 2
+src_w = WIDTH - name_w - value_w - GAP.size * 2
 
 row = ->(a : String, b : String, c : String) do
   puts "#{a.ljust(name_w)}#{GAP}#{b.ljust(value_w)}#{GAP}#{c}"
