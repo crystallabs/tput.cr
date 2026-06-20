@@ -146,4 +146,77 @@ describe Tput::Features do
       end
     end
   end
+
+  describe "hardware cursor styling detection" do
+    it "flags xterm-family terminals as cursor-styleable (DECSCUSR + OSC 12)" do
+      with_env({"TERM" => "xterm-256color", "ITERM_SESSION_ID" => nil}) do
+        f = plain_tput.features
+        f.cursor_style?.should be_true
+        f.cursor_color?.should be_true
+        f.sources["cursor_style"].should contain "DECSCUSR"
+        f.sources["cursor_color"].should contain "OSC 12"
+      end
+    end
+
+    it "flags iTerm2 as cursor-styleable via env even on an unknown TERM" do
+      with_env({"TERM" => "dumb", "ITERM_SESSION_ID" => "w0t0p0:UUID"}) do
+        f = plain_tput.features
+        f.cursor_style?.should be_true
+        f.sources["cursor_style"].should contain "iTerm2"
+      end
+    end
+
+    it "does not flag an unknown terminal" do
+      with_env({"TERM" => "dumb", "ITERM_SESSION_ID" => nil}) do
+        f = plain_tput.features
+        f.cursor_style?.should be_false
+        f.cursor_color?.should be_false
+        f.sources["cursor_style"].should contain "default"
+      end
+    end
+
+    it "surfaces the cursor capabilities in the dump" do
+      with_env({"TERM" => "xterm-256color"}) do
+        t = plain_tput
+        t.features.static_detections.has_key?("cursor_style").should be_true
+        io = IO::Memory.new
+        t.dump io
+        io.to_s.should contain "cursor_style"
+      end
+    end
+  end
+
+  describe "hardware cursor live probing" do
+    it "confirms cursor styling from a DECSCUSR (` q`) DECRQSS readback" do
+      with_env({"TERM" => "dumb", "ITERM_SESSION_ID" => nil}) do
+        t = plain_tput
+        t.features.cursor_style?.should be_false
+        t.probe_consume truecolor_probe_io("\eP1$r2 q\e\\"), 1.second
+        t.features.cursor_style?.should be_true
+        t.features.sources["cursor_style"].should contain "DECSCUSR"
+      end
+    end
+
+    it "does not confirm cursor styling from a `0$r` rejection" do
+      with_env({"TERM" => "dumb", "ITERM_SESSION_ID" => nil}) do
+        t = plain_tput
+        t.probe_consume truecolor_probe_io("\eP0$r\e\\"), 1.second
+        t.features.cursor_style?.should be_false
+      end
+    end
+
+    it "confirms cursor color from an OSC 12 reply" do
+      with_env({"TERM" => "dumb", "ITERM_SESSION_ID" => nil}) do
+        t = plain_tput
+        t.features.cursor_color?.should be_false
+        io = IO::Memory.new
+        io << "\e]12;rgb:1111/2222/3333\e\\" # OSC 12 cursor-color report
+        io << "\e[?62;1;6c"                  # DA1 terminator
+        io.rewind
+        t.probe_consume io, 1.second
+        t.features.cursor_color?.should be_true
+        t.features.sources["cursor_color"].should contain "OSC 12"
+      end
+    end
+  end
 end

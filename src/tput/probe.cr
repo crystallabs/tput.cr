@@ -19,6 +19,12 @@ class Tput
   #                           trip: we set a distinctive RGB background, ask the
   #                           terminal to report its current SGR, and check the
   #                           reply still carries the RGB triplet.
+  # * DECRQSS ` q`         -> whether the terminal honors DECSCUSR cursor-style
+  #                           setting: we ask it to report its current cursor
+  #                           style; a valid `1$r…<space>q` reply confirms the
+  #                           hardware cursor is styleable.
+  # * OSC 12 ; ?           -> whether the terminal can report (and thus set) its
+  #                           hardware cursor color.
   # * print `…` + DSR/CPR  -> measured width of an ambiguous-width char
   # * DA1 (`CSI c`)        -> device attributes, *and* a universal terminator:
   #                           every terminal answers DA1, but not all answer
@@ -112,9 +118,12 @@ class Tput
           end
         when ']'.ord # OSC
           apply_osc_color f, probe_read_osc(io, timeout)
-        when 'P'.ord # DCS (DECRQSS reply to the truecolor probe)
-          if truecolor_confirmed? probe_read_dcs(io, timeout)
+        when 'P'.ord # DCS (DECRQSS reply: truecolor SGR or cursor-style readback)
+          payload = probe_read_dcs io, timeout
+          if truecolor_confirmed? payload
             f.confirm_truecolor! "probed via DECRQSS (24-bit SGR readback)"
+          elsif cursor_style_confirmed? payload
+            f.confirm_cursor_style! "probed via DECRQSS (DECSCUSR cursor-style readback)"
           end
         end
       end
@@ -129,6 +138,7 @@ class Tput
     def build_probe_query : String
       String.build do |io|
         io << "\e]10;?\a\e]11;?\a" # default fg / bg
+        io << "\e]12;?\a"          # hardware cursor color (OSC 12)
         io << "\e]4"               # indexed palette 0..15
         16.times { |i| io << ';' << i << ";?" }
         io << '\a'
@@ -137,6 +147,10 @@ class Tput
         # value its reply echoes `1;2;3`; if it lacks truecolor it downsamples
         # (or doesn't answer DECRQSS at all).
         io << "\e[48;2;1;2;3m\eP$qm\e\\\e[m"
+        # Cursor-style probe: ask for the current DECSCUSR setting via DECRQSS
+        # (DCS $q <space> q ST). A terminal that honors cursor styling answers
+        # `1$r<n> q`; one that doesn't sends `0$r` or nothing.
+        io << "\eP$q q\e\\"
         io << "\e7\r…\e[6n" # save cursor, print ambiguous char, CPR
         io << "\e[c"        # DA1: capabilities + terminator
       end
@@ -235,6 +249,14 @@ class Tput
       data.includes?("$r") && !!data.match(/48[:;]2[:;].*1[:;]2[:;]3/)
     end
 
+    # Decides whether a DECRQSS reply confirms DECSCUSR cursor styling. A valid
+    # reply starts with `1$r` and is terminated by the DECSCUSR final ` q`
+    # (space + `q`), e.g. `1$r2 q`. An unsupported terminal answers `0$r` (no
+    # trailing ` q`) or sends no DCS reply at all.
+    private def cursor_style_confirmed?(data : String) : Bool
+      data.includes?("1$r") && data.rstrip.ends_with?(" q")
+    end
+
     # Splits a CSI parameter string like `"0;36"` (or `"?62;1;6"`) into its
     # numeric components. A leading private marker (`?`/`>`/`=`/`<`), as used
     # by DA1 replies, is stripped first so the first parameter parses.
@@ -260,6 +282,10 @@ class Tput
           f.default_background = rgb
           f.sources["default_background"] = "probed via OSC 11 reply"
         end
+      when "12"
+        # The terminal answered with its current cursor color, so OSC 12 is
+        # supported (and thus settable). We don't need the value itself.
+        f.confirm_cursor_color! "probed via OSC 12 reply"
       when "4"
         return if parts.size < 3
         idx = parts[1].to_i?

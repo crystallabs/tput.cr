@@ -148,11 +148,18 @@ class Tput
         rsety dy
       end
 
-      # Sets cursor shape.
+      # Sets the *hardware* cursor shape.
       #
-      # Only XTerm, (u)rxvt, screen, and iTerm2. Does nothing otherwise.
-      # If you know of any others, post them.
+      # Emits the right escape sequence only when the terminal is known (or has
+      # been probed) to support hardware cursor styling — see
+      # `Features#cursor_style?`. iTerm2 uses its proprietary OSC 50; every other
+      # supported terminal uses the standard DECSCUSR (`CSI Ps SP q`). Returns
+      # `true` if a sequence was emitted, `false` if the terminal can't style its
+      # cursor (the caller, e.g. `Screen#apply_cursor`, then falls back to an
+      # artificial cursor).
       def cursor_shape(shape, blink = false)
+        return false unless features.cursor_style?
+
         blink = blink ? 1 : 2
 
         if emulator.iterm2?
@@ -164,10 +171,9 @@ class Tput
           when CursorShape::Line
             _tprint "\e]50;CursorShape=1;BlinkingCursorEnabled=#{blink}\x07"
           end
-          true
-
-          # elsif xterm? || screen? || rxvt?
-        elsif name? "xterm", "screen", "rxvt"
+        else
+          # Standard DECSCUSR. Used for xterm/screen/rxvt and any terminal whose
+          # support was confirmed by probing.
           case shape
           when CursorShape::Block
             _tprint "\e[#{blink} q"
@@ -176,10 +182,8 @@ class Tput
           when CursorShape::Line
             _tprint "\e[#{blink + 4} q"
           end
-          true
-        else
-          false
         end
+        true
       end
 
       # Sets cursor color. XTerm, rxvt, and screen specific.
@@ -191,24 +195,27 @@ class Tput
 
       # :ditto:
       def cursor_color(color : String)
-        if name? "xterm", "screen", "rxvt"
-          _tprint "\e]12;#{color}\x07"
-          return true
-        end
-        false
+        return false unless features.cursor_color?
+        _tprint "\e]12;#{color}\x07"
+        true
       end
 
       def reset_cursor
-        if name? "xterm", "rxvt", "screen"
-          # D O: XXX
-          # return reset_colors
+        emitted = false
+
+        if features.cursor_style?
           _tprint "\e[0 q"
+          emitted = true
+        end
+
+        if features.cursor_color?
           _tprint "\e]112\x07"
           # urxvt doesn't support OSC 112
           _tprint "\e]12;white\x07"
-          return true
+          emitted = true
         end
-        false
+
+        emitted
       end
 
       alias_previous cursor_reset

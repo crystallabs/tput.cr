@@ -41,6 +41,19 @@ class Tput
     # Color support flag (a yes/no)
     getter? color : Bool
 
+    # Does the terminal support styling its *hardware* cursor — shape and blink
+    # via DECSCUSR (`CSI Ps SP q`), or iTerm2's proprietary OSC 50? Detected
+    # statically from the emulator/term name, and upgraded to a confirmed `true`
+    # by `Tput#probe!` when a DECRQSS readback of the cursor style succeeds (see
+    # `Tput::Probe`). When this is `false`, Crysterm falls back to drawing an
+    # artificial cursor for any non-default shape (see `Screen#apply_cursor`).
+    property? cursor_style : Bool
+
+    # Does the terminal support recoloring its *hardware* cursor via OSC 12
+    # (`OSC 12 ; color ST`)? Detected statically; upgraded to a confirmed `true`
+    # by `Tput#probe!` when the terminal answers an OSC 12 color query.
+    property? cursor_color : Bool
+
     getter acsc : ACSHash
 
     @[JSON::Field(ignore: true)]
@@ -102,6 +115,8 @@ class Tput
       @number_of_colors = detect_number_of_colors
       @color = @number_of_colors > 2
       @sources["color"] = "derived from number_of_colors (#{@number_of_colors}) > 2"
+      @cursor_style = detect_cursor_style
+      @cursor_color = detect_cursor_color
       @acsc, @acscr = parse_acs
 
       Log.trace { my self }
@@ -307,6 +322,58 @@ class Tput
 
       @sources["truecolor"] = "default — no truecolor env/terminfo indicator"
       false
+    end
+
+    # Detects whether the terminal can style its hardware cursor (shape/blink).
+    #
+    # There is no terminfo capability for DECSCUSR in the base set, so this is a
+    # best-effort guess from the emulator/term name. It is deliberately
+    # conservative (only terminals known to honor the sequence are flagged), and
+    # `Tput#probe!` confirms the rest at runtime via a DECRQSS readback.
+    def detect_cursor_style
+      if iterm2_env?
+        @sources["cursor_style"] = %(emulator iTerm2 (OSC 50 cursor shape))
+        return true
+      end
+
+      if @tput.name? "xterm", "screen", "rxvt"
+        @sources["cursor_style"] = %(term name xterm/screen/rxvt (DECSCUSR))
+        return true
+      end
+
+      @sources["cursor_style"] = "default — no known DECSCUSR support (call Tput#probe! to confirm)"
+      false
+    end
+
+    # Detects whether the terminal can recolor its hardware cursor (OSC 12).
+    def detect_cursor_color
+      if @tput.name? "xterm", "screen", "rxvt"
+        @sources["cursor_color"] = %(term name xterm/screen/rxvt (OSC 12))
+        return true
+      end
+
+      @sources["cursor_color"] = "default — no known OSC 12 support (call Tput#probe! to confirm)"
+      false
+    end
+
+    # Marks the hardware cursor as styleable (shape/blink) after a successful
+    # live probe, recording *source* as the provenance.
+    def confirm_cursor_style!(source : String) : Nil
+      @cursor_style = true
+      @sources["cursor_style"] = source
+    end
+
+    # Marks the hardware cursor as recolorable after a successful live probe.
+    def confirm_cursor_color!(source : String) : Nil
+      @cursor_color = true
+      @sources["cursor_color"] = source
+    end
+
+    # iTerm2 detection by env, replicated here because `Features` is constructed
+    # before `Emulator` (see `Tput#initialize`), so `@tput.emulator` is not yet
+    # available. Mirrors `Emulator#iterm2?`.
+    private def iterm2_env? : Bool
+      (ENV["TERM_PROGRAM"]? == "iTerm.app") || to_b(ENV["ITERM_SESSION_ID"]?)
     end
 
     # Detects number of colors supported by the terminal (2 - 16M)

@@ -91,6 +91,8 @@ class Tput
         "number_of_colors" => number_of_colors.to_s,
         "truecolor"        => truecolor?.to_s,
         "color"            => color?.to_s,
+        "cursor_style"     => cursor_style?.to_s,
+        "cursor_color"     => cursor_color?.to_s,
         "acsc"             => "#{acsc.size} mapping(s)",
       }.each do |name, value|
         h[name] = Tput::Detection.new value, (sources[name]? || "unknown")
