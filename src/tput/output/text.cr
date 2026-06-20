@@ -315,6 +315,8 @@ class Tput
           return "\e[m"
         when "bold"
           return !val ? "\e[22m" : "\e[1m"
+        when "italic"
+          return !val ? "\e[23m" : "\e[3m"
         when "ul", "underline", "underlined"
           return !val ? "\e[24m" : "\e[4m"
         when "blink"
@@ -323,6 +325,8 @@ class Tput
           return !val ? "\e[27m" : "\e[7m"
         when "invisible"
           return !val ? "\e[28m" : "\e[8m"
+        when "strikethrough", "strike", "crossed", "crossed_out"
+          return !val ? "\e[29m" : "\e[9m"
           # 8-color foreground
         when "black fg"
           return !val ? "\e[39m" : "\e[30m"
@@ -405,10 +409,20 @@ class Tput
           return name?("rxvt") ? "\e[100m" : "\e[39;49m"
         else
           # 256-color fg and bg
-          if param[0] == '#'
-            raise Exception.new "Not implemented yet; use less than 256colors+#ccc, or implement this."
-            # TODO This requires color functions as separate shard
-            # param = param.sub(/#(?:[0-9a-f]{3}){1,2}/i) { |s| color_match s }
+          # 24-bit truecolor: "#rgb fg" or "#rrggbb bg" -> CSI 38;2;r;g;b m (fg) / 48;2;… (bg)
+          if hm = param.match /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}) (fg|bg)$/
+            return _attr "default #{hm[2]}" if !val
+            hex = hm[1]
+            if hex.size == 3
+              r = hex[0].to_i(16) * 0x11
+              g = hex[1].to_i(16) * 0x11
+              b = hex[2].to_i(16) * 0x11
+            else
+              r = hex[0, 2].to_i(16)
+              g = hex[2, 2].to_i(16)
+              b = hex[4, 2].to_i(16)
+            end
+            return "\e[#{hm[2] == "fg" ? 38 : 48};2;#{r};#{g};#{b}m"
           end
 
           m = param.match /^(-?\d+) (fg|bg)$/

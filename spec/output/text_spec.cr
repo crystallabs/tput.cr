@@ -450,4 +450,41 @@ describe Tput::Output::Text do
       end
     end
   end
+
+  describe "italic attribute" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0]._attr("italic", true).should eq "\e[3m"
+        t[0]._attr("italic", false).should eq "\e[23m"
+        t[0]._attr("no italic", true).should eq "\e[23m"
+      end
+    end
+  end
+
+  describe "strikethrough attribute" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0]._attr("strikethrough", true).should eq "\e[9m"
+        t[0]._attr("strikethrough", false).should eq "\e[29m"
+        t[0]._attr("strike", true).should eq "\e[9m"
+        t[0]._attr("crossed", true).should eq "\e[9m"
+        t[0]._attr("crossed_out", false).should eq "\e[29m"
+      end
+    end
+  end
+
+  describe "24-bit truecolor attribute" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        # 6-digit hex
+        t[0]._attr("#ff8800 fg", true).should eq "\e[38;2;255;136;0m"
+        t[0]._attr("#003366 bg", true).should eq "\e[48;2;0;51;102m"
+        # 3-digit hex expands each nibble (f -> ff, 8 -> 88, 0 -> 00)
+        t[0]._attr("#f80 fg", true).should eq "\e[38;2;255;136;0m"
+        # turning a truecolor off resets to the default fg/bg
+        t[0]._attr("#ff8800 fg", false).should eq "\e[39m"
+        t[0]._attr("#003366 bg", false).should eq "\e[49m"
+      end
+    end
+  end
 end

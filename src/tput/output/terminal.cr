@@ -244,6 +244,32 @@ class Tput
 
       alias_previous decscl
 
+      # CSI Ps ; Ps ; Ps t
+      #   Window manipulation (XTWINOPS, dtterm/xterm).  The leading Ps selects
+      #   the operation; arguments are emitted verbatim so any operation works.
+      #   Common ones:
+      #     CSI 8 ; height ; width t  -> resize the text area to rows/cols
+      #     CSI 8 ; 65535 ; 65535 t   -> resize to the full screen (maximize)
+      #     CSI 1 4 t                 -> report text area size in pixels
+      #     CSI 1 8 t                 -> report text area size in characters
+      def manipulate_window(*arguments)
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << 't' }
+      end
+
+      alias_previous xtwinops
+
+      # Resizes the terminal text area to *height* rows by *width* columns,
+      # via XTWINOPS operation 8 (`CSI 8 ; height ; width t`).
+      def resize_window(height, width)
+        manipulate_window 8, height, width
+      end
+
+      # Maximizes the terminal text area to the full screen,
+      # via XTWINOPS operation 8 (`CSI 8 ; 65535 ; 65535 t`).
+      def maximize_window
+        manipulate_window 8, 65535, 65535
+      end
+
       # TODO avoid strings
       def decset(*arguments)
         set_mode "?#{arguments.join ';'}"

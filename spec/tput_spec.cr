@@ -10,10 +10,10 @@ class Tput
     getter t : Tput
     getter p : Tput
 
-    getter term : Unibilium::Terminfo
+    getter term : Unibilium
 
     def initialize
-      @term = Unibilium::Terminfo.from_env # _file "../support/xterm-256color"
+      @term = Unibilium.from_env # _file "../support/xterm-256color"
 
       # tput with terminfo
       @t = Tput.new \
