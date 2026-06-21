@@ -24,13 +24,13 @@ class Tput
       'y' => {:LEQUAL, '\u2264', '<'},     # ≤ less-than-or-equal-to
       'm' => {:LLCORNER, '\u2514', '+'},   # └ lower left-hand corner
       'j' => {:LRCORNER, '\u2518', '+'},   # ┘ lower right-hand corner
-      't' => {:LTEE, '\u2524', '+'},       # ┤ left tee
+      't' => {:LTEE, '\u251c', '+'},       # ├ left tee
       '|' => {:NEQUAL, '\u2260', '!'},     # ≠ not-equal
       '{' => {:PI, '\u03c0', '*'},         # π greek pi
       'g' => {:PLMINUS, '\u00b1', '#'},    # ± plus/minus
       'n' => {:PLUS, '\u253c', '+'},       # ┼ plus
       '+' => {:RARROW, '\u2192', '>'},     # → arrow pointing right
-      'u' => {:RTEE, '\u251c', '+'},       # ├ right tee
+      'u' => {:RTEE, '\u2524', '+'},       # ┤ right tee
       'o' => {:S1, '\u23ba', '-'},         # ⎺ scan line 1
       'p' => {:S3, '\u23bb', '-'},         # ⎻ scan line 3
       'r' => {:S7, '\u23bc', '-'},         # ⎼ scan line 7
