@@ -26,18 +26,6 @@ class Tput
     }
   end
 
-  # Publish all detected terminal facts into the shared `Superconf` registry as
-  # read-only entries (keys `tput.emulator.*` / `tput.features.*`), so they show
-  # up in the application's unified config dump next to the configurable options.
-  # Called automatically at the end of `initialize`.
-  def publish_detections : Nil
-    detections.each do |group, h|
-      h.each do |name, d|
-        Superconf.detect "tput.#{group}.#{name}", d.value, d.source
-      end
-    end
-  end
-
   # Dumps all detected emulator and feature information to *io* (STDOUT by
   # default) in an aligned, human-readable report. Each line shows the setting
   # name, its value, and a description of how the value came to be (environment

@@ -179,10 +179,6 @@ class Tput
     # Only runs when attached to a real terminal; safely skipped for pipes,
     # files, and test doubles.
     probe! if probe && probe_capable?
-
-    # Surface what we detected (static + any probed values) into the shared
-    # configuration registry, so it appears in the app's unified dump.
-    publish_detections
   end
 
   def sigtstp(callback)
