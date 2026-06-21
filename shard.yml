@@ -20,3 +20,6 @@ dependencies:
     branch: master
   term-screen:
     github: crystal-term/screen
+  superconf:
+    github: crystallabs/superconf.cr
+    branch: master

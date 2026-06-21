@@ -7,6 +7,8 @@ require "unibilium"
 require "unibilium-shim"
 require "crystallabs-helpers"
 
+require "./tput/config"
+
 require "./tput/ext"
 require "./tput/macros"
 require "./tput/namespace"
@@ -140,7 +142,7 @@ class Tput
   #
   # The default timeout is 400 milliseconds, the same as in Qt.
   @[JSON::Field(ignore: true)]
-  getter read_timeout : Time::Span = 400.milliseconds
+  getter read_timeout : Time::Span = Superconf.tput_read_timeout
 
   include Coordinates
 
@@ -154,9 +156,9 @@ class Tput
     @output = STDOUT,
     @error = STDERR,
     force_unicode = nil,
-    @use_buffer = true,
+    @use_buffer = Superconf.tput_use_buffer,
     screen_size = nil,
-    probe = true,
+    probe = Superconf.tput_probe,
   )
     @force_unicode = true
 
