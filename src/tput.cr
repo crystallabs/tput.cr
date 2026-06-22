@@ -115,6 +115,10 @@ class Tput
 
   property? _exiting = false
 
+  # Whether xterm mouse reporting is currently enabled (tracked by
+  # `#enable_mouse`/`#disable_mouse`). Used by `#pause` to restore it on resume.
+  getter? mouse_enabled = false
+
   @[JSON::Field(ignore: true)]
   property ret : IO? = nil
 
@@ -256,45 +260,35 @@ class Tput
     }
   end
 
-  def pause(callback : Proc? = nil)
+  # Suspends the program's use of the terminal: saves the cursor, leaves the
+  # alternate buffer, shows the cursor, disables mouse reporting, and returns
+  # the input to cooked mode — leaving the terminal usable by another program
+  # (a shell, `$EDITOR`, …). Returns — and stores in `@_resume` — a continuation
+  # that `#resume` (or `#sigtstp`'s `SIGCONT` handler) invokes to restore
+  # everything.
+  #
+  # The caller must not emit output between `#pause` and `#resume`; the dominant
+  # use (`#sigtstp`) suspends the whole process, so this is automatic there.
+  def pause(callback : Proc? = nil) : Proc(Nil)
     alt = is_alt
-    mouse = false # mouse_enabled? # XXX
-
-    # We should do something else here.
-    # Paused program should block writes rather than send them to null.
+    mouse = mouse_enabled?
 
     lsave_cursor :pause
+    disable_mouse if mouse
     normal_buffer if alt
     show_cursor
-    # XXX
-    # if mouse
-    #  disable_mouse
-    # end
 
-    # XXX
-    # wr = @output.write
-    # @output.write = nothing
-    # if @input.set_raw_mode
-    #  @input.set_raw_mode false
-    # end
-    # @input.pause
+    # Make sure the restore sequences actually reach the terminal before we
+    # hand it back to cooked mode.
+    flush
+    suspend_raw_input
 
     @_resume = -> {
       @_resume = nil
-
-      # XXX No support yet.
-      # @input.set_raw_mode true
-      # @input.resume
-      # @output.write = write
+      restore_raw_input
 
       alternate_buffer if alt
-      # D O:
-      # csr 0, @screen.height - 1
-      # XXX no support yet
-      # if mouse
-      #  enable_mouse
-      # end
-
+      enable_mouse if mouse
       lrestore_cursor :pause, true
       callback.try &.call
     }
@@ -302,6 +296,18 @@ class Tput
 
   def resume
     @_resume.try &.call
+  end
+
+  # Restores the terminal to the state it was in before the program took it
+  # over: shows the cursor, leaves the alternate buffer, disables mouse
+  # reporting, and returns the input to cooked mode. Intended for clean
+  # teardown on exit. (Listener/instance bookkeeping is the caller's concern.)
+  def restore_terminal : Nil
+    disable_mouse if mouse_enabled?
+    normal_buffer if is_alt
+    show_cursor
+    flush
+    suspend_raw_input
   end
 
   # Captures the escape sequences emitted by the calls made inside the block

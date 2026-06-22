@@ -146,12 +146,14 @@ class Tput
       def enable_mouse(focus : Bool = false)
         set_mouse vt200: true, cell_motion: true, all_motion: true, sgr: true,
           send_focus: (focus ? true : nil)
+        @mouse_enabled = true
       end
 
       # Disables the xterm mouse reporting modes enabled by `#enable_mouse`.
       def disable_mouse(focus : Bool = false)
         set_mouse vt200: false, cell_motion: false, all_motion: false, sgr: false,
           send_focus: focus ? false : nil
+        @mouse_enabled = false
       end
 
       # Enables or disables a numeric DEC private mode (`CSI ? Ps h` / `l`),
