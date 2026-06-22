@@ -145,7 +145,7 @@ class Tput
       # FocusIn/FocusOut reporting (mode 1004).
       def enable_mouse(focus : Bool = false)
         set_mouse vt200: true, cell_motion: true, all_motion: true, sgr: true,
-          send_focus: focus || nil
+          send_focus: (focus ? true : nil)
       end
 
       # Disables the xterm mouse reporting modes enabled by `#enable_mouse`.

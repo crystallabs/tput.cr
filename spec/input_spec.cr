@@ -70,6 +70,49 @@ describe Tput::Input do
     it "parses ShiftTab" do
       one_key("\e[Z").should eq Tput::Key::ShiftTab
     end
+
+    it "parses F13-F20 (extended xterm codes)" do
+      one_key("\e[25~").should eq Tput::Key::F13
+      one_key("\e[26~").should eq Tput::Key::F14
+      one_key("\e[28~").should eq Tput::Key::F15
+      one_key("\e[31~").should eq Tput::Key::F17
+      one_key("\e[34~").should eq Tput::Key::F20
+      one_key("\e[29~").should eq Tput::Key::Menu # 29 is Menu, not F16
+    end
+
+    it "parses the modifier matrix on navigation keys" do
+      one_key("\e[2;2~").should eq Tput::Key::ShiftInsert
+      one_key("\e[3;5~").should eq Tput::Key::CtrlDelete
+      one_key("\e[3;3~").should eq Tput::Key::AltDelete
+      one_key("\e[5;5~").should eq Tput::Key::CtrlPageUp
+      one_key("\e[1;5H").should eq Tput::Key::CtrlHome # letter form
+      one_key("\e[1;2F").should eq Tput::Key::ShiftEnd
+    end
+
+    it "parses rxvt shift/ctrl cursor and nav variants" do
+      one_key("\e[a").should eq Tput::Key::ShiftUp
+      one_key("\e[d").should eq Tput::Key::ShiftLeft
+      one_key("\eOa").should eq Tput::Key::CtrlUp
+      one_key("\eOd").should eq Tput::Key::CtrlLeft
+      one_key("\e[3$").should eq Tput::Key::ShiftDelete
+      one_key("\e[3^").should eq Tput::Key::CtrlDelete
+      one_key("\e[7~").should eq Tput::Key::Home # rxvt home
+      one_key("\e[8~").should eq Tput::Key::End  # rxvt end
+    end
+
+    it "parses rxvt F1-F4 and putty/Cygwin function keys" do
+      one_key("\e[11~").should eq Tput::Key::F1
+      one_key("\e[14~").should eq Tput::Key::F4
+      one_key("\e[[A").should eq Tput::Key::F1 # Cygwin
+      one_key("\e[[E").should eq Tput::Key::F5
+      one_key("\e[[5~").should eq Tput::Key::PageUp # putty
+      one_key("\e[[6~").should eq Tput::Key::PageDown
+    end
+
+    it "parses the Clear key" do
+      one_key("\e[E").should eq Tput::Key::Clear
+      one_key("\eOE").should eq Tput::Key::Clear
+    end
   end
 
   describe "mouse parsing" do

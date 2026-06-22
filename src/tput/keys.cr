@@ -52,6 +52,8 @@ class Tput
     Insert
     Delete
 
+    Clear
+
     Up
     Down
     Left
@@ -69,6 +71,25 @@ class Tput
     AltLeft
     AltRight
 
+    ShiftHome
+    ShiftEnd
+    ShiftInsert
+    ShiftDelete
+    ShiftPageUp
+    ShiftPageDown
+    CtrlHome
+    CtrlEnd
+    CtrlInsert
+    CtrlDelete
+    CtrlPageUp
+    CtrlPageDown
+    AltHome
+    AltEnd
+    AltInsert
+    AltDelete
+    AltPageUp
+    AltPageDown
+
     F1
     F2
     F3
@@ -81,6 +102,18 @@ class Tput
     F10
     F11
     F12
+    F13
+    F14
+    F15
+    F16
+    F17
+    F18
+    F19
+    F20
+    F21
+    F22
+    F23
+    F24
 
     AltA # = 27 97
     AltB # = 27 98
@@ -131,14 +164,16 @@ class Tput
     end
 
     # Reads further chars while determining the key that was pressed.
+    #
+    # Dispatches on the byte after `ESC`: `O` (SS3), `[` (CSI — which delegates
+    # numeric parameter lists to `#read_numeric_csi`), or a letter (Alt+letter).
+    # Modified function keys (e.g. Shift+F5) currently report the base F-key, as
+    # there are no distinct modified-F-key members.
     private def self.read_escape_sequence(char, &)
-      # TODO add support alt+Fn keys, shift+Fn keys, and
-      # many others too, but the complete framework is here,
-      # it just comes down to adding tree elements.
       case yield.try(&.ord)
       when 13 then Key::AltEnter
         # when 27 then Key::Escape
-      when 79 # Movement and F-keys
+      when 79 # SS3: `\eO…` — application-mode cursor / F1-F4 keys
         case yield.try(&.ord)
         when 65 then Key::Up
         when 66 then Key::Down
@@ -149,10 +184,17 @@ class Tput
           # fall through to `nil` and the leading `\e` is read as a bare Escape.
         when 72 then Key::Home
         when 70 then Key::End
+        when 69 then Key::Clear
         when 80 then Key::F1
         when 81 then Key::F2
         when 82 then Key::F3
         when 83 then Key::F4
+          # rxvt ctrl+cursor: `\eOa`-`\eOe` (lowercase)
+        when  97 then Key::CtrlUp
+        when  98 then Key::CtrlDown
+        when  99 then Key::CtrlRight
+        when 100 then Key::CtrlLeft
+        when 101 then Key::Clear
         else
           nil
         end
@@ -167,9 +209,17 @@ class Tput
         when 66 then Key::Down
         when 67 then Key::Right
         when 68 then Key::Left
+        when 69 then Key::Clear
         when 70 then Key::End
         when 72 then Key::Home
         when 90 then Key::ShiftTab
+          # rxvt shift+cursor: `\e[a`-`\e[e` (lowercase)
+        when 97  then Key::ShiftUp
+        when 98  then Key::ShiftDown
+        when 99  then Key::ShiftRight
+        when 100 then Key::ShiftLeft
+        when 101 then Key::Clear
+        when 91  then read_bracket_csi { yield } # `\e[[…` putty / Cygwin function keys
         when 48..57
           # A numeric CSI parameter list: a navigation/function key (`\e[3~`,
           # `\e[1;5C`, …) or a URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
@@ -232,13 +282,30 @@ class Tput
       classify_csi params, final
     end
 
+    # Reads the tail of a `\e[[…` sequence (putty / Cygwin function keys).
+    private def self.read_bracket_csi(&) : Key?
+      case o = yield.try(&.ord) || -1
+      when 65 then Key::F1 # `\e[[A`  (Cygwin)
+      when 66 then Key::F2 # `\e[[B`
+      when 67 then Key::F3 # `\e[[C`
+      when 68 then Key::F4 # `\e[[D`
+      when 69 then Key::F5 # `\e[[E`
+      when 48..57
+        read_numeric_csi(o - 48) { yield } # `\e[[5~`/`\e[[6~`  (putty)
+      else
+        nil
+      end
+    end
+
     # Maps a parsed CSI (`params`, `final` byte) to a key. `M`/`m` finals are a
     # URxvt mouse report (handled by `Tput::Input`), surfaced here as
-    # `Key::Mouse`.
+    # `Key::Mouse`. `$`/`^` finals are rxvt shift/ctrl-modified navigation keys.
     private def self.classify_csi(params : Array(Int32), final : Int32) : Key?
       case final
       when 'M'.ord, 'm'.ord then Key::Mouse # URxvt mouse report
-      when '~'.ord          then csi_tilde_key params[0]?
+      when '~'.ord          then csi_tilde_key params[0]?, params[1]?
+      when '$'.ord          then csi_tilde_key params[0]?, 2 # rxvt shift+nav
+      when '^'.ord          then csi_tilde_key params[0]?, 5 # rxvt ctrl+nav
       when 'A'.ord, 'B'.ord, 'C'.ord, 'D'.ord, 'F'.ord, 'H'.ord
         csi_letter_key final, params[1]?
       else
@@ -246,15 +313,21 @@ class Tput
       end
     end
 
-    # `\e[ N ~` navigation/function keys.
-    private def self.csi_tilde_key(n : Int32?) : Key?
+    # `\e[ N [;mod] ~` navigation/function keys, with optional modifier
+    # (2 = shift, 3 = alt, 5 = ctrl). Modifiers apply to the navigation keys;
+    # function keys ignore them (no distinct modified-F-key members exist).
+    private def self.csi_tilde_key(n : Int32?, mod : Int32?) : Key?
       case n
-      when 1, 7 then Key::Home
-      when 2    then Key::Insert
-      when 3    then Key::Delete
-      when 4, 8 then Key::End
-      when 5    then Key::PageUp
-      when 6    then Key::PageDown
+      when 1, 7 then csi_modified mod, Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome
+      when 2    then csi_modified mod, Key::Insert, Key::ShiftInsert, Key::AltInsert, Key::CtrlInsert
+      when 3    then csi_modified mod, Key::Delete, Key::ShiftDelete, Key::AltDelete, Key::CtrlDelete
+      when 4, 8 then csi_modified mod, Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd
+      when 5    then csi_modified mod, Key::PageUp, Key::ShiftPageUp, Key::AltPageUp, Key::CtrlPageUp
+      when 6    then csi_modified mod, Key::PageDown, Key::ShiftPageDown, Key::AltPageDown, Key::CtrlPageDown
+      when 11   then Key::F1 # rxvt
+      when 12   then Key::F2 # rxvt
+      when 13   then Key::F3 # rxvt
+      when 14   then Key::F4 # rxvt
       when 15   then Key::F5
       when 17   then Key::F6
       when 18   then Key::F7
@@ -263,7 +336,14 @@ class Tput
       when 21   then Key::F10
       when 23   then Key::F11
       when 24   then Key::F12
-      when 29   then Key::Menu
+      when 25   then Key::F13
+      when 26   then Key::F14
+      when 28   then Key::F15
+      when 29   then Key::Menu # `\e[29~` is Menu on modern xterm (historically F16)
+      when 31   then Key::F17
+      when 32   then Key::F18
+      when 33   then Key::F19
+      when 34   then Key::F20
       else           nil
       end
     end
@@ -272,8 +352,8 @@ class Tput
     # (2 = shift, 3 = alt, 5 = ctrl).
     private def self.csi_letter_key(final : Int32, mod : Int32?) : Key?
       case final
-      when 'F'.ord then Key::End
-      when 'H'.ord then Key::Home
+      when 'F'.ord then csi_modified mod, Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd
+      when 'H'.ord then csi_modified mod, Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome
       when 'A'.ord then csi_modified mod, Key::Up, Key::ShiftUp, Key::AltUp, Key::CtrlUp
       when 'B'.ord then csi_modified mod, Key::Down, Key::ShiftDown, Key::AltDown, Key::CtrlDown
       when 'C'.ord then csi_modified mod, Key::Right, Key::ShiftRight, Key::AltRight, Key::CtrlRight
