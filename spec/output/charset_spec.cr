@@ -46,15 +46,15 @@ describe Tput::Output::Charset do
   end
 
   describe "enable_acs" do
-    # xterm-256color does not define `ena_acs`, so both terminfo and plain fall
-    # back to the hardcoded ACS-designation sequence.
+    # There is no hardcoded fallback: `ena_acs` is emitted only when the terminal
+    # declares it. xterm-256color does not, so this is a no-op (terminfo + plain).
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
-      it "works with #{t[1]}" do
+      it "is a no-op when ena_acs is undefined (#{t[1]})" do
         t[0].enable_acs
-        x.o.should eq "\e(B\e)0"
+        x.o.should eq ""
 
         t[0].ena_acs # alias
-        x.o.should eq "\e(B\e)0"
+        x.o.should eq ""
       end
     end
   end

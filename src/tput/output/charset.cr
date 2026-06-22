@@ -172,17 +172,17 @@ class Tput
         _print { |io| io << "\e" << val }
       end
 
-      # Enable the alternate character set (terminfo `ena_acs`), for terminals
-      # that require an explicit enable before `smacs`/`rmacs` line-drawing works.
+      # Enable the alternate character set, for terminals that require an
+      # explicit enable before `smacs`/`rmacs` line-drawing works (terminfo
+      # `ena_acs`).
       #
-      # Most xterm-like terminals do not define this capability (they switch the
-      # charset directly — see `#enter_alt_charset_mode`); for those, the
-      # hardcoded fallback designates the standard ACS character sets:
-      #
-      #     ESC ( B   (designate G0 = US ASCII)
-      #     ESC ) 0   (designate G1 = DEC Special Character / line drawing)
+      # There is intentionally no hardcoded fallback: `ena_acs` is inherently
+      # terminal-specific, so — like ncurses — this emits the sequence only when
+      # the terminal actually declares the capability. Terminals that switch the
+      # charset directly (xterm and friends — see `#enter_alt_charset_mode`)
+      # don't define it, so this is a no-op there.
       def enable_acs
-        put(&.enacs?) || _print "\e(B\e)0"
+        put(&.enacs?)
       end
 
       alias_previous enacs, ena_acs
