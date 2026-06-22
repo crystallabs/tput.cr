@@ -229,6 +229,32 @@ class Tput
     }
   end
 
+  # Like `#put`, but resolves a *user-defined* (extended) string capability by
+  # name and runs it with the given arguments.
+  #
+  # The predefined Terminfo capabilities are exposed via the shim (and used
+  # through `#put`), but capabilities such as `Cr` (reset cursor color),
+  # `Cs` (set cursor color) or `Ms` (store data in the clipboard) live outside
+  # that set and are only present as terminfo *extensions*. This looks one up
+  # by name, formats it with *args*, and writes the result.
+  #
+  # Returns `true` if the capability existed and was written, `nil`/`false`
+  # otherwise (no Terminfo data, or the extension is not defined).
+  #
+  # ```
+  # put_extended "Cr"          # reset cursor color, if the terminal defines Cr
+  # put_extended "Cs", "white" # set cursor color
+  # ```
+  def put_extended(name : String, *args)
+    @terminfo.try { |ti|
+      ti.extensions.get_str?(name).try { |cap|
+        data = ti.run(cap, *args)
+        features.padding? ? _pad_write(data) : _write(data)
+        true
+      }
+    }
+  end
+
   def pause(callback : Proc? = nil)
     alt = is_alt
     mouse = false # mouse_enabled? # XXX

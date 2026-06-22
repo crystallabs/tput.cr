@@ -464,18 +464,14 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Reset colors
       def reset_cursor_color
-        # TODO - enable when put supports extended caps, unpend test
-        # put(&._Cr?) ||
-        _tprint "\e]112\x07"
+        put_extended("Cr") || _tprint("\e]112\x07")
       end
 
       # OSC Ps ; Pt ST
       # OSC Ps ; Pt BEL
       #   Change dynamic colors
       def dynamic_cursor_color(param)
-        # TODO - enable when put supports extended caps (Cs)
-        # put(&._Cs?(param)) ||
-        _tprint "\e]12;#{param}\x07"
+        put_extended("Cs", param) || _tprint("\e]12;#{param}\x07")
       end
     end
   end

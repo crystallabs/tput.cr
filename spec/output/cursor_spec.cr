@@ -81,10 +81,11 @@ describe Tput::Output::Cursor do
   end
 
   describe "reset_cursor_color" do
-    pending "works with terminfo" do
-      x.t.emulator.tmux = true
+    it "works with terminfo" do
+      x.t.emulator.tmux = true # Terminfo (Cr) path is not DCS-wrapped
       x.t.reset_cursor_color
       x.o.should eq "\e]112\a"
+      x.t.emulator.tmux = false
     end
 
     it "works plain" do
@@ -96,7 +97,14 @@ describe Tput::Output::Cursor do
   end
 
   describe "dynamic_cursor_color" do
-    pending "works" do
+    it "works with terminfo" do
+      x.t.dynamic_cursor_color "blue"
+      x.o.should eq "\e]12;blue\a"
+    end
+
+    it "works plain" do
+      x.p.dynamic_cursor_color "blue"
+      x.o.should eq "\e]12;blue\a"
     end
   end
 end

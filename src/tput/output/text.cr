@@ -541,9 +541,7 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a, b)
-        # TODO - enable when put supports extended caps (Ms)
-        # put(&._Ms?(a, b)) ||
-        _tprint "\e]52;#{a};#{b}\x07"
+        put_extended("Ms", a, b) || _tprint("\e]52;#{a};#{b}\x07")
       end
 
       # Erase in line.
