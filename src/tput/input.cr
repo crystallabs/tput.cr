@@ -88,11 +88,11 @@ class Tput
           if char.control?
             key = Key.read_control(char) { next_char(true) { sequence } }
 
-            # A mouse report introducer was detected; its payload bytes have
-            # not been consumed yet, so read and parse them now. The encoding
-            # is told apart by the last char read so far: `\e[M` -> X10,
-            # `\e[<` -> SGR. On success the report is delivered as a
-            # `Mouse::Event` and is no longer treated as a key.
+            # A mouse report introducer was detected; parse the rest now. The
+            # encoding is told apart by the char after `\e[` (see `#read_mouse`):
+            # `M` X10, `<` SGR/DEC-locator, `I`/`O` focus, a digit URxvt. On
+            # success the report is delivered as a `Mouse::Event` and is no
+            # longer treated as a key.
             if key == Key::Mouse
               mouse = read_mouse(sequence) { next_char(true) { sequence } }
               key = nil
@@ -104,11 +104,19 @@ class Tput
       end
     end
 
-    # Reads and parses the payload of a mouse report whose introducer (`\e[M`
-    # or `\e[<`) has already been consumed into *sequence*. Returns the parsed
-    # `Mouse::Event`, or `nil` if the stream ended or the report was malformed.
+    # Reads and parses the payload of a mouse report whose introducer has
+    # already been consumed into *sequence*. The character right after `\e[`
+    # (`sequence[2]`) selects the encoding:
+    #
+    #   * `M`      — X10 / normal (three raw bytes follow).
+    #   * `I`/`O`  — focus-in / focus-out (no payload).
+    #   * `<`      — SGR (1006) or DEC-locator (the parameter list follows).
+    #   * a digit  — URxvt (1015); the whole report is already in *sequence*.
+    #
+    # Returns the parsed `Mouse::Event`, or `nil` if the stream ended or the
+    # report was malformed.
     private def read_mouse(sequence, &) : Mouse::Event?
-      case sequence.last?
+      case sequence[2]? || '\0'
       when 'M'
         # X10 / normal encoding: exactly three raw bytes follow.
         cb = yield
@@ -116,31 +124,57 @@ class Tput
         cy = yield
         return nil unless cb && cx && cy
         Mouse.parse_x10 cb.ord, cx.ord, cy.ord
-      when '<'
-        # SGR encoding: `Cb ; Cx ; Cy` then a final `M` (press) or `m` (release).
-        params = [] of Int32
-        current = 0
-        final = nil
-        while c = yield
-          case c
-          when '0'..'9'
-            current = current * 10 + (c.ord - '0'.ord)
-          when ';'
-            params << current
-            current = 0
-          when 'M', 'm'
-            params << current
-            final = c
-            break
-          else
-            return nil
-          end
-        end
-        return nil unless final && params.size >= 3
-        Mouse.parse_sgr params[0], params[1], params[2], final
-      else
-        nil
+      when 'I'      then Mouse::Event.focus
+      when 'O'      then Mouse::Event.blur
+      when '<'      then read_sgr_or_dec { yield }
+      when '0'..'9' then read_urxvt sequence
+      else               nil
       end
+    end
+
+    # Reads an SGR (`Cb ; Cx ; Cy M|m`) or DEC-locator (`Cb ; Cx ; Cy ; Cp & w`)
+    # parameter list following the `\e[<` introducer. Yields for each char.
+    private def read_sgr_or_dec(&) : Mouse::Event?
+      params = [] of Int32
+      current = 0
+      while c = yield
+        case c
+        when '0'..'9' then current = current * 10 + (c.ord - '0'.ord)
+        when ';'      then params << current; current = 0
+        when 'M', 'm'
+          params << current
+          return nil unless params.size >= 3
+          return Mouse.parse_sgr params[0], params[1], params[2], c
+        when '&'
+          # DEC locator: `&` then `w`.
+          params << current
+          return nil unless yield == 'w' && params.size >= 4
+          return Mouse.parse_dec params[0], params[1], params[2], params[3]
+        else
+          return nil
+        end
+      end
+      nil
+    end
+
+    # Parses a URxvt report (`\e[ Cb ; Cx ; Cy M`) already captured in
+    # *sequence* (the key parser consumed the whole parameter list).
+    private def read_urxvt(sequence) : Mouse::Event?
+      params = [] of Int32
+      current = 0
+      i = 2
+      while i < sequence.size
+        c = sequence[i]
+        case c
+        when '0'..'9' then current = current * 10 + (c.ord - '0'.ord)
+        when ';'      then params << current; current = 0
+        when 'M', 'm' then params << current; break
+        else               break
+        end
+        i += 1
+      end
+      return nil unless params.size >= 3
+      Mouse.parse_urxvt params[0], params[1], params[2]
     end
   end
 end

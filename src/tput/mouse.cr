@@ -8,15 +8,22 @@ class Tput
   # other sources — such as the Linux console `gpm` daemon — into this same
   # struct, so that all mouse input can flow through a single mechanism.
   #
-  # Two on-the-wire encodings are understood:
+  # The following on-the-wire encodings are understood (see `Tput::Input`):
   #
   #   * X10 / "normal" (`\e[M Cb Cx Cy`), where each byte is its value plus 32.
   #     This is the legacy encoding and cannot represent coordinates past
-  #     column/row 223 reliably.
+  #     column/row 223 reliably. The VTE byte-overflow quirk is corrected.
   #   * SGR (`\e[< Cb ; Cx ; Cy M|m`), the modern extended encoding (DEC private
   #     mode 1006). The final byte is `M` for a press/motion and `m` for a
-  #     release. This is the encoding Tput enables and therefore the primary
-  #     path; X10 parsing exists as a fallback.
+  #     release. This is the encoding Tput enables by default and therefore the
+  #     primary path.
+  #   * URxvt (`\e[ Cb ; Cx ; Cy M`, mode 1015) — like X10 but with decimal
+  #     parameters, so it escapes the 223 coordinate limit without SGR's
+  #     unambiguous release.
+  #   * DEC locator (`\e[ Cb ; Cx ; Cy ; Cp & w`) — VT420 locator event reports.
+  #   * vt300 (`\e[ 24 Cb ~ [ Cx , Cy ] \r`).
+  #   * Focus in/out (`\e[I` / `\e[O`, mode 1004), surfaced as `Action::Focus`
+  #     / `Action::Blur`.
   module Mouse
     # The kind of mouse action a given `Event` represents.
     enum Action
@@ -25,6 +32,11 @@ class Tput
       Move
       WheelUp
       WheelDown
+      # Terminal focus gained/lost (DEC private mode 1004). These are not mouse
+      # *positions*; they are reported through the same channel by xterm and so
+      # share the `Event` type. They carry no button or coordinates.
+      Focus
+      Blur
     end
 
     # Which button an `Event` pertains to. `None` is used for motion/release
@@ -51,6 +63,9 @@ class Tput
       property? meta : Bool
       property? ctrl : Bool
 
+      # Page number, only set by the DEC-locator encoding; `nil` otherwise.
+      property page : Int32?
+
       # Where the event originated. `:xterm` for sequences parsed from the input
       # stream; other producers (e.g. `:gpm`) set their own tag. Purely
       # informational, useful for debugging.
@@ -65,7 +80,23 @@ class Tput
         @meta : Bool = false,
         @ctrl : Bool = false,
         @source : Symbol = :xterm,
+        @page : Int32? = nil,
       )
+      end
+
+      # Whether this is a focus-gained/lost event rather than a pointer event.
+      def focus_event?
+        action.focus? || action.blur?
+      end
+
+      # Constructs a terminal focus-in (`Action::Focus`) event.
+      def self.focus(source : Symbol = :xterm) : Event
+        new Action::Focus, Button::None, 0, 0, source: source
+      end
+
+      # Constructs a terminal focus-out (`Action::Blur`) event.
+      def self.blur(source : Symbol = :xterm) : Event
+        new Action::Blur, Button::None, 0, 0, source: source
       end
     end
 
@@ -120,9 +151,15 @@ class Tput
 
     # Parses an X10 / "normal" encoded event. *cb*, *cx*, *cy* are the three raw
     # bytes following `\e[M`, each still carrying the +32 bias.
+    #
+    # Corrects the buggy-VTE coordinate overflow: VTE can only send unsigned
+    # chars, so a coordinate past 255 wraps below the normal `0x20` floor; a raw
+    # byte under `0x20` is therefore an overflow and is folded back by `0xff`.
     def self.parse_x10(cb : Int32, cx : Int32, cy : Int32) : Event
+      cx += 0xff if cx < 0x20
+      cy += 0xff if cy < 0x20
       action, button, shift, meta, ctrl = decode_button(cb - 32)
-      Event.new action, button, (cx - 32 - 1), (cy - 32 - 1), shift, meta, ctrl, :xterm
+      Event.new action, button, (cx - 32 - 1), (cy - 32 - 1), shift, meta, ctrl
     end
 
     # Parses an SGR (1006) encoded event. *cb*, *cx*, *cy* are the decimal
@@ -130,7 +167,45 @@ class Tput
     # (`'M'` press/motion, `'m'` release).
     def self.parse_sgr(cb : Int32, cx : Int32, cy : Int32, final : Char) : Event
       action, button, shift, meta, ctrl = decode_button(cb, released: final == 'm')
-      Event.new action, button, (cx - 1), (cy - 1), shift, meta, ctrl, :xterm
+      Event.new action, button, (cx - 1), (cy - 1), shift, meta, ctrl
+    end
+
+    # Parses a URxvt (mode 1015) encoded event. *cb*, *cx*, *cy* are the decimal
+    # parameters from `\e[ Cb ; Cx ; Cy M`. Like X10, *cb* carries the +32 bias
+    # and there is no explicit release distinction; unlike X10 the coordinates
+    # are decimal and unbounded.
+    def self.parse_urxvt(cb : Int32, cx : Int32, cy : Int32) : Event
+      # Work around a urxvt bug that reports 128/129 for a wheel event during
+      # motion; both mean "wheel" (67 == 0x43, i.e. wheel bit set).
+      cb = 67 if cb == 128 || cb == 129
+      action, button, shift, meta, ctrl = decode_button(cb - 32)
+      Event.new action, button, (cx - 1), (cy - 1), shift, meta, ctrl
+    end
+
+    # Parses a DEC-locator event report (`\e[ Cb ; Cx ; Cy ; Cp & w`). *cb* is
+    # the locator event code (2 = left, 4 = middle, 6 = right, 3 = release),
+    # *cx*/*cy* the cell coordinates, *cp* the page.
+    def self.parse_dec(cb : Int32, cx : Int32, cy : Int32, cp : Int32) : Event
+      action = cb == 3 ? Action::Up : Action::Down
+      button = case cb
+               when 2 then Button::Left
+               when 4 then Button::Middle
+               when 6 then Button::Right
+               else        Button::Unknown
+               end
+      Event.new action, button, (cx - 1), (cy - 1), page: cp
+    end
+
+    # Parses a vt300 event report (`\e[ 24 Cb ~ [ Cx , Cy ] \r`). *cb* selects
+    # the button (1 = left, 2 = middle, 5 = right); the report is always a press.
+    def self.parse_vt300(cb : Int32, cx : Int32, cy : Int32) : Event
+      button = case cb
+               when 1 then Button::Left
+               when 2 then Button::Middle
+               when 5 then Button::Right
+               else        Button::Unknown
+               end
+      Event.new Action::Down, button, (cx - 1), (cy - 1)
     end
   end
 end

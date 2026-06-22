@@ -111,10 +111,10 @@ class Tput
 
     Menu = 16777301
 
-    # Sentinel returned by `read_control` when a mouse-reporting introducer
-    # (`\e[M` for X10, `\e[<` for SGR) is detected. The remaining payload bytes
-    # are not consumed here; `Tput::Input#listen` reads and parses them into a
-    # `Tput::Mouse::Event`.
+    # Sentinel returned by `read_control` when a mouse-reporting introducer is
+    # detected: `\e[M` (X10), `\e[<` (SGR / DEC-locator), `\e[I`/`\e[O` (focus
+    # in/out), or a numeric `\e[…M` (URxvt). The payload is parsed by
+    # `Tput::Input#read_mouse` into a `Tput::Mouse::Event`.
     Mouse = 16777302
 
     Unknown = 33554431
@@ -156,91 +156,13 @@ class Tput
         else
           nil
         end
-      when 91 # Movement and F-keys
-        case yield.try(&.ord)
-        when 49
-          case yield.try(&.ord)
-          when 53
-            yield
-            Key::F5
-          when 55
-            yield
-            Key::F6
-          when 56
-            yield
-            Key::F7
-          when 57
-            yield
-            Key::F8
-          when 59
-            case yield.try(&.ord)
-            when 50
-              case yield.try(&.ord)
-              when 65 then Key::ShiftUp
-              when 66 then Key::ShiftDown
-              when 67 then Key::ShiftRight
-              when 68 then Key::ShiftLeft
-              else
-                nil
-              end
-            when 51
-              case yield.try(&.ord)
-              when 65 then Key::AltUp
-              when 66 then Key::AltDown
-              when 67 then Key::AltRight
-              when 68 then Key::AltLeft
-              else
-                nil
-              end
-            when 53
-              case yield.try(&.ord)
-              when 65 then Key::CtrlUp
-              when 66 then Key::CtrlDown
-              when 67 then Key::CtrlRight
-              when 68 then Key::CtrlLeft
-              else
-                nil
-              end
-            else
-              nil
-            end
-          else
-            Key::Home
-          end
-        when 50
-          case yield.try(&.ord)
-          when 48
-            yield
-            Key::F9
-          when 49
-            yield
-            Key::F10
-          when 51
-            yield
-            Key::F11
-          when 52
-            yield
-            Key::F12
-          when 57
-            case yield.try(&.ord)
-            when 126
-              Key::Menu
-            end
-          else
-            Key::Insert
-          end
-        when 51
-          yield
-          Key::Delete
-        when 52
-          yield
-          Key::End
-        when 53
-          yield
-          Key::PageUp
-        when 54
-          yield
-          Key::PageDown
+      when 91 # CSI: `\e[…` — cursor/function keys and mouse reports
+        o = yield.try(&.ord) || -1
+        case o
+        when 77 then Key::Mouse # `\e[M` -> X10 mouse report (binary payload follows)
+        when 73 then Key::Mouse # `\e[I` -> focus-in report
+        when 79 then Key::Mouse # `\e[O` -> focus-out report
+        when 60 then Key::Mouse # `\e[<` -> SGR / DEC-locator mouse report
         when 65 then Key::Up
         when 66 then Key::Down
         when 67 then Key::Right
@@ -248,8 +170,10 @@ class Tput
         when 70 then Key::End
         when 72 then Key::Home
         when 90 then Key::ShiftTab
-        when 77 then Key::Mouse # `\e[M` -> X10 mouse report
-        when 60 then Key::Mouse # `\e[<` -> SGR mouse report
+        when 48..57
+          # A numeric CSI parameter list: a navigation/function key (`\e[3~`,
+          # `\e[1;5C`, …) or a URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
+          read_numeric_csi(o - 48) { yield }
         else
           nil
         end
@@ -282,6 +206,88 @@ class Tput
       when 122 then Key::AltZ
       else
         nil
+      end
+    end
+
+    # Reads a numeric CSI parameter list (`\e[ … <final>`) whose first digit
+    # value is *first*, then classifies it as a key or a URxvt mouse report.
+    # Yields for each subsequent input char.
+    private def self.read_numeric_csi(first : Int32, &) : Key?
+      params = [] of Int32
+      cur = first
+      final = nil
+      loop do
+        o = yield.try(&.ord)
+        break unless o
+        case o
+        when 48..57 then cur = cur * 10 + (o - 48) # digit
+        when 59     then params << cur; cur = 0    # ';' separator
+        else                                       # final byte
+          params << cur
+          final = o
+          break
+        end
+      end
+      return nil unless final
+      classify_csi params, final
+    end
+
+    # Maps a parsed CSI (`params`, `final` byte) to a key. `M`/`m` finals are a
+    # URxvt mouse report (handled by `Tput::Input`), surfaced here as
+    # `Key::Mouse`.
+    private def self.classify_csi(params : Array(Int32), final : Int32) : Key?
+      case final
+      when 'M'.ord, 'm'.ord then Key::Mouse # URxvt mouse report
+      when '~'.ord          then csi_tilde_key params[0]?
+      when 'A'.ord, 'B'.ord, 'C'.ord, 'D'.ord, 'F'.ord, 'H'.ord
+        csi_letter_key final, params[1]?
+      else
+        nil
+      end
+    end
+
+    # `\e[ N ~` navigation/function keys.
+    private def self.csi_tilde_key(n : Int32?) : Key?
+      case n
+      when 1, 7 then Key::Home
+      when 2    then Key::Insert
+      when 3    then Key::Delete
+      when 4, 8 then Key::End
+      when 5    then Key::PageUp
+      when 6    then Key::PageDown
+      when 15   then Key::F5
+      when 17   then Key::F6
+      when 18   then Key::F7
+      when 19   then Key::F8
+      when 20   then Key::F9
+      when 21   then Key::F10
+      when 23   then Key::F11
+      when 24   then Key::F12
+      when 29   then Key::Menu
+      else           nil
+      end
+    end
+
+    # `\e[ [1;mod] <letter>` cursor / Home / End keys, with optional modifier
+    # (2 = shift, 3 = alt, 5 = ctrl).
+    private def self.csi_letter_key(final : Int32, mod : Int32?) : Key?
+      case final
+      when 'F'.ord then Key::End
+      when 'H'.ord then Key::Home
+      when 'A'.ord then csi_modified mod, Key::Up, Key::ShiftUp, Key::AltUp, Key::CtrlUp
+      when 'B'.ord then csi_modified mod, Key::Down, Key::ShiftDown, Key::AltDown, Key::CtrlDown
+      when 'C'.ord then csi_modified mod, Key::Right, Key::ShiftRight, Key::AltRight, Key::CtrlRight
+      when 'D'.ord then csi_modified mod, Key::Left, Key::ShiftLeft, Key::AltLeft, Key::CtrlLeft
+      else              nil
+      end
+    end
+
+    private def self.csi_modified(mod : Int32?, base : Key, shift : Key, alt : Key, ctrl : Key) : Key
+      case mod
+      when 2 then shift
+      when 3 then alt
+      when 5 then ctrl
+      else        base
       end
     end
   end
