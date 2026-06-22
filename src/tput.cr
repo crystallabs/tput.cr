@@ -21,6 +21,7 @@ require "./tput/acsc"
 require "./tput/features"
 require "./tput/emulator"
 require "./tput/probe"
+require "./tput/response"
 require "./tput/dump"
 
 # Many Tput methods correspond to terminal sequences. Often times methods are named
@@ -342,4 +343,5 @@ class Tput
   include Output
   include Input
   include Probe
+  include Response
 end

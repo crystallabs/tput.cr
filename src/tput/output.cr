@@ -155,13 +155,16 @@ class Tput
     # If no padding instructions are present, the behavior is identical to
     # `#_write`. See ncurses' `tinfo/lib_tputs.c`.
     def _pad_write(code : Bytes) : Bool
-      str = String.new code
-
-      # Fast path: nothing to pad — behave exactly like `#_write`.
-      unless str.includes? "$<"
+      # Fast path: no `$<` marker — write the bytes as-is, without allocating a
+      # `String`. This is the overwhelmingly common case (padding is rare on
+      # modern terminals) and is on the per-frame render path, so it must stay
+      # allocation-free.
+      unless padding_marker? code
         _write code
         return true
       end
+
+      str = String.new code
 
       # `xon` means the terminal has hardware flow control (XON/XOFF). When it
       # does, advisory padding (without a mandatory `/` suffix) is skipped; only
@@ -189,6 +192,19 @@ class Tput
 
       _write rest.to_slice unless rest.empty?
       true
+    end
+
+    # Whether *code* contains a `$<` padding-instruction introducer, scanned
+    # directly over the bytes so the no-padding fast path in `#_pad_write` never
+    # allocates a `String`.
+    private def padding_marker?(code : Bytes) : Bool
+      i = 0
+      last = code.size - 1
+      while i < last
+        return true if code.unsafe_fetch(i) == 0x24_u8 && code.unsafe_fetch(i + 1) == 0x3c_u8 # "$<"
+        i += 1
+      end
+      false
     end
 
     # Saves `bytes` to local buffer.
