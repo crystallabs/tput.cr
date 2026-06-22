@@ -279,6 +279,21 @@ class Tput
       def decrst(*arguments)
         reset_mode "?#{arguments.join ';'}"
       end
+
+      # CSI ? Pm s
+      #   Save DEC Private Mode Values (XTSAVE).
+      #   `Ps` values are the same as for DECSET.
+      def save_private_values(*arguments)
+        _print { |io| io << "\e[?"; arguments.join(io, ';'); io << "s" }
+      end
+
+      # CSI ? Pm r
+      #   Restore DEC Private Mode Values (XTRESTORE). The values previously
+      #   saved with `#save_private_values` are restored.
+      #   `Ps` values are the same as for DECSET.
+      def restore_private_values(*arguments)
+        _print { |io| io << "\e[?"; arguments.join(io, ';'); io << "r" }
+      end
     end
   end
 end

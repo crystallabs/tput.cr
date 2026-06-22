@@ -303,16 +303,40 @@ class Tput
     @_resume.try &.call
   end
 
-  # # Unused. Redirects all output into a variable and returns it
-  # # Maybe do with macros, or method_missing to be able to call any
-  # # method, or so.
-  # def out(args)
-  #  ret = Bytes.new
-  #  @ret=true
-  #  # ret += ...
-  #  @ret=false
-  #  ret
-  # end
+  # Captures the escape sequences emitted by the calls made inside the block
+  # and returns them as a `String`, instead of writing them to the terminal.
+  #
+  # This is the equivalent of Blessed's `Program#out(name, *args)` dispatcher.
+  # Crystal has no by-name dynamic dispatch (and `out` is a reserved word), so
+  # a block is used instead:
+  #
+  # ```
+  # seq = tput.capture &.cursor_pos(1, 2) # => "\e[2;3H"
+  # # or:
+  # seq = tput.capture { |t| t.cursor_pos 1, 2; t.bell }
+  # ```
+  #
+  # Output is captured regardless of internal buffering, by temporarily
+  # redirecting `@output`. Anything already buffered is flushed to the real
+  # output first, so only what the block emits is captured.
+  def capture(&) : String
+    flush
+
+    saved_output = @output
+    saved_ret = @ret
+    io = IO::Memory.new
+    @output = io
+    @ret = nil
+    begin
+      yield self
+      flush
+    ensure
+      @output = saved_output
+      @ret = saved_ret
+    end
+
+    io.to_s
+  end
 
   include ACSC
   include Output

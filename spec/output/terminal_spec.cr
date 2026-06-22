@@ -33,4 +33,28 @@ describe Tput::Output::Terminal do
       end
     end
   end
+
+  describe "save_private_values" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].save_private_values(1, 25)
+        x.o.should eq "\e[?1;25s"
+
+        t[0].save_private_values
+        x.o.should eq "\e[?s"
+      end
+    end
+  end
+
+  describe "restore_private_values" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].restore_private_values(1, 25)
+        x.o.should eq "\e[?1;25r"
+
+        t[0].restore_private_values
+        x.o.should eq "\e[?r"
+      end
+    end
+  end
 end
