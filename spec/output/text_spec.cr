@@ -371,7 +371,7 @@ describe Tput::Output::Text do
         x.o.should eq "\e[2C"
         t[0].cursor.x.should eq 26
 
-        t[0].pos 0, 0; x.output.clear
+        t[0].pos 0, 0; x.o
         t[0].cursor.x.should eq 0
 
         t[0].forward(100_000).should be_true
@@ -384,13 +384,13 @@ describe Tput::Output::Text do
   describe "save & restore cursor" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[0]}" do
-        t[0].pos 8, 9; x.output.clear
+        t[0].pos 8, 9; x.o
 
         t[0].saved_cursor.should be_nil
 
         t[0].save_cursor.should be_true
 
-        t[0].pos 10, 12; x.output.clear
+        t[0].pos 10, 12; x.o
         t[0].sc.should be_true
         x.o.should eq "\e7"
 

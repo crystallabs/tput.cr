@@ -30,6 +30,12 @@ class Tput
     end
 
     def o
+      # Output is now batched in an internal buffer and only reaches `@output`
+      # on flush (the consumer flushes at frame boundaries). Drain both tput
+      # instances' buffers so this reflects what has actually reached the
+      # terminal; flush is a no-op for whichever instance has nothing buffered.
+      @t.flush
+      @p.flush
       s = String.new @output.to_slice
       @output.clear
       s

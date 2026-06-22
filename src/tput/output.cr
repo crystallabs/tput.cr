@@ -222,7 +222,7 @@ class Tput
       # @_buf = _buf
       # @_buf.write bytes
       args.each { |a| @_buf.write a }
-      flush
+      true
     end
 
     private def _buffer_print(*args)
@@ -234,7 +234,6 @@ class Tput
 
       # https://github.com/crystal-lang/crystal/pull/10152
       args.join io: @_buf
-      flush
       true
     end
 
@@ -245,7 +244,6 @@ class Tput
       else
         yield @_buf
       end
-      flush
       true
     end
 

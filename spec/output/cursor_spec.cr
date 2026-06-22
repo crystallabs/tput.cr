@@ -68,13 +68,13 @@ describe Tput::Output::Cursor do
 
   describe "cursor_next_line" do
     it "works with terminfo" do
-      x.t.sety 0; x.output.clear
+      x.t.sety 0; x.o
       x.t.cursor_next_line
       x.o.should eq "\e[1E"
     end
 
     it "works plain" do
-      x.p.sety 0; x.output.clear
+      x.p.sety 0; x.o
       x.p.cursor_next_line 3
       x.o.should eq "\e[3E"
     end
