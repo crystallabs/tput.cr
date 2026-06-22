@@ -19,7 +19,14 @@ class Tput
       end
 
       def echo(text, attr = nil)
-        _print attr ? text(text, attr) : text
+        if attr
+          # Write the opening attribute, the text, and the closing attribute
+          # straight to the output IO instead of concatenating them into a
+          # temporary `String` first (this is on the styled-text hot path).
+          _print { |io| io << _attr(attr, true) << text << _attr(attr, false) }
+        else
+          _print text
+        end
       end
 
       def text(text, attr)
@@ -260,6 +267,21 @@ class Tput
       # Also make this accept enum values rather than parsing a
       # string.
       def _attr(param : Array | String, val = true)
+        # Cache the String case (by far the common one); the parse is pure and
+        # its result deterministic for the life of the instance. The Array case
+        # is rare and not worth keying, so it computes directly.
+        if param.is_a?(String)
+          cached = @_attr_cache[{param, val}]?
+          return cached if cached
+          result = _compute_attr(param, val)
+          @_attr_cache[{param, val}] = result
+          return result
+        end
+
+        _compute_attr(param, val)
+      end
+
+      private def _compute_attr(param : Array | String, val = true)
         parts = [] of String
         color = nil
         m = nil
@@ -615,18 +637,31 @@ class Tput
       alias_previous decdc
 
       def set_foreground(color, val)
-        color = color.split(/\s*[,;]\s*/).join(" fg, ") + " fg"
-        attr(color, val)
+        attr(_color_spec(color, " fg"), val)
       end
 
       alias_previous fg
 
       def set_background(color, val)
-        color = color.split(/\s*[,;]\s*/).join(" bg, ") + " bg"
-        attr(color, val)
+        attr(_color_spec(color, " bg"), val)
       end
 
       alias_previous bg
+
+      # Suffixes each comma/semicolon-separated component of *color* with
+      # *suffix* (e.g. `"red,blue"`, `" fg"` -> `"red fg, blue fg"`), built in a
+      # single pass instead of `split.join(...) + suffix` (which allocated an
+      # intermediate joined string plus the concatenation temporary).
+      private def _color_spec(color : String, suffix : String) : String
+        String.build do |io|
+          first = true
+          color.split(/\s*[,;]\s*/).each do |c|
+            io << ", " unless first
+            first = false
+            io << c << suffix
+          end
+        end
+      end
 
       # CSI Ps b  Repeat the preceding graphic character Ps times (REP).
       def repeat_preceding_character(param = 1)

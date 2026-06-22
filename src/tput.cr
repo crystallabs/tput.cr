@@ -111,6 +111,13 @@ class Tput
   @[JSON::Field(ignore: true)]
   @_buf = IO::Memory.new
 
+  # Memoizes `#_attr` output. Attribute specs (`"bold"`, `"red fg"`,
+  # `"green fg, bold"`) are a small recurring set and parse to a deterministic
+  # escape sequence (terminal-state inputs like color count and emulator name
+  # don't change during a run), so the parse is done once per (spec, on/off).
+  @[JSON::Field(ignore: true)]
+  @_attr_cache = Hash(Tuple(String, Bool), String).new
+
   getter? use_buffer : Bool
 
   property? _exiting = false

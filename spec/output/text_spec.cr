@@ -487,4 +487,41 @@ describe Tput::Output::Text do
       end
     end
   end
+
+  describe "_attr caching" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "returns identical results on repeated calls with #{t[1]}" do
+        # Cached calls must match the first (uncached) computation exactly.
+        t[0]._attr("bold", true).should eq "\e[1m"
+        t[0]._attr("bold", true).should eq "\e[1m"
+        t[0]._attr("red fg, bold", true).should eq "\e[31;1m"
+        t[0]._attr("red fg, bold", true).should eq "\e[31;1m"
+        # The on/off variants are cached under distinct keys.
+        t[0]._attr("bold", false).should eq "\e[22m"
+      end
+    end
+  end
+
+  describe "echo with attributes" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "wraps text in opening/closing attributes with #{t[1]}" do
+        t[0].echo("hi", "bold").should be_true
+        x.o.should eq "\e[1mhi\e[22m"
+      end
+    end
+  end
+
+  describe "set_foreground / set_background" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "builds single and multi-component specs with #{t[1]}" do
+        t[0].fg("red", true).should be_true
+        x.o.should eq "\e[31m"
+        t[0].bg("blue", true).should be_true
+        x.o.should eq "\e[44m"
+        # Comma/semicolon-separated components each get the fg/bg suffix.
+        t[0].fg("red, blue", true).should be_true
+        x.o.should eq "\e[31;34m"
+      end
+    end
+  end
 end

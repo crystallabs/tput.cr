@@ -257,8 +257,10 @@ class Tput
     # Flushes internal buffer into `@output` and calls `@output.flush`
     def flush
       unless @_buf.empty?
-        # IO.copy @_buf, @output
-        @output << @_buf
+        # Write the buffered bytes straight through. `@output << @_buf` would
+        # route via `IO::Memory#to_s`, allocating a full String copy of the
+        # buffer on every flush; `to_slice` is a view over the same bytes.
+        @output.write @_buf.to_slice
         @_buf.clear
         @output.flush
       end
