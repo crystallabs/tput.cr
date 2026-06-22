@@ -44,4 +44,18 @@ describe Tput::Output::Charset do
       x.o.should eq "\e(B"
     end
   end
+
+  describe "enable_acs" do
+    # xterm-256color does not define `ena_acs`, so both terminfo and plain fall
+    # back to the hardcoded ACS-designation sequence.
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].enable_acs
+        x.o.should eq "\e(B\e)0"
+
+        t[0].ena_acs # alias
+        x.o.should eq "\e(B\e)0"
+      end
+    end
+  end
 end

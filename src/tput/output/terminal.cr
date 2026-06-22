@@ -294,6 +294,36 @@ class Tput
       def restore_private_values(*arguments)
         _print { |io| io << "\e[?"; arguments.join(io, ';'); io << "r" }
       end
+
+      # Enter application keypad / keyboard-transmit mode (terminfo `smkx`).
+      # Switches the cursor keys and numeric keypad to send application-mode
+      # sequences. Counterpart of `#disable_keypad`.
+      #
+      # Uses the terminal's `smkx` capability when present, else the hardcoded
+      # xterm sequence:
+      #
+      #     CSI ? 1 h   (DECCKM, application cursor keys)
+      #     ESC =       (DECKPAM, application keypad)
+      def enable_keypad
+        put(&.smkx?) || _print "\e[?1h\e="
+      end
+
+      alias_previous smkx, keypad_xmit
+
+      # Leave application keypad mode, returning the cursor keys and numeric
+      # keypad to their normal behavior (terminfo `rmkx`). Counterpart of
+      # `#enable_keypad`.
+      #
+      # Uses the terminal's `rmkx` capability when present, else the hardcoded
+      # xterm sequence:
+      #
+      #     CSI ? 1 l   (normal cursor keys)
+      #     ESC >       (DECKPNM, normal keypad)
+      def disable_keypad
+        put(&.rmkx?) || _print "\e[?1l\e>"
+      end
+
+      alias_previous rmkx, keypad_local
     end
   end
 end

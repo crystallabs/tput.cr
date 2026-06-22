@@ -57,4 +57,30 @@ describe Tput::Output::Terminal do
       end
     end
   end
+
+  describe "enable_keypad" do
+    # xterm-256color's `smkx` equals the hardcoded fallback, so terminfo and
+    # plain produce the same bytes.
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].enable_keypad
+        x.o.should eq "\e[?1h\e="
+
+        t[0].smkx # alias
+        x.o.should eq "\e[?1h\e="
+      end
+    end
+  end
+
+  describe "disable_keypad" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "works with #{t[1]}" do
+        t[0].disable_keypad
+        x.o.should eq "\e[?1l\e>"
+
+        t[0].rmkx # alias
+        x.o.should eq "\e[?1l\e>"
+      end
+    end
+  end
 end
