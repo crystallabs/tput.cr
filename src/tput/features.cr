@@ -261,10 +261,11 @@ class Tput
     end
 
     def detect_padding
-      # TODO - Padding is always disabled currently (NCURSES_NO_PADDING is read
-      # but not yet honored).
-      @sources["padding"] = "default — padding always disabled (not yet implemented)"
-      false
+      # Padding is honored unless explicitly disabled via the ncurses-compatible
+      # NCURSES_NO_PADDING env variable. See `Tput::Output#_pad_write`.
+      v = ENV["NCURSES_NO_PADDING"]?.nil?
+      @sources["padding"] = ENV["NCURSES_NO_PADDING"]? ? "env NCURSES_NO_PADDING (disabled)" : "default (enabled)"
+      v
     end
 
     def detect_setbuf

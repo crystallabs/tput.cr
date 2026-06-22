@@ -138,13 +138,57 @@ class Tput
     #  end
     # end
 
+    # Matches a terminfo padding instruction: `$<delay[*/]>`, where *delay* is a
+    # number of milliseconds (optionally fractional) and the optional `*` / `/`
+    # suffixes mark it as proportional / mandatory respectively.
+    PADDING_RE = /\$<([\d.]+)([*\/]{0,2})>/
+
     # Standard output method which takes terminal padding (software timing/delays) into account.
     #
-    # If no padding/delay instructions are found in the content, the behavior is
-    # identical to `#_write`.
-    def _pad_write(code, prn = ->_write(Bytes), done = nil)
-      raise "Padding not supported yet"
-      # tput._print, tput.print
+    # Compiled terminfo capabilities can embed padding instructions of the form
+    # `$<delay>` (e.g. `$<5>`, `$<10*>`, `$<5/>`). Unibilium performs parameter
+    # substitution but, like ncurses' `tparm`, leaves these markers in the
+    # output; honoring them (the job of ncurses' `tputs`) is left to us. This
+    # strips the markers and, where the terminal lacks hardware flow control,
+    # sleeps for the requested delay before emitting the following bytes.
+    #
+    # If no padding instructions are present, the behavior is identical to
+    # `#_write`. See ncurses' `tinfo/lib_tputs.c`.
+    def _pad_write(code : Bytes) : Bool
+      str = String.new code
+
+      # Fast path: nothing to pad — behave exactly like `#_write`.
+      unless str.includes? "$<"
+        _write code
+        return true
+      end
+
+      # `xon` means the terminal has hardware flow control (XON/XOFF). When it
+      # does, advisory padding (without a mandatory `/` suffix) is skipped; only
+      # mandatory delays are honored.
+      xon = !has?(&.needs_xon_xoff?) || !!has?(&.xon_xoff?)
+
+      rest = str
+      while (m = PADDING_RE.match(rest))
+        pre = m.pre_match
+        _write pre.to_slice unless pre.empty?
+
+        amount = m[1].to_f
+        suffix = m[2]
+
+        # `/` forces the delay even when flow control is present. `*` marks the
+        # delay as proportional to the number of affected lines; as in Blessed,
+        # we keep the base amount rather than scaling it.
+        mandatory = suffix.includes? '/'
+        if (mandatory || !xon) && amount > 0
+          sleep amount.milliseconds
+        end
+
+        rest = m.post_match
+      end
+
+      _write rest.to_slice unless rest.empty?
+      true
     end
 
     # Saves `bytes` to local buffer.
