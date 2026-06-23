@@ -245,6 +245,20 @@ class Tput
               key = nil
             end
           end
+
+          # A control sequence that was fully consumed but produced nothing to
+          # deliver — a parsed-away or malformed mouse/paste/resize/color-scheme
+          # report, or a non-clipboard OSC reply — must NOT surface as a phantom
+          # Escape key. Such a case leaves the introducer `\e` in `char` with no
+          # key and no event channel set. A real bare Escape keeps `key ==
+          # Key::Escape`, and any printable key has a non-`\e` `char`, so neither
+          # is skipped here.
+          if char == '\e' && key.nil? && mouse.nil? && key_event.nil? &&
+             paste.nil? && resize.nil? && color_scheme.nil?
+            sequence.clear
+            next
+          end
+
           yield InputEvent.new char, key, sequence.dup, mouse, key_event, paste, resize, color_scheme
           sequence.clear
         end

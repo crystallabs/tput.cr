@@ -80,6 +80,14 @@ describe "color scheme (DEC 2031) + OSC 52 clipboard via listen" do
     ev[0][2].should eq "hello" # delivered through the paste channel
   end
 
+  it "ignores a non-clipboard OSC reply (no phantom key)" do
+    feed_all("\e]11;rgb:1234/5678/9abc\a").size.should eq 0
+  end
+
+  it "ignores a stray paste-end marker (no phantom key)" do
+    feed_all("\e[201~").size.should eq 0
+  end
+
   it "request_color_scheme parses the CSI ? 997 reply" do
     t = new_tput
     t.read_color_scheme_response(IO::Memory.new("\e[?997;2n"), 1.second).should eq Tput::ColorScheme::Light
