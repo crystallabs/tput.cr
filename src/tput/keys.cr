@@ -202,7 +202,7 @@ class Tput
       when 13 then Key::AltEnter
         # when 27 then Key::Escape
       when 93 then Key::Osc # `\e]…` OSC reply (e.g. OSC 52 clipboard)
-      when 79 # SS3: `\eO…` — application-mode cursor / F1-F4 keys
+      when 79               # SS3: `\eO…` — application-mode cursor / F1-F4 keys
         case yield.try(&.ord)
         when 65 then Key::Up
         when 66 then Key::Down
@@ -249,7 +249,7 @@ class Tput
         when 100 then Key::ShiftLeft
         when 101 then Key::Clear
         when 91  then read_bracket_csi { yield } # `\e[[…` putty / Cygwin function keys
-        when 63  then read_private_csi { yield }  # `\e[?…` private report (color scheme 997)
+        when 63  then read_private_csi { yield } # `\e[?…` private report (color scheme 997)
         when 48..57
           # A numeric CSI parameter list: a navigation/function key (`\e[3~`,
           # `\e[1;5C`, …) or a URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
@@ -368,7 +368,7 @@ class Tput
       return Key::Enhanced if enhanced
       if final == '~'.ord
         case params[0]?
-        when 27  then return Key::Enhanced   # modifyOtherKeys format 0
+        when 27 then return Key::Enhanced    # modifyOtherKeys format 0
         when 200 then return Key::PasteStart # bracketed paste begin
         when 201 then return Key::PasteEnd   # bracketed paste end
         end

@@ -48,8 +48,8 @@ describe Tput::KeyEvent do
     it "surfaces a plain printable key through char (report-all-keys)" do
       ev = feed_kb("\e[97u")
       char, key, kev = ev[0]
-      char.should eq 'a'        # typing still flows through `char`
-      key.should be_nil         # no legacy control key
+      char.should eq 'a' # typing still flows through `char`
+      key.should be_nil  # no legacy control key
       kev.not_nil!.char.should eq 'a'
     end
 

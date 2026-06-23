@@ -31,7 +31,7 @@ describe "bracketed paste (DEC 2004)" do
   it "treats embedded escape sequences as literal text, not keys" do
     ev = feed_all("\e[200~a\e[Bb\e[201~")
     ev.size.should eq 1
-    ev[0][2].should eq "a\e[Bb"   # the \e[B (Down) is part of the paste, not a key
+    ev[0][2].should eq "a\e[Bb" # the \e[B (Down) is part of the paste, not a key
     ev[0][1].should be_nil
   end
 
