@@ -78,6 +78,10 @@ class Tput
         features.sources["ambiguous_width"] = "probed via DSR/CPR cursor-position measurement"
       end
 
+      # Harden the env/TERM-based emulator identity with the terminal's own
+      # XTVERSION self-report (now stored on `features`).
+      emulator?.try &.refine_from_probe!
+
       Log.trace { "probe!: #{result}" }
       result.got_da
     end
@@ -105,22 +109,53 @@ class Tput
           params, final = probe_read_csi io, timeout
           case final
           when 'c'
-            # DA1 reply. Doubles as the end-of-responses sentinel.
-            f.da_params = probe_ints params
-            f.sources["da_params"] = "probed via DA1 (CSI c) reply"
-            got_da = true
-            break
+            if params.starts_with? ">"
+              # DA2 (secondary device attributes): `CSI > type ; version ; kbd c`.
+              # Distinguished from DA1 by the `>` private marker; not a terminator.
+              f.da2_params = probe_ints params
+              f.sources["da2_params"] = "probed via DA2 (CSI > c) reply"
+            else
+              # DA1 reply. Doubles as the end-of-responses sentinel.
+              f.da_params = probe_ints params
+              f.sources["da_params"] = "probed via DA1 (CSI c) reply"
+              got_da = true
+              break
+            end
           when 'R'
             # CPR `row ; col`. The char was printed at column 1, so the
             # reported column minus one is its rendered width.
             ints = probe_ints params
             width = ints[1] - 1 if ints.size >= 2
+          when 'u'
+            # Kitty keyboard protocol reply (`CSI ? <flags> u`). Any reply means
+            # the protocol is supported; the value is the active flags.
+            flags = probe_ints(params)[0]? || 0
+            f.confirm_kitty_keyboard! flags, "probed via CSI ? u (kitty keyboard protocol)"
+          when 'm'
+            # XTQMODKEYS reply (`CSI > 4 ; <level> m`). Confirms xterm
+            # modifyOtherKeys support and reports the current level.
+            ints = probe_ints params
+            if ints[0]? == 4
+              f.confirm_modify_other_keys! (ints[1]? || 0), "probed via CSI ? 4 m (modifyOtherKeys)"
+            end
+          when 'y'
+            # DECRQM reply (`CSI ? mode ; Ps $ y`): mode-support probe. A `Ps`
+            # of 1–4 means the mode is recognized. We probe 2048 (in-band resize).
+            ints = params.tr("?$", "").split(';').map(&.to_i?)
+            if ints[0]? == 2048 && (ps = ints[1]?) && ps != 0
+              f.in_band_resize = true
+              f.sources["in_band_resize"] = "probed via DECRQM (CSI ? 2048 $ p)"
+            end
           end
         when ']'.ord # OSC
           apply_osc_color f, probe_read_osc(io, timeout)
-        when 'P'.ord # DCS (DECRQSS reply: truecolor SGR or cursor-style readback)
+        when 'P'.ord # DCS (DECRQSS / XTVERSION reply)
           payload = probe_read_dcs io, timeout
-          if truecolor_confirmed? payload
+          if payload.starts_with? ">|"
+            # XTVERSION: terminal name+version, e.g. `>|kitty(0.32.0)`.
+            f.terminal_version = payload[2..]
+            f.sources["terminal_version"] = "probed via XTVERSION (DCS > | …)"
+          elsif truecolor_confirmed? payload
             f.confirm_truecolor! "probed via DECRQSS (24-bit SGR readback)"
           elsif cursor_style_confirmed? payload
             f.confirm_cursor_style! "probed via DECRQSS (DECSCUSR cursor-style readback)"
@@ -152,7 +187,16 @@ class Tput
         # `1$r<n> q`; one that doesn't sends `0$r` or nothing.
         io << "\eP$q q\e\\"
         io << "\e7\r…\e[6n" # save cursor, print ambiguous char, CPR
-        io << "\e[c"        # DA1: capabilities + terminator
+        # Enhanced keyboard protocols. Both are private queries that supporting
+        # terminals answer and others silently ignore: `CSI ? u` → kitty
+        # keyboard protocol (`CSI ? <flags> u`); `CSI ? 4 m` → XTQMODKEYS for
+        # xterm modifyOtherKeys (`CSI > 4 ; <level> m`).
+        io << "\e[?u"
+        io << "\e[?4m"
+        io << "\e[?2048$p" # DECRQM: in-band resize support (`CSI ? 2048 ; Ps $ y`)
+        io << "\e[>0q"     # XTVERSION: terminal name+version (DCS reply)
+        io << "\e[>c"      # DA2: secondary attributes (`CSI > … c`), before DA1
+        io << "\e[c"       # DA1: capabilities + terminator
       end
     end
 

@@ -10,8 +10,8 @@ private def feed(data : String)
     output: IO::Memory.new,
     screen_size: Tput::DEFAULT_SCREEN_SIZE,
     probe: false
-  t.listen do |char, key, _seq, mouse|
-    events << {char, key, mouse}
+  t.listen do |e|
+    events << {e.char, e.key, e.mouse}
   end
   events
 end

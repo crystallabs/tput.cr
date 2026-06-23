@@ -44,6 +44,107 @@ class Tput
         false
       end
 
+      # OSC 52: sets the terminal clipboard *selection* to *text*
+      # (base64-encoded as the protocol requires). *selection* is `"c"` for the
+      # clipboard, `"p"` for primary, etc. Unlike OS-level clipboard tools this
+      # works through SSH and tmux. Read it back with `#get_clipboard`. Harmless
+      # on terminals that don't support OSC 52 (they ignore it).
+      def set_clipboard(text : String, selection : String = "c") : Nil
+        _tprint "\e]52;#{selection};#{Base64.strict_encode text}\x07"
+      end
+
+      # OSC 52: clears the terminal clipboard *selection*.
+      def clear_clipboard(selection : String = "c") : Nil
+        _tprint "\e]52;#{selection};\x07"
+      end
+
+      # OSC 52: asks the terminal to report the clipboard *selection* without
+      # waiting for the reply (`\e]52;<sel>;?\a`). Use this while `#listen` is
+      # active — the reply arrives through the input stream and is surfaced as a
+      # paste. (`Response#get_clipboard` is the synchronous counterpart, for use
+      # outside the input loop.)
+      def request_clipboard(selection : String = "c") : Nil
+        _tprint "\e]52;#{selection};?\x07"
+      end
+
+      # OSC 8: begins a hyperlink to *uri*. Text emitted until `#end_hyperlink`
+      # (or the next `#begin_hyperlink`) is clickable. *id* groups links that
+      # should highlight as one when the pointer hovers any part — use the same
+      # *id* for a link split across cells/lines. Widely supported (VTE, kitty,
+      # iTerm2, WezTerm, foot, …) and ignored elsewhere.
+      def begin_hyperlink(uri : String, id : String? = nil) : Nil
+        _tprint "\e]8;#{id ? "id=#{id}" : ""};#{uri}\e\\"
+      end
+
+      # OSC 8: ends the current hyperlink (empty URI), so following text is no
+      # longer clickable.
+      def end_hyperlink : Nil
+        _tprint "\e]8;;\e\\"
+      end
+
+      # OSC 8: emits *text* as a hyperlink to *uri* (begin + text + end).
+      def hyperlink(text : String, uri : String, id : String? = nil) : Nil
+        begin_hyperlink uri, id
+        _tprint text
+        end_hyperlink
+      end
+
+      # Begins a synchronized update (DEC private mode 2026): the terminal holds
+      # off presenting output until `#end_synchronized_update`, then repaints the
+      # whole frame at once — removing the flicker/tearing of a multi-write
+      # redraw. Harmless on terminals that don't support it (they ignore it, and
+      # also auto-release after a short timeout so a missing end can't freeze the
+      # screen). Prefer the `#synchronized_update` block, which always pairs the
+      # end marker.
+      def begin_synchronized_update : Nil
+        _print "\e[?2026h"
+      end
+
+      # Ends a synchronized update (DEC 2026), presenting the buffered frame.
+      def end_synchronized_update : Nil
+        _print "\e[?2026l"
+      end
+
+      # Brackets *block*'s output in a synchronized update (DEC 2026) so the
+      # frame it draws is presented atomically. The end marker is emitted even if
+      # the block raises, so a failure cannot leave the terminal frozen.
+      def synchronized_update(&)
+        begin_synchronized_update
+        begin
+          yield
+        ensure
+          end_synchronized_update
+        end
+      end
+
+      # Enables Unicode grapheme clustering (DEC private mode 2027): the terminal
+      # advances the cursor by *grapheme cluster* (emoji ZWJ sequences, a base +
+      # combining marks, regional-indicator flags) rather than by codepoint —
+      # matching this library's `full_unicode` cell model, so wide/clustered
+      # glyphs stay aligned. Harmless on terminals that don't support it.
+      def enable_grapheme_clustering : Nil
+        _print "\e[?2027h"
+      end
+
+      # Disables Unicode grapheme clustering (DEC 2027).
+      def disable_grapheme_clustering : Nil
+        _print "\e[?2027l"
+      end
+
+      # Enables color-scheme (light/dark) change notifications (DEC private mode
+      # 2031). The terminal then reports theme changes in-band as
+      # `CSI ? 997 ; 1 n` (dark) / `CSI ? 997 ; 2 n` (light), surfaced as the
+      # `color_scheme` of `Tput::Input#listen` events. Query the current scheme
+      # with `#request_color_scheme`. Harmless on terminals that don't support it.
+      def enable_color_scheme_notifications : Nil
+        _print "\e[?2031h"
+      end
+
+      # Disables color-scheme change notifications (DEC 2031).
+      def disable_color_scheme_notifications : Nil
+        _print "\e[?2031l"
+      end
+
       # CSI > Ps; Ps t
       #   Set one or more features of the title modes.  Each parameter
       #   enables a single feature.

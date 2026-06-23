@@ -14,4 +14,8 @@ module Superconf
     description: "Buffer Tput output instead of writing each control sequence immediately"
   option "tput.probe", true,
     description: "Auto-probe the terminal for colors/features on Tput.new (when attached to a TTY)"
+  option "keyboard.protocol", "auto",
+    description: "Enhanced keyboard protocol to use: auto (best supported), or kitty / modify_other_keys / legacy"
+  option "keyboard.exclude", "",
+    description: "Enhanced keyboard protocols to never use (comma/space separated: kitty, modify_other_keys, legacy)"
 end

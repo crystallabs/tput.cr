@@ -150,6 +150,34 @@ class Tput
     # `Tput::Input#read_mouse` into a `Tput::Mouse::Event`.
     Mouse = 16777302
 
+    # Sentinel returned when an *enhanced* keyboard sequence is detected: a
+    # kitty keyboard protocol event (`CSI … u`), an xterm `modifyOtherKeys`
+    # report (`CSI 27 ; … ~`), or a legacy-final key carrying a kitty event-type
+    # sub-parameter (`CSI 1 ; 5 : 3 A`). The full sequence is re-parsed by
+    # `Tput::Input#parse_key_event` into a `Tput::KeyEvent`.
+    Enhanced = 16777303
+
+    # Sentinels for bracketed paste (DEC private mode 2004): `\e[200~` begins a
+    # paste and `\e[201~` ends it. On `PasteStart`, `Tput::Input#listen` reads
+    # the body verbatim (via `#read_paste`) up to the `PasteEnd` marker and
+    # delivers it as the `paste` argument.
+    PasteStart = 16777304
+    PasteEnd   = 16777305
+
+    # Sentinel for an in-band terminal resize report (DEC private mode 2048),
+    # `\e[48;rows;cols;ypixels;xpixels t`. Parsed by `Tput::Input#parse_resize`
+    # into a `Tput::Resize` and delivered as the `resize` argument of `#listen`.
+    Resize = 16777306
+
+    # Sentinel for an OSC reply (`\e]…`); `Tput::Input#listen` reads the payload
+    # and dispatches it (e.g. an OSC 52 clipboard reply → `paste`).
+    Osc = 16777307
+
+    # Sentinel for a color-scheme report (DEC private mode 2031),
+    # `\e[?997;Ps n` (`Ps` 1 = dark, 2 = light). Parsed into a `Tput::ColorScheme`
+    # and delivered as the `color_scheme` argument of `#listen`.
+    ColorScheme = 16777308
+
     Unknown = 33554431
 
     # Reads a `Control` input from *char*.  If an escape sequence was detected,
@@ -173,6 +201,7 @@ class Tput
       case yield.try(&.ord)
       when 13 then Key::AltEnter
         # when 27 then Key::Escape
+      when 93 then Key::Osc # `\e]…` OSC reply (e.g. OSC 52 clipboard)
       when 79 # SS3: `\eO…` — application-mode cursor / F1-F4 keys
         case yield.try(&.ord)
         when 65 then Key::Up
@@ -220,6 +249,7 @@ class Tput
         when 100 then Key::ShiftLeft
         when 101 then Key::Clear
         when 91  then read_bracket_csi { yield } # `\e[[…` putty / Cygwin function keys
+        when 63  then read_private_csi { yield }  # `\e[?…` private report (color scheme 997)
         when 48..57
           # A numeric CSI parameter list: a navigation/function key (`\e[3~`,
           # `\e[1;5C`, …) or a URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
@@ -266,20 +296,49 @@ class Tput
       params = [] of Int32
       cur = first
       final = nil
+      colon = false
       loop do
         o = yield.try(&.ord)
         break unless o
         case o
         when 48..57 then cur = cur * 10 + (o - 48) # digit
         when 59     then params << cur; cur = 0    # ';' separator
-        else                                       # final byte
+        when 58                                    # ':' kitty sub-parameter
+          # Flatten sub-parameters into `params` (the precise grouping is
+          # recovered from the raw bytes by `Input#parse_key_event`); record
+          # that one was present so `classify_csi` can tell this is an enhanced
+          # event even on a legacy final byte (e.g. an event-type on `…A`).
+          params << cur
+          cur = 0
+          colon = true
+        else # final byte
           params << cur
           final = o
           break
         end
       end
       return nil unless final
-      classify_csi params, final
+      classify_csi params, final, colon
+    end
+
+    # Reads a `\e[?… <final>` private report. Recognizes the color-scheme report
+    # (`\e[?997;Ps n`, DEC mode 2031); other private reports are ignored.
+    private def self.read_private_csi(&) : Key?
+      params = [] of Int32
+      cur = 0
+      final = nil
+      loop do
+        o = yield.try(&.ord)
+        break unless o
+        case o
+        when 48..57 then cur = cur * 10 + (o - 48)
+        when 59     then params << cur; cur = 0
+        else             params << cur; final = o; break
+        end
+      end
+      return nil unless final
+      return Key::ColorScheme if final == 'n'.ord && params[0]? == 997
+      nil
     end
 
     # Reads the tail of a `\e[[…` sequence (putty / Cygwin function keys).
@@ -300,7 +359,23 @@ class Tput
     # Maps a parsed CSI (`params`, `final` byte) to a key. `M`/`m` finals are a
     # URxvt mouse report (handled by `Tput::Input`), surfaced here as
     # `Key::Mouse`. `$`/`^` finals are rxvt shift/ctrl-modified navigation keys.
-    private def self.classify_csi(params : Array(Int32), final : Int32) : Key?
+    private def self.classify_csi(params : Array(Int32), final : Int32, enhanced = false) : Key?
+      # Enhanced keyboard sequences: a `u` final (kitty / modifyOtherKeys-1), a
+      # legacy final carrying a kitty event-type sub-parameter, or the
+      # modifyOtherKeys format-0 marker (first parameter 27 on a `~` final). The
+      # whole sequence is re-parsed into a `KeyEvent` by `Input#parse_key_event`.
+      return Key::Enhanced if final == 'u'.ord
+      return Key::Enhanced if enhanced
+      if final == '~'.ord
+        case params[0]?
+        when 27  then return Key::Enhanced   # modifyOtherKeys format 0
+        when 200 then return Key::PasteStart # bracketed paste begin
+        when 201 then return Key::PasteEnd   # bracketed paste end
+        end
+      end
+      # In-band resize report (DEC private mode 2048): `\e[48; … t`.
+      return Key::Resize if final == 't'.ord && params[0]? == 48
+
       case final
       when 'M'.ord, 'm'.ord then Key::Mouse # URxvt mouse report
       when '~'.ord          then csi_tilde_key params[0]?, params[1]?

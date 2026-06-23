@@ -178,6 +178,70 @@ class Tput
       GraphicsProtocol::None
     end
 
+    # --- Probe-based hardening ------------------------------------------------
+    #
+    # The env/TERM detection above is best-effort: env vars propagate to child
+    # processes and survive across tmux/ssh, so they can name the *wrong*
+    # terminal. `Tput#probe!` asks the terminal itself (XTVERSION,
+    # `CSI > 0 q` → `features.terminal_version`), and the terminal's own answer
+    # is authoritative. This reconciles the two: a confident XTVERSION match
+    # sets the corresponding product-identity flag and clears the others (a
+    # terminal is exactly one product). No-op when the terminal didn't answer.
+
+    # Refines identity from the probed XTVERSION string. Called by `Tput#probe!`.
+    def refine_from_probe! : Nil
+      v = @tput.features?.try &.terminal_version
+      return unless v
+
+      d = v.downcase
+      identity = if d.starts_with?("kitty")
+                   "kitty"
+                 elsif d.includes?("wezterm")
+                   "wezterm"
+                 elsif d.includes?("ghostty")
+                   "ghostty"
+                 elsif d.starts_with?("foot")
+                   "foot"
+                 elsif d.includes?("konsole")
+                   "konsole"
+                 elsif d.includes?("iterm")
+                   "iterm2"
+                 elsif d.includes?("mlterm")
+                   "mlterm"
+                 elsif d.includes?("rxvt")
+                   "rxvt"
+                 elsif d.starts_with?("xterm")
+                   "xterm"
+                 else
+                   return # unknown terminal: leave env detection untouched
+                 end
+
+      @kitty = reidentify @kitty, "kitty", identity, v
+      @wezterm = reidentify @wezterm, "wezterm", identity, v
+      @ghostty = reidentify @ghostty, "ghostty", identity, v
+      @foot = reidentify @foot, "foot", identity, v
+      @konsole = reidentify @konsole, "konsole", identity, v
+      @iterm2 = reidentify @iterm2, "iterm2", identity, v
+      @mlterm = reidentify @mlterm, "mlterm", identity, v
+      @rxvt = reidentify @rxvt, "rxvt", identity, v
+      @xterm = reidentify @xterm, "xterm", identity, v
+
+      Log.trace { my self }
+    end
+
+    # Returns the new value for product flag *name* given the probed *identity*,
+    # recording the provenance: confirmed when it matches, cleared when XTVERSION
+    # contradicts a flag env had set.
+    private def reidentify(was : Bool, name : String, identity : String, version : String) : Bool
+      on = name == identity
+      if on
+        @sources[name] = %(probed via XTVERSION ("#{version}"))
+      elsif was
+        @sources[name] = %(cleared by XTVERSION ("#{version}") — reports a different terminal)
+      end
+      on
+    end
+
     def inspect(io)
       to_json io
     end

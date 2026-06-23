@@ -84,6 +84,38 @@ class Tput
     @[JSON::Field(ignore: true)]
     property da_params : Array(Int32)? = nil
 
+    # The kitty keyboard protocol flags the terminal reported active in answer to
+    # a `CSI ? u` query, or `nil` if it did not answer (protocol unsupported). A
+    # non-`nil` value — even `0` — means the protocol *is* supported; the number
+    # is the currently-active enhancement flags. See `Tput::Keyboard`.
+    @[JSON::Field(ignore: true)]
+    property kitty_keyboard_flags : Int32? = nil
+
+    # The xterm `modifyOtherKeys` level the terminal reported in answer to a
+    # `CSI ? 4 m` query (0, 1, or 2), or `nil` if it did not answer (support not
+    # detectable). See `Tput::Keyboard`.
+    @[JSON::Field(ignore: true)]
+    property modify_other_keys : Int32? = nil
+
+    # Secondary device-attributes (DA2, `CSI > c`) parameters
+    # `[type, version, keyboard]`, or `nil` if not probed / unanswered. A more
+    # reliable terminal identity/version source than the env-var heuristics in
+    # `Emulator`.
+    @[JSON::Field(ignore: true)]
+    property da2_params : Array(Int32)? = nil
+
+    # Terminal name and version as reported by XTVERSION (`CSI > 0 q`), e.g.
+    # `"kitty(0.32.0)"`, or `nil` if not probed / unanswered.
+    @[JSON::Field(ignore: true)]
+    property terminal_version : String? = nil
+
+    # Whether the terminal supports in-band resize notifications (DEC private
+    # mode 2048), as probed via DECRQM at startup. When true, a consumer can
+    # prefer in-band resize reports over `SIGWINCH`. `false` when unsupported or
+    # not probed.
+    @[JSON::Field(ignore: true)]
+    property? in_band_resize : Bool = false
+
     @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
@@ -101,7 +133,8 @@ class Tput
       # Baseline provenance for the probe-only fields; overwritten by
       # `Tput#probe!` if/when the terminal actually answers.
       {"ambiguous_width", "default_foreground", "default_background",
-       "palette", "da_params"}.each do |k|
+       "palette", "da_params", "kitty_keyboard", "modify_other_keys",
+       "da2_params", "terminal_version", "in_band_resize"}.each do |k|
         @sources[k] = "not probed (call Tput#probe!)"
       end
 
@@ -368,6 +401,31 @@ class Tput
     def confirm_cursor_color!(source : String) : Nil
       @cursor_color = true
       @sources["cursor_color"] = source
+    end
+
+    # Whether the terminal speaks the kitty keyboard protocol (it answered the
+    # `CSI ? u` probe).
+    def kitty_keyboard? : Bool
+      !@kitty_keyboard_flags.nil?
+    end
+
+    # Whether the terminal supports xterm `modifyOtherKeys` (it answered the
+    # `CSI ? 4 m` probe).
+    def modify_other_keys? : Bool
+      !@modify_other_keys.nil?
+    end
+
+    # Records that the terminal speaks the kitty keyboard protocol, with *flags*
+    # the active enhancement bits it reported. Called by `Tput#probe!`.
+    def confirm_kitty_keyboard!(flags : Int32, source : String) : Nil
+      @kitty_keyboard_flags = flags
+      @sources["kitty_keyboard"] = source
+    end
+
+    # Records the terminal's `modifyOtherKeys` *level*. Called by `Tput#probe!`.
+    def confirm_modify_other_keys!(level : Int32, source : String) : Nil
+      @modify_other_keys = level
+      @sources["modify_other_keys"] = source
     end
 
     # iTerm2 detection by env, replicated here because `Features` is constructed

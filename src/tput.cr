@@ -3,6 +3,8 @@ Log.setup_from_env backend: Log::IOBackend.new STDERR
 
 require "term-screen"
 
+require "base64"
+
 require "unibilium"
 require "unibilium-shim"
 require "crystallabs-helpers"
@@ -13,7 +15,9 @@ require "./tput/ext"
 require "./tput/macros"
 require "./tput/namespace"
 require "./tput/keys"
+require "./tput/key_event"
 require "./tput/mouse"
+require "./tput/keyboard"
 require "./tput/output"
 require "./tput/input"
 require "./tput/coordinates"
@@ -125,6 +129,28 @@ class Tput
   # Whether xterm mouse reporting is currently enabled (tracked by
   # `#enable_mouse`/`#disable_mouse`). Used by `#pause` to restore it on resume.
   getter? mouse_enabled = false
+
+  # The enhanced keyboard protocol currently enabled (tracked by
+  # `#enable_keyboard_protocol`/`#disable_keyboard_protocol`), or `nil` when only
+  # the always-available `Legacy` baseline is active. Used by `#pause` to restore
+  # it on resume. See `Tput::Keyboard`.
+  @[JSON::Field(ignore: true)]
+  getter keyboard_protocol : KeyboardProtocol? = nil
+
+  # Whether the enabled keyboard protocol was asked to also report modifier/key
+  # event types (so `#resume` can restore it with the same flags).
+  @[JSON::Field(ignore: true)]
+  @keyboard_events = false
+
+  # Whether bracketed paste (DEC 2004) is currently enabled. Tracked so `#pause`
+  # can restore it on resume. See `Tput::Input#enable_bracketed_paste`.
+  @[JSON::Field(ignore: true)]
+  getter? bracketed_paste_enabled = false
+
+  # Whether in-band resize notifications (DEC 2048) are currently enabled.
+  # Tracked so `#pause` can restore them on resume.
+  @[JSON::Field(ignore: true)]
+  getter? in_band_resize_enabled = false
 
   @[JSON::Field(ignore: true)]
   property ret : IO? = nil
@@ -279,9 +305,17 @@ class Tput
   def pause(callback : Proc? = nil) : Proc(Nil)
     alt = is_alt
     mouse = mouse_enabled?
+    kbd = @keyboard_protocol
+    kbd_events = @keyboard_events
+
+    paste = bracketed_paste_enabled?
+    resize = in_band_resize_enabled?
 
     lsave_cursor :pause
     disable_mouse if mouse
+    disable_keyboard_protocol if kbd
+    disable_bracketed_paste if paste
+    disable_in_band_resize if resize
     normal_buffer if alt
     show_cursor
 
@@ -296,6 +330,9 @@ class Tput
 
       alternate_buffer if alt
       enable_mouse if mouse
+      enable_keyboard_protocol kbd_events if kbd
+      enable_bracketed_paste if paste
+      enable_in_band_resize if resize
       lrestore_cursor :pause, true
       callback.try &.call
     }
@@ -311,6 +348,9 @@ class Tput
   # teardown on exit. (Listener/instance bookkeeping is the caller's concern.)
   def restore_terminal : Nil
     disable_mouse if mouse_enabled?
+    disable_keyboard_protocol if @keyboard_protocol
+    disable_bracketed_paste if bracketed_paste_enabled?
+    disable_in_band_resize if in_band_resize_enabled?
     normal_buffer if is_alt
     show_cursor
     flush
@@ -355,6 +395,7 @@ class Tput
   include ACSC
   include Output
   include Input
+  include Keyboard
   include Probe
   include Response
 end

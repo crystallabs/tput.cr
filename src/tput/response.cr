@@ -102,6 +102,83 @@ class Tput
 
     alias_previous decrqlp, req_mouse_pos
 
+    # Sends a Secondary Device Attributes request (DA2, `CSI > c`) and returns
+    # the reported parameters `[type, version, keyboard]` (e.g. `[0, 276, 0]`),
+    # or `nil` on no answer. More reliable than env-var heuristics for
+    # identifying the terminal and its version.
+    def secondary_device_attributes(timeout : Time::Span = RESPONSE_TIMEOUT) : Array(Int32)?
+      query("\e[>c", timeout) { |io| read_csi_ints io, timeout, "c" }
+    end
+
+    alias_previous da2
+
+    # Requests the terminal name and version via XTVERSION (`CSI > 0 q`) and
+    # returns the reported string (e.g. `"kitty(0.32.0)"`, `"WezTerm …"`), or
+    # `nil` if the terminal does not answer.
+    def request_terminal_version(timeout : Time::Span = RESPONSE_TIMEOUT) : String?
+      query("\e[>0q", timeout) { |io| read_xtversion_response io, timeout }
+    end
+
+    alias_previous xtversion
+
+    # XTGETTCAP (`DCS + q <names> ST`): queries the terminal directly for one or
+    # more terminfo/termcap capabilities *by name* (e.g. `"TN"` terminal name,
+    # `"Co"` max colors, `"RGB"`), returning a `{name => value}` hash of the ones
+    # the terminal recognized (an empty hash if it recognized none, `nil` if it
+    # did not answer). Values are decoded from the hex the protocol uses. Lets a
+    # program read capabilities straight from the terminal when terminfo is
+    # absent or stale (kitty, foot, WezTerm, recent xterm, …).
+    def request_termcap(*names : String, timeout : Time::Span = RESPONSE_TIMEOUT) : Hash(String, String)?
+      hex = names.map { |n| n.to_slice.hexstring }.join(';')
+      query("\eP+q#{hex}\e\\", timeout) { |io| read_xtgettcap_response io, timeout }
+    end
+
+    alias_previous xtgettcap
+
+    # OSC 52: reads the terminal clipboard *selection* (`"c"`, `"p"`, …) and
+    # returns its text, or `nil` if the terminal does not answer (many terminals
+    # allow clipboard *writes* but disable reads for security).
+    def get_clipboard(selection : String = "c", timeout : Time::Span = RESPONSE_TIMEOUT) : String?
+      query("\e]52;#{selection};?\a", timeout) { |io| read_clipboard_response io, timeout }
+    end
+
+    # Queries whether the terminal supports a DEC private mode via DECRQM
+    # (`CSI ? Pd $ p`). Returns `true` if the terminal reports the mode as
+    # recognized (reply `Ps` of 1–4), `false` if not recognized, `nil` on no
+    # answer. Used e.g. to detect synchronized output (mode 2026).
+    def supports_private_mode?(mode : Int32, timeout : Time::Span = RESPONSE_TIMEOUT) : Bool?
+      query("\e[?#{mode}$p", timeout) { |io| read_decrqm_response io, timeout, mode }
+    end
+
+    # Whether the terminal supports synchronized output (DEC private mode 2026).
+    def supports_synchronized_output?(timeout : Time::Span = RESPONSE_TIMEOUT) : Bool?
+      supports_private_mode? 2026, timeout
+    end
+
+    # Whether the terminal supports in-band resize notifications (DEC private
+    # mode 2048). Also auto-detected at startup into `Features#in_band_resize?`.
+    def supports_in_band_resize?(timeout : Time::Span = RESPONSE_TIMEOUT) : Bool?
+      supports_private_mode? 2048, timeout
+    end
+
+    # Whether the terminal supports Unicode grapheme clustering (DEC mode 2027).
+    def supports_grapheme_clustering?(timeout : Time::Span = RESPONSE_TIMEOUT) : Bool?
+      supports_private_mode? 2027, timeout
+    end
+
+    # Whether the terminal supports color-scheme change notifications (DEC mode
+    # 2031).
+    def supports_color_scheme_notifications?(timeout : Time::Span = RESPONSE_TIMEOUT) : Bool?
+      supports_private_mode? 2031, timeout
+    end
+
+    # Queries the terminal's current color scheme via `CSI ? 996 n`; the reply
+    # `CSI ? 997 ; Ps n` gives the scheme (`Ps` 1 = dark, 2 = light). Returns the
+    # `ColorScheme`, or `nil` if the terminal does not answer.
+    def request_color_scheme(timeout : Time::Span = RESPONSE_TIMEOUT) : ColorScheme?
+      query("\e[?996n", timeout) { |io| read_color_scheme_response io, timeout }
+    end
+
     # --- Reply parsers --------------------------------------------------------
     #
     # Each reads and parses one reply from *io*, decoupled from `@input` so it
@@ -153,6 +230,82 @@ class Tput
     def read_cursor_color_response(io : IO, timeout : Time::Span) : RGB?
       pt = read_text_params_response(io, timeout, 12) || return nil
       parse_rgb pt
+    end
+
+    # Parses an XTVERSION reply (`DCS > | <name> ST`) and returns `<name>`.
+    def read_xtversion_response(io : IO, timeout : Time::Span) : String?
+      loop do
+        b = probe_read_byte(io, timeout) || return nil
+        next unless b == 0x1b_u8
+        nb = probe_read_byte(io, timeout) || return nil
+        next unless nb == 'P'.ord # DCS
+        payload = probe_read_dcs io, timeout
+        return payload[2..] if payload.starts_with? ">|"
+      end
+    end
+
+    # Parses an OSC 52 clipboard reply (`OSC 52 ; <selection> ; <base64> ST`)
+    # and returns the decoded text.
+    def read_clipboard_response(io : IO, timeout : Time::Span) : String?
+      data = read_osc_reply(io, timeout, "52;") || return nil
+      b64 = data.split(';')[2]? || return nil
+      Base64.decode_string b64
+    rescue
+      nil
+    end
+
+    # Parses an XTGETTCAP reply (`DCS 1 + r <name>=<value>;… ST` on success,
+    # `DCS 0 + r … ST` when nothing was recognized). Names and values arrive
+    # hex-encoded. Returns the decoded `{name => value}` pairs.
+    def read_xtgettcap_response(io : IO, timeout : Time::Span) : Hash(String, String)?
+      loop do
+        b = probe_read_byte(io, timeout) || return nil
+        next unless b == 0x1b_u8
+        nb = probe_read_byte(io, timeout) || return nil
+        next unless nb == 'P'.ord # DCS
+        payload = probe_read_dcs io, timeout
+        # Expect `<status>+r<body>`, status '1' (valid) or '0' (invalid).
+        next unless payload.size >= 3 && payload[1] == '+' && payload[2] == 'r'
+        result = {} of String => String
+        return result unless payload[0] == '1'
+        payload[3..].split(';').each do |pair|
+          name, sep, value = pair.partition('=')
+          next if name.empty?
+          decoded = (n = unhex name) ? n : next
+          result[decoded] = sep.empty? ? "" : (unhex(value) || "")
+        end
+        return result
+      end
+    end
+
+    # Decodes a hex string to text, or `nil` if it is not valid hex.
+    private def unhex(hex : String) : String?
+      return "" if hex.empty?
+      String.new hex.hexbytes
+    rescue ArgumentError
+      nil
+    end
+
+    # Parses a color-scheme reply (`CSI ? 997 ; Ps n`) into a `ColorScheme`.
+    def read_color_scheme_response(io : IO, timeout : Time::Span) : ColorScheme?
+      ints = read_csi_ints(io, timeout, "n") || return nil
+      return nil unless ints[0]? == 997
+      case ints[1]?
+      when 1 then ColorScheme::Dark
+      when 2 then ColorScheme::Light
+      else        nil
+      end
+    end
+
+    # Parses a DECRQM reply (`CSI ? mode ; Ps $ y`). Returns `true` if *mode* is
+    # recognized (`Ps` 1–4), `false` if not (`Ps` 0), `nil` on a mismatched or
+    # absent reply.
+    def read_decrqm_response(io : IO, timeout : Time::Span, mode : Int32) : Bool?
+      reply = read_csi_reply(io, timeout, "y") || return nil
+      ints = reply[0].tr("?$", "").split(';').map(&.to_i?)
+      return nil unless ints[0]? == mode
+      ps = ints[1]?
+      !!(ps && ps != 0)
     end
 
     # --- Internals ------------------------------------------------------------
