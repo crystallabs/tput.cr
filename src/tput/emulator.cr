@@ -2,6 +2,17 @@ require "json"
 require "crystallabs-helpers"
 
 class Tput
+  # The most capable *in-band graphics protocol* a terminal advertises, ordered
+  # least→most capable. A pure terminal characteristic (derived from terminal
+  # identity), so consumers can map it onto their own rendering backends without
+  # repeating the detection. See `Emulator#best_graphics`.
+  enum GraphicsProtocol
+    None  # no pixel graphics in-band; fall back to cell/glyph rendering
+    Sixel # DCS sixel raster graphics
+    Iterm # iTerm2 inline images (OSC 1337)
+    Kitty # kitty graphics protocol (APC _G)
+  end
+
   # Class for terminal emulator program detection.
   #
   # The detection is always just a best-effort because it relies on testing environment
@@ -42,6 +53,24 @@ class Tput
 
     # Is the emulator screen?
     property? screen : Bool
+
+    # Is the emulator kitty? (graphics-capable)
+    property? kitty : Bool
+
+    # Is the emulator WezTerm? (graphics-capable)
+    property? wezterm : Bool
+
+    # Is the emulator Ghostty? (graphics-capable)
+    property? ghostty : Bool
+
+    # Is the emulator KDE Konsole? (graphics-capable)
+    property? konsole : Bool
+
+    # Is the emulator mlterm? (graphics-capable)
+    property? mlterm : Bool
+
+    # Is the emulator foot? (graphics-capable)
+    property? foot : Bool
 
     @[JSON::Field(ignore: true)]
     # :nodoc:
@@ -91,7 +120,62 @@ class Tput
       @screen = (ENV["TERM"]? == "screen")
       @sources["screen"] = %(env TERM == "screen")
 
+      @kitty = to_b(ENV["KITTY_WINDOW_ID"]?) || @tput.name?("xterm-kitty")
+      @sources["kitty"] = %(env KITTY_WINDOW_ID set, or terminal name "xterm-kitty")
+
+      @wezterm = (term_program == "WezTerm") || to_b(ENV["WEZTERM_PANE"]?) || to_b(ENV["WEZTERM_EXECUTABLE"]?)
+      @sources["wezterm"] = %(env TERM_PROGRAM == "WezTerm", or WEZTERM_* set)
+
+      @ghostty = (term_program == "ghostty") || @tput.name?("xterm-ghostty")
+      @sources["ghostty"] = %(env TERM_PROGRAM == "ghostty", or terminal name "xterm-ghostty")
+
+      @konsole = to_b(ENV["KONSOLE_VERSION"]?)
+      @sources["konsole"] = %(env KONSOLE_VERSION set)
+
+      @mlterm = to_b(ENV["MLTERM"]?)
+      @sources["mlterm"] = %(env MLTERM set)
+
+      @foot = @tput.name?("foot")
+      @sources["foot"] = %(terminal name matches "foot")
+
       Log.trace { my self }
+    end
+
+    # --- Graphics capability (best-effort, from terminal identity) ------------
+    #
+    # These translate the env/name detection above into "can this terminal
+    # render graphics via protocol X". They are terminal *characteristics*; a
+    # consumer maps them onto its own rendering backends (see `#best_graphics`).
+
+    # Whether the terminal speaks the kitty graphics protocol (kitty itself, or
+    # other emulators that implement it).
+    def kitty_graphics? : Bool
+      kitty? || ghostty? || konsole? || wezterm?
+    end
+
+    # Whether the terminal renders iTerm2 inline images (OSC 1337).
+    def iterm_images? : Bool
+      iterm2? || wezterm?
+    end
+
+    # Whether the terminal renders sixel graphics. True for known sixel
+    # emulators, or when a DA1 probe reply (if the terminal was probed) lists
+    # sixel support (device attribute `4`). Plain xterm needs `-ti vt340` and
+    # isn't detectable from the environment, so probe it if you need certainty.
+    def sixel? : Bool
+      return true if foot? || mlterm? || wezterm? || konsole?
+      da = (@tput.features.da_params rescue nil)
+      !!da.try(&.includes?(4))
+    end
+
+    # The most capable in-band graphics protocol this terminal advertises (a
+    # pure terminal fact). `GraphicsProtocol::None` means "no pixel graphics;
+    # use cell/glyph rendering".
+    def best_graphics : GraphicsProtocol
+      return GraphicsProtocol::Kitty if kitty_graphics?
+      return GraphicsProtocol::Iterm if iterm_images?
+      return GraphicsProtocol::Sixel if sixel?
+      GraphicsProtocol::None
     end
 
     def inspect(io)
