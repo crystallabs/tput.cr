@@ -88,6 +88,16 @@ describe "color scheme (DEC 2031) + OSC 52 clipboard via listen" do
     feed_all("\e[201~").size.should eq 0
   end
 
+  it "ignores a stray private CSI reply mid-listen (no phantom Escape)" do
+    feed_all("\e[?62;1;6c").size.should eq 0 # a DA1-style reply, not a key
+  end
+
+  it "still delivers a real bare Escape" do
+    ev = feed_all("\e")
+    ev.size.should eq 1
+    ev[0][1].should eq Tput::Key::Escape
+  end
+
   it "request_color_scheme parses the CSI ? 997 reply" do
     t = new_tput
     t.read_color_scheme_response(IO::Memory.new("\e[?997;2n"), 1.second).should eq Tput::ColorScheme::Light

@@ -246,15 +246,19 @@ class Tput
             end
           end
 
-          # A control sequence that was fully consumed but produced nothing to
-          # deliver — a parsed-away or malformed mouse/paste/resize/color-scheme
-          # report, or a non-clipboard OSC reply — must NOT surface as a phantom
-          # Escape key. Such a case leaves the introducer `\e` in `char` with no
-          # key and no event channel set. A real bare Escape keeps `key ==
-          # Key::Escape`, and any printable key has a non-`\e` `char`, so neither
-          # is skipped here.
-          if char == '\e' && key.nil? && mouse.nil? && key_event.nil? &&
-             paste.nil? && resize.nil? && color_scheme.nil?
+          # An escape sequence that was consumed but produced nothing to deliver
+          # must NOT surface as a phantom Escape key. Two shapes:
+          #   * a parsed-away/malformed mouse/paste/resize/scheme report, or a
+          #     non-clipboard OSC reply — `key` was cleared to `nil`; or
+          #   * an *unrecognized* sequence (e.g. a stray `\e[?…c` DA1/DSR reply
+          #     arriving mid-`listen`) that `read_control` collapsed to
+          #     `Key::Escape` — distinguishable from a real bare Escape because it
+          #     consumed bytes (`sequence.size > 1`; a bare Escape consumes none).
+          # A real bare Escape (`key == Key::Escape`, `sequence == ['\e']`) and
+          # any printable key (`char != '\e'`) are kept.
+          if char == '\e' && mouse.nil? && key_event.nil? &&
+             paste.nil? && resize.nil? && color_scheme.nil? &&
+             (key.nil? || (key == Key::Escape && sequence.size > 1))
             sequence.clear
             next
           end
