@@ -65,7 +65,7 @@ class Tput
       #     Ps = 1  0  -> Print composed display, ignores DECPEX.
       #     Ps = 1  1  -> Print all pages.
       def media_copy(*arguments)
-        _print "\e[#{arguments.join ';'}i"
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << 'i' }
       end
 
       alias_previous mc

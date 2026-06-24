@@ -11,7 +11,7 @@ class Tput
       #     Ps denotes the SGR attributes to change: 0, 1, 4, 5, 7.
       # NOTE: xterm doesn't enable this code by default.
       def set_attr_in_rectangle(*arguments)
-        _print "\e[#{arguments.join ';'}$r"
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << "$r" }
       end
 
       alias_previous deccara
@@ -23,7 +23,7 @@ class Tput
       #     Ps denotes the attributes to reverse, i.e.,  1, 4, 5, 7.
       # NOTE: xterm doesn't enable this code by default.
       def reverse_attr_in_rectangle(*arguments)
-        _print "\e[#{arguments.join ';'}$t"
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << "$t" }
       end
 
       alias_previous decrara
@@ -36,7 +36,7 @@ class Tput
       #     Pp denotes the target page.
       # NOTE: xterm doesn't enable this code by default.
       def copy_rectangle(*arguments)
-        _print "\e[#{arguments.join ';'}$v"
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << "$v" }
       end
 
       alias_previous deccra
@@ -57,7 +57,7 @@ class Tput
       #     Pt; Pl; Pb; Pr denotes the rectangle.
       # NOTE: xterm doesn't enable this code by default.
       def fill_rectangle(*arguments)
-        _print "\e[#{arguments.join ';'}$x"
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << "$x" }
       end
 
       alias_previous decfra

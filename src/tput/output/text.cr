@@ -30,7 +30,10 @@ class Tput
       end
 
       def text(text, attr)
-        _attr(attr, true) + text + _attr(attr, false)
+        # Build the open-attr + text + close-attr string in a single pass.
+        # `a + text + b` allocated two intermediate strings and copied `text`
+        # twice; `String.build` allocates once and copies it once.
+        String.build { |io| io << _attr(attr, true) << text << _attr(attr, false) }
       end
 
       # Moves the cursor one position to the left.

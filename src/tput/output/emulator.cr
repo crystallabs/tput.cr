@@ -170,7 +170,7 @@ class Tput
       #     Ps = 3  -> Do not query window/icon labels using UTF-8.
       #   (See discussion of "Title Modes").
       def reset_title_modes(*arguments)
-        _print "\e[>#{arguments.join ';'}T"
+        _print { |io| io << "\e[>"; arguments.join(io, ';'); io << 'T' }
       end
 
       # CSI > Ps; Ps m
