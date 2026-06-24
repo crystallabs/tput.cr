@@ -346,7 +346,7 @@ class Tput
           return !val ? "\e[24m" : "\e[4m"
         when "blink"
           return !val ? "\e[25m" : "\e[5m"
-        when "inverse"
+        when "reverse", "inverse"
           return !val ? "\e[27m" : "\e[7m"
         when "invisible"
           return !val ? "\e[28m" : "\e[8m"
