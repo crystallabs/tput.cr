@@ -11,11 +11,22 @@ class Tput
              # rather than all sharing the launching terminal's (which is what
              # `Term::Screen.size` probes via STDIN/STDOUT/STDERR).
              Term::Screen.size_from_ioctl(@output) ||
-             Term::Screen.size ||
+             # Global STDIN/STDOUT/STDERR probe — only meaningful when *this*
+             # `Tput`'s output is itself a terminal. For a non-tty output
+             # (`IO::Memory`, a file, a pipe) it would otherwise hand back the
+             # unrelated controlling terminal's size, so skip straight to the
+             # default in that case.
+             (output_tty? ? Term::Screen.size : nil) ||
              {DEFAULT_SCREEN_SIZE.height, DEFAULT_SCREEN_SIZE.width}
       s = Size.new c, r
       Log.trace { my s }
       s
+    end
+
+    # Whether this `Tput`'s `@output` is connected to a terminal. `false` for any
+    # output that can't report it (e.g. `IO::Memory`, which has no `tty?`).
+    private def output_tty?
+      (out = @output).responds_to?(:tty?) && out.tty?
     end
 
     # Gets terminal/screen size and resets the values in memory to the discovered dimensions.
