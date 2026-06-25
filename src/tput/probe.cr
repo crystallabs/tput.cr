@@ -63,13 +63,13 @@ class Tput
           probe_write build_probe_query
           result = probe_consume @input, timeout
 
-          # Erase the `…` we printed for the width probe and restore the
-          # cursor we saved (DECSC) before it.
-          if w = result.ambiguous_width
-            probe_write "\r#{" " * {w, 1}.max}\e8"
-          else
-            probe_write "\r\e[K\e8"
-          end
+          # Restore the cursor saved by DECSC (`\e7`) at the head of the query,
+          # then erase from there to the end of the display (`\e[J`). This wipes
+          # the `…` width probe and any printable fragments a non-conforming
+          # terminal echoed from our DCS/DECRQSS queries (e.g. `$qm`, `$q q`),
+          # including any that wrapped onto following lines, and leaves the
+          # cursor exactly where it was before probing.
+          probe_write "\e8\e[J"
         end
       end
 
@@ -166,12 +166,14 @@ class Tput
       ProbeResult.new ambiguous_width: width, got_da: got_da
     end
 
-    # Builds the single batched query string. Order matters only for the
-    # width probe: `DECSC` (`\e7`) saves the cursor, `\r` parks it at column
-    # 1, then the ambiguous char and the CPR request follow; DA1 goes last so
-    # its reply terminates the read loop.
+    # Builds the single batched query string. `DECSC` (`\e7`) saves the cursor
+    # up front — before any query is sent — so `probe!` can restore it exactly
+    # and erase anything a non-conforming terminal echoed back. For the width
+    # probe, `\r` parks the cursor at column 1 so the CPR column maps directly
+    # to the rendered width. DA1 goes last so its reply terminates the read.
     def build_probe_query : String
       String.build do |io|
+        io << "\e7"                # DECSC: save cursor before anything is sent
         io << "\e]10;?\a\e]11;?\a" # default fg / bg
         io << "\e]12;?\a"          # hardware cursor color (OSC 12)
         io << "\e]4"               # indexed palette 0..15
@@ -186,7 +188,7 @@ class Tput
         # (DCS $q <space> q ST). A terminal that honors cursor styling answers
         # `1$r<n> q`; one that doesn't sends `0$r` or nothing.
         io << "\eP$q q\e\\"
-        io << "\e7\r…\e[6n" # save cursor, print ambiguous char, CPR
+        io << "\r…\e[6n" # park at column 1, print ambiguous char, CPR
         # Enhanced keyboard protocols. Both are private queries that supporting
         # terminals answer and others silently ignore: `CSI ? u` → kitty
         # keyboard protocol (`CSI ? <flags> u`); `CSI ? 4 m` → XTQMODKEYS for
