@@ -355,18 +355,21 @@ class Tput
       detect_ansi("ansi_vpa") { |s| seq_eq(s.vpa?(4), "\e[5d") }
     end
 
-    # `ich`/`il`/`dl`/`dch`/`ech`/`rep` (line-editing) verified standard ANSI.
-    # `rep` is the least universal of the group, so a terminal that lacks it (or
-    # deviates on any member) keeps the whole group on the safe tparm path. If
-    # that ever proves costly, peel `rep` into its own flag (cf. `hpa`/`vpa`).
+    # `ich`/`il`/`dl`/`dch`/`ech` (line-editing) verified standard ANSI.
+    #
+    # `rep` is deliberately excluded: terminfo's `rep` is a two-parameter
+    # capability that emits the character *and* the repeat (`%p1%c%p2%{1}%-%db`,
+    # e.g. xterm), so it is not byte-equal to the raw one-parameter `CSI Pn b`
+    # this group's fast path would build — it would never verify and would pin
+    # the whole group to the tparm path. `repeat_preceding_character` keeps its
+    # own `put(&.rep?)` route instead.
     def detect_ansi_edit
       detect_ansi "ansi_edit" do |s|
         seq_eq(s.ich?(4), "\e[4@") &&
           seq_eq(s.il?(4), "\e[4L") &&
           seq_eq(s.dl?(4), "\e[4M") &&
           seq_eq(s.dch?(4), "\e[4P") &&
-          seq_eq(s.ech?(4), "\e[4X") &&
-          seq_eq(s.rep?(4), "\e[4b")
+          seq_eq(s.ech?(4), "\e[4X")
       end
     end
 

@@ -84,7 +84,11 @@ class Tput
     end
 
     def _with_io(& : IO -> Nil)
-      yield @output
+      # `@ret` (set by a caller diverting output, e.g. Crysterm's `divert`) takes
+      # precedence over `@output`, matching `_owrite`/`_oprint`. Without this the
+      # block form of `_print` — which every ansi_* fast path uses — would bypass
+      # a diverter and leak straight to `@output`. No-op when `@ret` is nil.
+      yield(@ret || @output)
       true
     end
 
@@ -240,7 +244,9 @@ class Tput
         flush
         _with_io &block
       else
-        yield @_buf
+        # As in `_with_io`, a diverter (`@ret`) wins over the internal buffer so
+        # block-form fast-path output is captured rather than buffered/leaked.
+        yield(@ret || @_buf)
       end
       true
     end

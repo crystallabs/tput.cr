@@ -70,4 +70,23 @@ describe Tput do
       x.o.should eq "\x07"
     end
   end
+
+  # Regression: a caller diverting output via `@ret` (e.g. Crysterm's `divert`)
+  # must capture *all* tput output, including the ansi_* fast paths, which emit
+  # through the block form of `_print`. Before the fix that block form ignored
+  # `@ret` and leaked straight to `@output`.
+  describe "#ret diversion" do
+    it "captures block-form fast-path output" do
+      t = Tput::Test.new
+      t.t.features.ansi_cursor?.should be_true # ensure the fast path is active
+      t.t.features.ansi_scroll?.should be_true
+      buf = IO::Memory.new
+      t.t.ret = buf
+      t.t.cursor_pos(5, 9)         # ansi_cursor fast path -> _print { block }
+      t.t.set_scroll_region(5, 20) # ansi_scroll fast path -> _print { block }
+      t.t.ret = nil
+      buf.to_s.should eq "\e[6;10H\e[6;21r"
+      t.o.should eq "" # nothing leaked to the real output
+    end
+  end
 end

@@ -525,7 +525,10 @@ class Tput
       def insert_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        (!features.ansi_edit? && (param == 1 ? (put(&.il1?) || put(&.il?(param))) : put(&.il?(param)))) ||
+        # `param == 1` uses the static `il1` cap (no tparm), so it keeps its
+        # terminfo route and exact byte output; only the parameterized
+        # `param > 1` case (which would invoke tparm) takes the ansi_edit fast path.
+        (param == 1 ? (put(&.il1?) || put(&.il?(param))) : (!features.ansi_edit? && put(&.il?(param)))) ||
           _print { |io| io << "\e[" << param << 'L' }
       end
 
@@ -537,7 +540,9 @@ class Tput
       def delete_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        (!features.ansi_edit? && (param == 1 ? (put(&.dl1?) || put(&.dl?(param))) : put(&.dl?(param)))) ||
+        # `param == 1` uses the static `dl1` cap (no tparm); only `param > 1`
+        # (parameterized, would invoke tparm) takes the ansi_edit fast path.
+        (param == 1 ? (put(&.dl1?) || put(&.dl?(param))) : (!features.ansi_edit? && put(&.dl?(param)))) ||
           _print { |io| io << "\e[" << param << 'M' }
       end
 
@@ -674,7 +679,7 @@ class Tput
       def repeat_preceding_character(param = 1)
         @cursor.x += param
         _ncoords
-        (!features.ansi_edit? && put(&.rep?(param))) || _print { |io| io << "\e[" << param << "b" }
+        put(&.rep?(param)) || _print { |io| io << "\e[" << param << "b" }
       end
 
       alias_previous rep, rpc
