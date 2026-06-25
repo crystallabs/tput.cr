@@ -52,7 +52,7 @@ describe Tput do
 
   describe "#capture" do
     it "returns the emitted sequence as a string instead of writing it" do
-      seq = x.t.capture { |t| t.cursor_pos 1, 2 }
+      seq = x.t.capture(&.cursor_pos(1, 2))
       seq.should eq "\e[2;3H"
       # Nothing leaked to the real output.
       x.o.should eq ""
@@ -65,7 +65,7 @@ describe Tput do
     end
 
     it "resumes writing to the terminal afterwards" do
-      x.p.capture { |t| t.bell }
+      x.p.capture(&.bell)
       x.p.bell
       x.o.should eq "\x07"
     end

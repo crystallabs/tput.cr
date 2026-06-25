@@ -1,0 +1,45 @@
+# Ameba configuration for tput.cr
+#
+# Only deliberate "accept" decisions live here. Everything else uses Ameba
+# defaults, so any *new* offense is reported. The rationale for each accepted
+# rule is documented inline.
+
+# --- Accepted: intentional, codebase-wide conventions ---------------------
+
+# Block params are deliberately terse (|c|, |s|, |p|) throughout, matching the
+# terse style of the original blessed.js / terminfo sources this is ported from.
+Naming/BlockParameterName:
+  Enabled: false
+
+# Method names like `set_mode`, `set_cursor_style`, `get_console_cp` mirror the
+# terminfo / xterm capability names they implement. Renaming to `mode=` etc.
+# would obscure that 1:1 mapping and is not always possible (variadic args).
+Naming/AccessorMethodName:
+  Enabled: false
+
+# Boolean-ish properties (`is_alt`, `blink`, `_hidden`, `_set`) are part of the
+# public/struct API; switching to `getter?`/`property?` would rename accessors.
+Naming/QueryBoolMethods:
+  Enabled: false
+
+# The codebase uses TODO/NOTE/FIXME markers intentionally as in-progress notes;
+# they are not something to be "resolved" before linting passes.
+Documentation/DocumentationAdmonition:
+  Enabled: false
+
+# The high-complexity methods are flat `case`/`when` dispatch tables (key
+# parsing, charset selection, escape-sequence decoding) and branchy terminal
+# state machines (input#listen, probe#probe_consume). Cyclomatic complexity
+# counts every `when` branch, so these score 30-115 purely from table size, not
+# tangled logic; splitting the tables would only hurt readability. The metric
+# carries no useful signal for this kind of code here.
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+# --- Accepted with a guardrail kept active --------------------------------
+
+# `not_nil!` is used in spec assertions where a nil result should fail the test
+# loudly anyway. Keep the rule active for src/.
+Lint/NotNil:
+  Excluded:
+    - spec/**/*.cr

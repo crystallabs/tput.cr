@@ -180,7 +180,7 @@ class Tput
       c
     end
 
-    def listen(&block : InputEvent -> Nil)
+    def listen(& : InputEvent -> Nil)
       with_raw_input do
         sequence = [] of Char
         while char = next_char { sequence }

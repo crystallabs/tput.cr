@@ -23,3 +23,8 @@ dependencies:
   superconf:
     github: crystallabs/superconf.cr
     branch: master
+
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba
+    version: ~> 1.6.0

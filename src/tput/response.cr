@@ -129,7 +129,7 @@ class Tput
     # program read capabilities straight from the terminal when terminfo is
     # absent or stale (kitty, foot, WezTerm, recent xterm, …).
     def request_termcap(*names : String, timeout : Time::Span = RESPONSE_TIMEOUT) : Hash(String, String)?
-      hex = names.map { |n| n.to_slice.hexstring }.join(';')
+      hex = names.map(&.to_slice.hexstring).join(';')
       query("\eP+q#{hex}\e\\", timeout) { |io| read_xtgettcap_response io, timeout }
     end
 

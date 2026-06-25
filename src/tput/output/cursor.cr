@@ -235,7 +235,7 @@ class Tput
       #
       # ESC 8 Restore Cursor (DECRC).
       def restore_cursor(key : String? = nil, hide : Bool = false)
-        return lrestore_cursor(key, hide) if (key)
+        return lrestore_cursor(key, hide) if key
         if sp = @saved_cursor
           @cursor.x = sp.x
           @cursor.y = sp.y

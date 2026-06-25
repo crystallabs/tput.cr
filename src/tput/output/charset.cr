@@ -34,7 +34,7 @@ class Tput
 
         # name = val.is_a?(String) ? val.downcase : val
 
-        val = case (charset)
+        val = case charset
               when C::ACS, C::SCLD
                 return true if put(&.smacs?)
                 :"0"
@@ -123,7 +123,7 @@ class Tput
       #     charset=()
 
       def exit_alt_charset_mode
-        self.charset=()
+        self.charset = nil
       end
 
       alias_previous rmacs # , ae # Unclear name, avoid aliasing to 'ae'
@@ -153,7 +153,7 @@ class Tput
         # Disabled originally
         # if (tput) put.S2()
         # if (tput) put.S3()
-        case (val)
+        case val
         when 1
           val = '~'
           # GR

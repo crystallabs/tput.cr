@@ -32,8 +32,6 @@ class Tput
     #     Example: `DCS tmux; ESC Pt ST`
     #     Real: `DCS tmux; ESC Pt ESC \`
     def _tprint(data)
-      iterations = 0
-
       if emulator.tmux?
         # Replace all STs with BELs so they can be nested within the DCS code.
         data = data.gsub /\e\\/, "\x07"
@@ -85,7 +83,7 @@ class Tput
       true
     end
 
-    def _with_io(&block : IO -> Nil)
+    def _with_io(& : IO -> Nil)
       yield @output
       true
     end
@@ -172,7 +170,7 @@ class Tput
       xon = !has?(&.needs_xon_xoff?) || !!has?(&.xon_xoff?)
 
       rest = str
-      while (m = PADDING_RE.match(rest))
+      while m = PADDING_RE.match(rest)
         pre = m.pre_match
         _write pre.to_slice unless pre.empty?
 

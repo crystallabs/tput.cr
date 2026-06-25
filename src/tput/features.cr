@@ -477,7 +477,7 @@ class Tput
 
       acs_chars = @tput.shim.try(&.acs_chars.try { |v| String.new v }) || ""
       @sources["acsc"] = @tput.shim ? "terminfo acs_chars capability" : "default — no terminfo (hardcoded mode)"
-      ACSC::Data.each do |ch, data|
+      ACSC::Data.each do |ch, _data|
         next unless i = acs_chars.index ch
 
         nxt = acs_chars[i + 1]?

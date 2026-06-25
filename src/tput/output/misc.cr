@@ -8,7 +8,7 @@ class Tput
       # Repeats string `str` `i` times.
       # TODO support io-based version of this
       def repeat(str, i = 1)
-        if (!i || i < 0)
+        if !i || i < 0
           i = 0
         end
         str * i
