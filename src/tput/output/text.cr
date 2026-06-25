@@ -30,10 +30,14 @@ class Tput
       end
 
       def text(text, attr)
-        # Build the open-attr + text + close-attr string in a single pass.
-        # `a + text + b` allocated two intermediate strings and copied `text`
-        # twice; `String.build` allocates once and copies it once.
-        String.build { |io| io << _attr(attr, true) << text << _attr(attr, false) }
+        # Plain concatenation. A `String.build` variant was tried (to "allocate
+        # once") but benchmarked ~44% slower for the common short-string case:
+        # the builder's default 64-byte buffer plus its final exact-size
+        # truncation copy costs more than two small concatenations. The hot,
+        # IO-materializing path is `#echo`, which writes the attrs straight to
+        # the output IO (no intermediate String at all); prefer it where a
+        # String result isn't actually needed. See bench/perf.cr (text_styled).
+        _attr(attr, true) + text + _attr(attr, false)
       end
 
       # Moves the cursor one position to the left.
