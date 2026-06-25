@@ -31,7 +31,7 @@ class Tput
       def scroll_up(param = 1)
         @cursor.y -= param
         _ncoords
-        put(&.parm_index?(param)) || _print { |io| io << "\e[" << param << "S" }
+        (!features.ansi_scroll? && put(&.parm_index?(param))) || _print { |io| io << "\e[" << param << "S" }
       end
 
       alias_previous su
@@ -40,7 +40,7 @@ class Tput
       def scroll_down(param = 1)
         @cursor.y += param
         _ncoords
-        put(&.parm_rindex?(param)) || _print { |io| io << "\e[" << param << "T" }
+        (!features.ansi_scroll? && put(&.parm_rindex?(param))) || _print { |io| io << "\e[" << param << "T" }
       end
 
       alias_previous sd
@@ -65,7 +65,7 @@ class Tput
         @scroll_bottom = bottom
         @cursor.x = 0
         @cursor.y = 0
-        put(&.csr?(top, bottom)) || _print { |io| io << "\e[" << top + 1 << ';' << bottom + 1 << 'r' }
+        (!features.ansi_scroll? && put(&.csr?(top, bottom))) || _print { |io| io << "\e[" << top + 1 << ';' << bottom + 1 << 'r' }
       end
 
       alias_previous decstbm # , csr # <- don't alias to `csr`. Very confusing.

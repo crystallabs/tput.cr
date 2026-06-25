@@ -514,7 +514,7 @@ class Tput
       def insert_chars(param = 1)
         @cursor.x += param
         _ncoords
-        put(&.ich?(param)) || _print { |io| io << "\e[" << param << '@' }
+        (!features.ansi_edit? && put(&.ich?(param))) || _print { |io| io << "\e[" << param << '@' }
       end
 
       alias_previous ich
@@ -525,11 +525,8 @@ class Tput
       def insert_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        if param == 1
-          put(&.il1?) || put(&.il?(param))
-        else
-          put(&.il?(param))
-        end || _print { |io| io << "\e[" << param << 'L' }
+        (!features.ansi_edit? && (param == 1 ? (put(&.il1?) || put(&.il?(param))) : put(&.il?(param)))) ||
+          _print { |io| io << "\e[" << param << 'L' }
       end
 
       alias_previous il
@@ -540,11 +537,8 @@ class Tput
       def delete_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        if param == 1
-          put(&.dl1?) || put(&.dl?(param))
-        else
-          put(&.dl?(param))
-        end || _print { |io| io << "\e[" << param << 'M' }
+        (!features.ansi_edit? && (param == 1 ? (put(&.dl1?) || put(&.dl?(param))) : put(&.dl?(param)))) ||
+          _print { |io| io << "\e[" << param << 'M' }
       end
 
       alias_previous dl
@@ -552,7 +546,7 @@ class Tput
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
       def delete_chars(param = 1)
-        put(&.dch?(param)) || _print { |io| io << "\e[" << param << 'P' }
+        (!features.ansi_edit? && put(&.dch?(param))) || _print { |io| io << "\e[" << param << 'P' }
       end
 
       alias_previous dch
@@ -561,7 +555,7 @@ class Tput
       #     CSI Ps X
       #     Erase Ps Character(s) (default = 1) (ECH).
       def erase_character(param : Int = 1)
-        put(&.ech?(param)) || _print { |io| io << "\e[" << param << 'X' }
+        (!features.ansi_edit? && put(&.ech?(param))) || _print { |io| io << "\e[" << param << 'X' }
       end
 
       alias_previous ech, erase_chars
@@ -680,7 +674,7 @@ class Tput
       def repeat_preceding_character(param = 1)
         @cursor.x += param
         _ncoords
-        put(&.rep?(param)) || _print { |io| io << "\e[" << param << "b" }
+        (!features.ansi_edit? && put(&.rep?(param))) || _print { |io| io << "\e[" << param << "b" }
       end
 
       alias_previous rep, rpc

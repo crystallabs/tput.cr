@@ -46,6 +46,14 @@ class Tput
     # (`cursor_line_absolute`).
     getter? ansi_vpa : Bool
 
+    # Like `ansi_cursor?`, but for the line-editing capabilities `ich`, `il`,
+    # `dl`, `dch`, `ech` and `rep` (insert/delete/erase chars and lines).
+    getter? ansi_edit : Bool
+
+    # Like `ansi_cursor?`, but for the scroll capabilities `csr` (scroll
+    # region), `parm_index` (SU) and `parm_rindex` (SD).
+    getter? ansi_scroll : Bool
+
     getter? setbuf : Bool
 
     # Number of colors supported by the terminal
@@ -164,6 +172,8 @@ class Tput
       @ansi_cursor = detect_ansi_cursor
       @ansi_hpa = detect_ansi_hpa
       @ansi_vpa = detect_ansi_vpa
+      @ansi_edit = detect_ansi_edit
+      @ansi_scroll = detect_ansi_scroll
       @setbuf = detect_setbuf
       @truecolor = detect_truecolor
       @number_of_colors = detect_number_of_colors
@@ -343,6 +353,30 @@ class Tput
     # `vpa` (row_address, VPA — `CSI Ps d`) verified standard ANSI.
     def detect_ansi_vpa
       detect_ansi("ansi_vpa") { |s| seq_eq(s.vpa?(4), "\e[5d") }
+    end
+
+    # `ich`/`il`/`dl`/`dch`/`ech`/`rep` (line-editing) verified standard ANSI.
+    # `rep` is the least universal of the group, so a terminal that lacks it (or
+    # deviates on any member) keeps the whole group on the safe tparm path. If
+    # that ever proves costly, peel `rep` into its own flag (cf. `hpa`/`vpa`).
+    def detect_ansi_edit
+      detect_ansi "ansi_edit" do |s|
+        seq_eq(s.ich?(4), "\e[4@") &&
+          seq_eq(s.il?(4), "\e[4L") &&
+          seq_eq(s.dl?(4), "\e[4M") &&
+          seq_eq(s.dch?(4), "\e[4P") &&
+          seq_eq(s.ech?(4), "\e[4X") &&
+          seq_eq(s.rep?(4), "\e[4b")
+      end
+    end
+
+    # `csr` (DECSTBM)/`parm_index` (SU)/`parm_rindex` (SD) verified standard ANSI.
+    def detect_ansi_scroll
+      detect_ansi "ansi_scroll" do |s|
+        seq_eq(s.csr?(5, 9), "\e[6;10r") &&
+          seq_eq(s.parm_index?(4), "\e[4S") &&
+          seq_eq(s.parm_rindex?(4), "\e[4T")
+      end
     end
 
     # Verifies, once at startup, that the terminfo capabilities a group of
