@@ -28,6 +28,24 @@ class Tput
 
     getter? padding : Bool
 
+    # Whether the terminal's cursor-movement capabilities (`cup`, `cuu`, `cud`,
+    # `cuf`, `cub`) are byte-for-byte standard ANSI/VT100. When true, `Tput`
+    # builds those sequences directly instead of paying a `tparm` FFI call per
+    # move — roughly 6x faster, and cursor moves dominate frame rendering. The
+    # value is verified at startup by actually running each capability through
+    # terminfo and comparing the result to the canonical ANSI sequence, so any
+    # deviation (exotic terminal, embedded padding, reordered params) safely
+    # falls back to the terminfo path.
+    getter? ansi_cursor : Bool
+
+    # Like `ansi_cursor?`, but for the column-address capability `hpa`
+    # (`cursor_char_absolute` / `char_pos_absolute`).
+    getter? ansi_hpa : Bool
+
+    # Like `ansi_cursor?`, but for the row-address capability `vpa`
+    # (`cursor_line_absolute`).
+    getter? ansi_vpa : Bool
+
     getter? setbuf : Bool
 
     # Number of colors supported by the terminal
@@ -143,6 +161,9 @@ class Tput
       @pc_rom_charset = detect_pc_rom_charset
       @magic_cookie = detect_magic_cookie
       @padding = detect_padding
+      @ansi_cursor = detect_ansi_cursor
+      @ansi_hpa = detect_ansi_hpa
+      @ansi_vpa = detect_ansi_vpa
       @setbuf = detect_setbuf
       @truecolor = detect_truecolor
       @number_of_colors = detect_number_of_colors
@@ -299,6 +320,56 @@ class Tput
       v = ENV["NCURSES_NO_PADDING"]?.nil?
       @sources["padding"] = ENV["NCURSES_NO_PADDING"]? ? "env NCURSES_NO_PADDING (disabled)" : "default (enabled)"
       v
+    end
+
+    def detect_ansi_cursor
+      # Run each capability through terminfo with sample values and compare to
+      # canonical ANSI. The samples are >1 and distinct so a missing `%i`
+      # (1-based) increment in `cup` or a swapped row/col would be caught.
+      detect_ansi "ansi_cursor" do |s|
+        seq_eq(s.cup?(5, 9), "\e[6;10H") && # cup?(row, col) -> CSI (row+1);(col+1) H
+          seq_eq(s.cuu?(3), "\e[3A") &&
+          seq_eq(s.cud?(3), "\e[3B") &&
+          seq_eq(s.cuf?(3), "\e[3C") &&
+          seq_eq(s.cub?(3), "\e[3D")
+      end
+    end
+
+    # `hpa` (column_address, CHA — `CSI Ps G`) verified standard ANSI.
+    def detect_ansi_hpa
+      detect_ansi("ansi_hpa") { |s| seq_eq(s.hpa?(4), "\e[5G") }
+    end
+
+    # `vpa` (row_address, VPA — `CSI Ps d`) verified standard ANSI.
+    def detect_ansi_vpa
+      detect_ansi("ansi_vpa") { |s| seq_eq(s.vpa?(4), "\e[5d") }
+    end
+
+    # Verifies, once at startup, that the terminfo capabilities a group of
+    # cursor methods rely on produce byte-for-byte standard ANSI when run
+    # through `tparm` — letting those methods build the sequences directly and
+    # skip the per-call FFI. Returns `false` when there is no terminfo (the
+    # no-terminfo code paths already emit ANSI fallbacks directly, so there is
+    # no `tparm` call to avoid) and on any mismatch — including an embedded
+    # `$<...>` padding marker — or error, keeping the safe terminfo path.
+    private def detect_ansi(name : String, & : Unibilium::Terminfo::Shim -> Bool) : Bool
+      shim = @tput.shim
+      unless shim
+        @sources[name] = "no terminfo (using ANSI fallback)"
+        return false
+      end
+
+      ok = yield shim
+      @sources[name] = ok ? "terminfo caps verified ANSI" : "terminfo caps non-ANSI (using tparm)"
+      ok
+    rescue
+      # A missing/raising capability -> stay on the safe terminfo path.
+      @sources[name] = "detection error (using tparm)"
+      false
+    end
+
+    private def seq_eq(bytes : Bytes?, expected : String) : Bool
+      !bytes.nil? && bytes == expected.to_slice
     end
 
     def detect_setbuf

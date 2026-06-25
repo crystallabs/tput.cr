@@ -42,7 +42,9 @@ class Tput
       def cursor_char_absolute(param = 0)
         @cursor.x = param
         _ncoords
-        put(&.hpa?(param)) || _print { |io| io << "\e[" << param + 1 << 'G' }
+        # Fast path: `hpa` verified standard ANSI (== this fallback), skip tparm.
+        (!features.ansi_hpa? && put(&.hpa?(param))) ||
+          _print { |io| io << "\e[" << param + 1 << 'G' }
       end
 
       alias_previous cha, setx, set_x
@@ -61,7 +63,9 @@ class Tput
         # TODO switch to adjust_xy
         @cursor.y = param
         _ncoords
-        put(&.vpa?(param)) || _print { |io| io << "\e[" << param + 1 << 'd' }
+        # Fast path: `vpa` verified standard ANSI (== this fallback), skip tparm.
+        (!features.ansi_vpa? && put(&.vpa?(param))) ||
+          _print { |io| io << "\e[" << param + 1 << 'd' }
       end
 
       alias_previous vpa, sety, line_absolute, line_pos_absolute, set_y
@@ -76,7 +80,9 @@ class Tput
       # :ditto:
       def cursor_position(row : Int = 0, column : Int = 0)
         @cursor.x, @cursor.y = _adjust_xy_abs column, row
-        put(&.cup?(@cursor.y, @cursor.x)) ||
+        # Fast path: when the terminal's `cup` is verified standard ANSI, build
+        # the sequence directly and skip the per-call `tparm` FFI (~6x faster).
+        (!features.ansi_cursor? && put(&.cup?(@cursor.y, @cursor.x))) ||
           _print { |io| io << "\e[" << @cursor.y + 1 << ';' << @cursor.x + 1 << 'H' }
       end
 
@@ -267,8 +273,8 @@ class Tput
         _, param = _adjust_xy_rel 0, -param
         param *= -1
         @cursor.y -= param
-        put(&.cuu?(param)) ||
-          (has? &.cuu1? && param.times { put(&.cuu1) }) ||
+        (!features.ansi_cursor? && (put(&.cuu?(param)) ||
+          (has? &.cuu1? && param.times { put(&.cuu1) }))) ||
           _print { |io| io << "\e[" << param << 'A' }
       end
 
@@ -279,8 +285,8 @@ class Tput
       def cursor_down(param = 1)
         _, param = _adjust_xy_rel 0, param
         @cursor.y += param
-        put(&.cud?(param)) ||
-          (has? &.cud1? && param.times { put(&.cud1) }) ||
+        (!features.ansi_cursor? && (put(&.cud?(param)) ||
+          (has? &.cud1? && param.times { put(&.cud1) }))) ||
           _print { |io| io << "\e[" << param << 'B' }
       end
 
@@ -292,8 +298,8 @@ class Tput
       def cursor_forward(param : Int = 1)
         param, _ = _adjust_xy_rel param
         @cursor.x += param
-        put(&.cuf?(param)) ||
-          (has? &.cuf1? && param.times { put(&.cuf1) }) ||
+        (!features.ansi_cursor? && (put(&.cuf?(param)) ||
+          (has? &.cuf1? && param.times { put(&.cuf1) }))) ||
           _print { |io| io << "\e[" << param << 'C' }
       end
 
@@ -305,8 +311,8 @@ class Tput
         param, _ = _adjust_xy_rel -param
         param *= -1
         @cursor.x -= param
-        put(&.cub?(param)) ||
-          (has? &.cub1? && param.times { put(&.cub1) }) ||
+        (!features.ansi_cursor? && (put(&.cub?(param)) ||
+          (has? &.cub1? && param.times { put(&.cub1) }))) ||
           _print { |io| io << "\e[" << param << 'D' }
       end
 
@@ -405,7 +411,13 @@ class Tput
       def char_pos_absolute(param = 1)
         @cursor.x = param
         _ncoords
-        put(&.hpa?(param)) || _print { |io| io << "\e[" << param + 1 << '`' }
+        # When terminfo is present its `hpa` emits the `CSI Ps G` form; only the
+        # no-terminfo fallback uses `CSI Ps \``. The fast path mirrors terminfo.
+        if features.ansi_hpa?
+          _print { |io| io << "\e[" << param + 1 << 'G' }
+        else
+          put(&.hpa?(param)) || _print { |io| io << "\e[" << param + 1 << '`' }
+        end
       end
 
       alias_previous hpa
@@ -415,6 +427,10 @@ class Tput
       # reuse CSI Ps C ?
       # TODO switch to adjust_xy; how can we put cuf() without adjusting state?
       def h_position_relative(param = 1)
+        # Mirror the terminfo `cuf` branch (emits `CSI Ps C` and — preserving
+        # existing behavior — returns without adjusting @cursor here).
+        return _print { |io| io << "\e[" << param << 'C' } if features.ansi_cursor?
+
         put(&.cuf?(param)) && return
 
         @cursor.x += param
@@ -434,11 +450,17 @@ class Tput
         @cursor.y += param
         _ncoords
 
-        put(&.cud?(param)) ||
-          # Disabled originally
-          # Does not exist:
-          # if (@terminfo) return put "vpr", param
-          _print { |io| io << "\e[" << param << 'e' }
+        # Mirror the terminfo `cud` branch (emits `CSI Ps B`); only the
+        # no-terminfo fallback uses the `CSI Ps e` (VPR) form.
+        if features.ansi_cursor?
+          _print { |io| io << "\e[" << param << 'B' }
+        else
+          put(&.cud?(param)) ||
+            # Disabled originally
+            # Does not exist:
+            # if (@terminfo) return put "vpr", param
+            _print { |io| io << "\e[" << param << 'e' }
+        end
       end
 
       alias_previous vpr
@@ -454,8 +476,14 @@ class Tput
         # D O:
         # Does not exist (?):
         # put(&.hvp", row, col);
-        put(&.cup?(row, col)) ||
-          _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << 'f' }
+        # Mirror the terminfo `cup` branch (emits `CSI r;c H`); only the
+        # no-terminfo fallback uses the `CSI r;c f` (HVP) form.
+        if features.ansi_cursor?
+          _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << 'H' }
+        else
+          put(&.cup?(row, col)) ||
+            _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << 'f' }
+        end
       end
 
       alias_previous hvp

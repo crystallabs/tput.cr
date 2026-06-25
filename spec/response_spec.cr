@@ -40,6 +40,24 @@ describe Tput::Response do
     end
   end
 
+  describe "#read_pixel_size_response" do
+    it "parses an XTWINOPS 16 cell-size reply into {height, width} px" do
+      t.read_pixel_size_response(IO::Memory.new("\e[6;20;10t"), 1.second).should eq({20, 10})
+    end
+
+    it "parses an XTWINOPS 14 text-area reply too (same wire shape)" do
+      t.read_pixel_size_response(IO::Memory.new("\e[4;480;800t"), 1.second).should eq({480, 800})
+    end
+
+    it "rejects a zero-valued reply (no real pixel grid, e.g. under tmux)" do
+      t.read_pixel_size_response(IO::Memory.new("\e[6;0;0t"), 1.second).should be_nil
+    end
+
+    it "returns nil at EOF with no reply" do
+      t.read_pixel_size_response(IO::Memory.new(""), 1.second).should be_nil
+    end
+  end
+
   describe "#read_request_parameters_response" do
     it "parses a DECREQTPARM reply" do
       t.read_request_parameters_response(IO::Memory.new("\e[2;1;1;112;112;1;0x"), 1.second)

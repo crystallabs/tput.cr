@@ -85,6 +85,22 @@ class Tput
 
     alias_previous get_text_area_size
 
+    # Requests the text-area size *in pixels* via XTWINOPS 14 (`CSI 14 t`) and
+    # returns `{height, width}` in pixels, or `nil` on no answer. Replies whose
+    # dimensions are zero (some terminals, and many multiplexers, answer with
+    # `0`s when they have no real pixel grid) are treated as no answer.
+    def get_text_area_size_pixels(timeout : Time::Span = RESPONSE_TIMEOUT) : {Int32, Int32}?
+      query("\e[14t", timeout) { |io| read_pixel_size_response io, timeout }
+    end
+
+    # Requests the *cell* size in pixels via XTWINOPS 16 (`CSI 16 t`) and returns
+    # `{height, width}` in pixels, or `nil` on no answer. This is the most direct
+    # source for a terminal's true cell aspect ratio. Zero-valued replies (see
+    # `#get_text_area_size_pixels`) are treated as no answer.
+    def get_cell_size_pixels(timeout : Time::Span = RESPONSE_TIMEOUT) : {Int32, Int32}?
+      query("\e[16t", timeout) { |io| read_pixel_size_response io, timeout }
+    end
+
     # Requests Terminal Parameters (DECREQTPARM, `CSI Ps x`) and returns the
     # reported parameters, or `nil` on no answer.
     def request_parameters(param = 0, timeout : Time::Span = RESPONSE_TIMEOUT) : Array(Int32)?
@@ -206,6 +222,17 @@ class Tput
       ints = read_csi_ints(io, timeout, "t") || return nil
       return nil unless ints.size >= 3
       {ints[1], ints[2]}
+    end
+
+    # Parses an XTWINOPS pixel-size reply (`CSI 4 ; h ; w t` for op 14, or
+    # `CSI 6 ; h ; w t` for op 16). Shares the wire shape of a window-size
+    # reply, but rejects zero dimensions: a terminal with no real pixel grid
+    # (notably under tmux/screen) may answer the query with `0`s, which is not a
+    # usable size and would yield a nonsense aspect ratio.
+    def read_pixel_size_response(io : IO, timeout : Time::Span) : {Int32, Int32}?
+      h, w = read_window_size_response(io, timeout) || return nil
+      return nil unless h > 0 && w > 0
+      {h, w}
     end
 
     # Parses a DECREQTPARM reply (`CSI … x`).
