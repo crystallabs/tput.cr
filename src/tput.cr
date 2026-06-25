@@ -119,8 +119,16 @@ class Tput
   # `"green fg, bold"`) are a small recurring set and parse to a deterministic
   # escape sequence (terminal-state inputs like color count and emulator name
   # don't change during a run), so the parse is done once per (spec, on/off).
+  #
+  # Bounded by `#attr_cache_limit` via FIFO eviction so that dynamic/unbounded
+  # inputs (e.g. a distinct truecolor per cell) can't grow it without limit.
   @[JSON::Field(ignore: true)]
   @_attr_cache = Hash(Tuple(String, Bool), String).new
+
+  # Upper bound on `@_attr_cache`; once reached, the oldest-inserted entry is
+  # evicted before each new insert. `0` disables the attribute cache entirely.
+  @[JSON::Field(ignore: true)]
+  property attr_cache_limit : Int32 = Superconf.tput_attr_cache_limit
 
   getter? use_buffer : Bool
 

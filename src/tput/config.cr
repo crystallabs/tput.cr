@@ -14,6 +14,9 @@ module Superconf
     description: "Buffer Tput output instead of writing each control sequence immediately"
   option "tput.probe", true,
     description: "Auto-probe the terminal for colors/features on Tput.new (when attached to a TTY)"
+  option "tput.attr_cache_limit", 4096,
+    description: "Max cached SGR attribute sequences before FIFO eviction; 0 disables the attribute cache",
+    validate: ->(n : Int32) { n >= 0 }
   option "keyboard.protocol", "auto",
     description: "Enhanced keyboard protocol to use: auto (best supported), or kitty / modify_other_keys / legacy"
   option "keyboard.exclude", "",

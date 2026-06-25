@@ -276,11 +276,17 @@ class Tput
       def _attr(param : Array | String, val = true)
         # Cache the String case (by far the common one); the parse is pure and
         # its result deterministic for the life of the instance. The Array case
-        # is rare and not worth keying, so it computes directly.
-        if param.is_a?(String)
+        # is rare and not worth keying, so it computes directly. A limit of 0
+        # disables the cache (always recompute).
+        if param.is_a?(String) && @attr_cache_limit > 0
           cached = @_attr_cache[{param, val}]?
           return cached if cached
           result = _compute_attr(param, val)
+          # FIFO eviction: `Hash` keeps insertion order, so `shift?` drops the
+          # oldest entry. The working set of attribute specs is tiny, so this
+          # effectively never fires for normal use — it only bounds memory
+          # against dynamic/unbounded inputs (e.g. a distinct truecolor per cell).
+          @_attr_cache.shift? if @_attr_cache.size >= @attr_cache_limit
           @_attr_cache[{param, val}] = result
           return result
         end
