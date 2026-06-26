@@ -29,16 +29,23 @@ class Tput
   struct InputEvent
     getter char : Char
     getter key : Key?
-    getter sequence : Array(Char)
     getter mouse : Mouse::Event?
     getter key_event : KeyEvent?
     getter paste : String?
     getter resize : Resize?
     getter color_scheme : ColorScheme?
 
-    def initialize(@char, @key = nil, sequence : Array(Char)? = nil, @mouse = nil,
+    def initialize(@char, @key = nil, @sequence : Array(Char)? = nil, @mouse = nil,
                    @key_event = nil, @paste = nil, @resize = nil, @color_scheme = nil)
-      @sequence = sequence || [@char]
+    end
+
+    # The raw input bytes for this event. A single-character event (the common
+    # typing path) carries no array — `#listen` passes `nil` and the lone byte
+    # is reconstructed here on demand, so plain typing allocates nothing unless
+    # a consumer actually reads the sequence. Multi-byte sequences (escape
+    # sequences, mouse/paste reports) carry their captured bytes verbatim.
+    def sequence : Array(Char)
+      @sequence || [@char]
     end
 
     # Whether this event is a mouse/focus report.
@@ -263,7 +270,12 @@ class Tput
             next
           end
 
-          yield InputEvent.new char, key, sequence.dup, mouse, key_event, paste, resize, color_scheme
+          # A single-char event is the common typing path: `char == sequence[0]`,
+          # so hand the event no array and let it reconstruct `[char]` lazily
+          # (most consumers never read `sequence`). Multi-byte sequences are
+          # dup'd, since the live buffer is cleared and reused below.
+          seq = sequence.size == 1 ? nil : sequence.dup
+          yield InputEvent.new char, key, seq, mouse, key_event, paste, resize, color_scheme
           sequence.clear
         end
       end
@@ -407,30 +419,58 @@ class Tput
       return nil if sequence.size < 3
       final = sequence.last
 
-      groups = [] of Array(Int32?)
-      cur = [] of Int32?
+      # `KeyEvent.from_csi` only consults the first three sub-parameters of
+      # group 0 (`number : shifted : base`), the first two of group 1
+      # (`mods : event`), and the whole of group 2 (associated text). Capture
+      # those directly into locals instead of building a nested
+      # `Array(Array(Int32?))` per event — under the kitty *report-all-keys*
+      # flag this path runs on every keystroke, plain typing included. Group 2
+      # (`g2`) is allocated lazily, only when associated text is actually
+      # present (rare).
+      g0_0 = g0_1 = g0_2 = nil
+      g1_0 = g1_1 = nil
+      g2 : Array(Int32?)? = nil
+      group = 0
+      sub = 0
       num : Int32? = nil
 
-      (2...(sequence.size - 1)).each do |i|
-        case c = sequence[i]
+      i = 2
+      last = sequence.size - 1 # the final byte is excluded from the param scan
+      while i <= last
+        c = i == last ? ';' : sequence[i] # the final byte closes the last group
+        case c
         when '0'..'9'
           num = (num || 0) * 10 + (c.ord - '0'.ord)
-        when ':' # sub-parameter separator
-          cur << num
+        when ':', ';' # sub-parameter / parameter separator
+          case group
+          when 0
+            case sub
+            when 0 then g0_0 = num
+            when 1 then g0_1 = num
+            when 2 then g0_2 = num
+            end
+          when 1
+            case sub
+            when 0 then g1_0 = num
+            when 1 then g1_1 = num
+            end
+          when 2
+            (g2 ||= [] of Int32?) << num
+          end
           num = nil
-        when ';' # parameter separator
-          cur << num
-          groups << cur
-          cur = [] of Int32?
-          num = nil
+          if c == ':'
+            sub += 1
+          else
+            group += 1
+            sub = 0
+          end
         else
           # Ignore anything unexpected (e.g. a private marker).
         end
+        i += 1
       end
-      cur << num
-      groups << cur
 
-      KeyEvent.from_csi groups, final
+      KeyEvent.from_csi final, g0_0, g0_1, g0_2, g1_0, g1_1, g2
     end
 
     # Reads and parses the payload of a mouse report whose introducer has
@@ -463,22 +503,37 @@ class Tput
 
     # Reads an SGR (`Cb ; Cx ; Cy M|m`) or DEC-locator (`Cb ; Cx ; Cy ; Cp & w`)
     # parameter list following the `\e[<` introducer. Yields for each char.
+    #
+    # At most four parameters are meaningful (`Cb ; Cx ; Cy [; Cp]`), so they are
+    # collected into fixed locals — no per-report `Array` — on the hottest input
+    # path (a mouse drag is a burst of these). *idx* counts parameters seen so a
+    # final byte can verify there were enough.
     private def read_sgr_or_dec(&) : Mouse::Event?
-      params = [] of Int32
-      current = 0
+      p0 = p1 = p2 = p3 = 0
+      idx = 0
+      cur = 0
       while c = yield
         case c
-        when '0'..'9' then current = current * 10 + (c.ord - '0'.ord)
-        when ';'      then params << current; current = 0
+        when '0'..'9' then cur = cur * 10 + (c.ord - '0'.ord)
+        when ';'
+          case idx
+          when 0 then p0 = cur
+          when 1 then p1 = cur
+          when 2 then p2 = cur
+          when 3 then p3 = cur
+          end
+          idx += 1; cur = 0
         when 'M', 'm'
-          params << current
-          return nil unless params.size >= 3
-          return Mouse.parse_sgr params[0], params[1], params[2], c
+          case idx
+          when 2 then p2 = cur
+          end
+          return nil unless idx >= 2 # Cb ; Cx ; Cy
+          return Mouse.parse_sgr p0, p1, p2, c
         when '&'
           # DEC locator: `&` then `w`.
-          params << current
-          return nil unless yield == 'w' && params.size >= 4
-          return Mouse.parse_dec params[0], params[1], params[2], params[3]
+          p3 = cur if idx == 3
+          return nil unless yield == 'w' && idx >= 3 # Cb ; Cx ; Cy ; Cp
+          return Mouse.parse_dec p0, p1, p2, p3
         else
           return nil
         end
@@ -489,21 +544,28 @@ class Tput
     # Parses a URxvt report (`\e[ Cb ; Cx ; Cy M`) already captured in
     # *sequence* (the key parser consumed the whole parameter list).
     private def read_urxvt(sequence) : Mouse::Event?
-      params = [] of Int32
-      current = 0
+      p0 = p1 = p2 = 0
+      idx = 0
+      cur = 0
       i = 2
       while i < sequence.size
         c = sequence[i]
         case c
-        when '0'..'9' then current = current * 10 + (c.ord - '0'.ord)
-        when ';'      then params << current; current = 0
-        when 'M', 'm' then params << current; break
-        else               break
+        when '0'..'9' then cur = cur * 10 + (c.ord - '0'.ord)
+        when ';', 'M', 'm'
+          case idx
+          when 0 then p0 = cur
+          when 1 then p1 = cur
+          when 2 then p2 = cur
+          end
+          idx += 1; cur = 0
+          break if c != ';'
+        else break
         end
         i += 1
       end
-      return nil unless params.size >= 3
-      Mouse.parse_urxvt params[0], params[1], params[2]
+      return nil unless idx >= 3 # Cb ; Cx ; Cy
+      Mouse.parse_urxvt p0, p1, p2
     end
   end
 end

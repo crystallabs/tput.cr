@@ -198,7 +198,7 @@ class Tput
     # Modified function keys (e.g. Shift+F5) currently report the base F-key, as
     # there are no distinct modified-F-key members.
     private def self.read_escape_sequence(char, &)
-      case yield.try(&.ord)
+      case o = yield.try(&.ord) || -1
       when 13 then Key::AltEnter
         # when 27 then Key::Escape
       when 93 then Key::Osc # `\e]…` OSC reply (e.g. OSC 52 clipboard)
@@ -257,33 +257,11 @@ class Tput
         else
           nil
         end
-        # Alt-Letter keys
-      when  97 then Key::AltA
-      when  98 then Key::AltB
-      when  99 then Key::AltC
-      when 100 then Key::AltD
-      when 101 then Key::AltE
-      when 102 then Key::AltF
-      when 103 then Key::AltG
-      when 104 then Key::AltH
-      when 105 then Key::AltI
-      when 106 then Key::AltJ
-      when 107 then Key::AltK
-      when 108 then Key::AltL
-      when 109 then Key::AltM
-      when 110 then Key::AltN
-      when 111 then Key::AltO
-      when 112 then Key::AltP
-      when 113 then Key::AltQ
-      when 114 then Key::AltR
-      when 115 then Key::AltS
-      when 116 then Key::AltT
-      when 117 then Key::AltU
-      when 118 then Key::AltV
-      when 119 then Key::AltW
-      when 120 then Key::AltX
-      when 121 then Key::AltY
-      when 122 then Key::AltZ
+      when 97..122
+        # Alt+<letter>: ESC followed by `a`-`z`. The `AltA`..`AltZ` enum members
+        # are contiguous and alphabetical, matching bytes 97..122 (the same
+        # invariant `KeyEvent#u_key` relies on).
+        Key.from_value? Key::AltA.value + (o - 97)
       else
         nil
       end
@@ -293,38 +271,52 @@ class Tput
     # value is *first*, then classifies it as a key or a URxvt mouse report.
     # Yields for each subsequent input char.
     private def self.read_numeric_csi(first : Int32, &) : Key?
-      params = [] of Int32
+      # `classify_csi` only ever consults the first two parameters, so capture
+      # just those (`p0`/`p1`) into locals instead of allocating an `Array` per
+      # key. A `:` sub-parameter is flattened the same as `;` (the precise
+      # grouping is recovered from the raw bytes by `Input#parse_key_event`);
+      # `colon` records that one was present so `classify_csi` can tell this is
+      # an enhanced event even on a legacy final byte (e.g. an event-type on
+      # `…A`).
+      p0 : Int32? = nil
+      p1 : Int32? = nil
+      count = 0
       cur = first
       final = nil
       colon = false
       loop do
         o = yield.try(&.ord)
         break unless o
+        if 48 <= o <= 57 # digit
+          cur = cur * 10 + (o - 48)
+          next
+        end
+        # A separator or the final byte closes the current parameter.
+        case count
+        when 0 then p0 = cur
+        when 1 then p1 = cur
+        end
+        count += 1
+        cur = 0
         case o
-        when 48..57 then cur = cur * 10 + (o - 48) # digit
-        when 59     then params << cur; cur = 0    # ';' separator
-        when 58                                    # ':' kitty sub-parameter
-          # Flatten sub-parameters into `params` (the precise grouping is
-          # recovered from the raw bytes by `Input#parse_key_event`); record
-          # that one was present so `classify_csi` can tell this is an enhanced
-          # event even on a legacy final byte (e.g. an event-type on `…A`).
-          params << cur
-          cur = 0
-          colon = true
-        else # final byte
-          params << cur
+        when 59 # ';' parameter separator
+ then
+        when 58 then colon = true # ':' kitty sub-parameter
+        else
           final = o
           break
         end
       end
       return nil unless final
-      classify_csi params, final, colon
+      classify_csi p0, p1, final, colon
     end
 
     # Reads a `\e[?… <final>` private report. Recognizes the color-scheme report
     # (`\e[?997;Ps n`, DEC mode 2031); other private reports are ignored.
     private def self.read_private_csi(&) : Key?
-      params = [] of Int32
+      # Only the first parameter is consulted (the `997` color-scheme marker), so
+      # capture it into a local instead of allocating an `Array` per report.
+      p0 : Int32? = nil
       cur = 0
       final = nil
       loop do
@@ -332,12 +324,12 @@ class Tput
         break unless o
         case o
         when 48..57 then cur = cur * 10 + (o - 48)
-        when 59     then params << cur; cur = 0
-        else             params << cur; final = o; break
+        when 59     then p0 = cur if p0.nil?; cur = 0
+        else             p0 = cur if p0.nil?; final = o; break
         end
       end
       return nil unless final
-      return Key::ColorScheme if final == 'n'.ord && params[0]? == 997
+      return Key::ColorScheme if final == 'n'.ord && p0 == 997
       nil
     end
 
@@ -359,7 +351,7 @@ class Tput
     # Maps a parsed CSI (`params`, `final` byte) to a key. `M`/`m` finals are a
     # URxvt mouse report (handled by `Tput::Input`), surfaced here as
     # `Key::Mouse`. `$`/`^` finals are rxvt shift/ctrl-modified navigation keys.
-    private def self.classify_csi(params : Array(Int32), final : Int32, enhanced = false) : Key?
+    private def self.classify_csi(p0 : Int32?, p1 : Int32?, final : Int32, enhanced = false) : Key?
       # Enhanced keyboard sequences: a `u` final (kitty / modifyOtherKeys-1), a
       # legacy final carrying a kitty event-type sub-parameter, or the
       # modifyOtherKeys format-0 marker (first parameter 27 on a `~` final). The
@@ -367,22 +359,22 @@ class Tput
       return Key::Enhanced if final == 'u'.ord
       return Key::Enhanced if enhanced
       if final == '~'.ord
-        case params[0]?
+        case p0
         when 27 then return Key::Enhanced    # modifyOtherKeys format 0
         when 200 then return Key::PasteStart # bracketed paste begin
         when 201 then return Key::PasteEnd   # bracketed paste end
         end
       end
       # In-band resize report (DEC private mode 2048): `\e[48; … t`.
-      return Key::Resize if final == 't'.ord && params[0]? == 48
+      return Key::Resize if final == 't'.ord && p0 == 48
 
       case final
       when 'M'.ord, 'm'.ord then Key::Mouse # URxvt mouse report
-      when '~'.ord          then csi_tilde_key params[0]?, params[1]?
-      when '$'.ord          then csi_tilde_key params[0]?, 2 # rxvt shift+nav
-      when '^'.ord          then csi_tilde_key params[0]?, 5 # rxvt ctrl+nav
+      when '~'.ord          then csi_tilde_key p0, p1
+      when '$'.ord          then csi_tilde_key p0, 2 # rxvt shift+nav
+      when '^'.ord          then csi_tilde_key p0, 5 # rxvt ctrl+nav
       when 'A'.ord, 'B'.ord, 'C'.ord, 'D'.ord, 'F'.ord, 'H'.ord
-        csi_letter_key final, params[1]?
+        csi_letter_key final, p1
       else
         nil
       end

@@ -113,6 +113,12 @@ describe Tput::Input do
       one_key("\e[E").should eq Tput::Key::Clear
       one_key("\eOE").should eq Tput::Key::Clear
     end
+
+    it "parses Alt+letter across the whole a-z range" do
+      one_key("\ea").should eq Tput::Key::AltA
+      one_key("\em").should eq Tput::Key::AltM
+      one_key("\ez").should eq Tput::Key::AltZ
+    end
   end
 
   describe "mouse parsing" do

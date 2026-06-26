@@ -226,29 +226,27 @@ class Tput
       end
     end
 
-    # Builds a `KeyEvent` from the parsed CSI parameter *groups* (each group is a
-    # list of colon-separated sub-parameters) and the *final* byte. See
-    # `Input#parse_key_event` for how *groups* is produced.
-    def self.from_csi(groups : Array(Array(Int32?)), final : Char) : KeyEvent
-      g0 = groups[0]? || [] of Int32?
-      g1 = groups[1]? || [] of Int32?
-
-      if final == '~' && g0[0]? == 27
+    # Builds a `KeyEvent` from the parsed CSI sub-parameters and the *final*
+    # byte. The arguments are the first three sub-parameters of group 0
+    # (`number : shifted : base`), the first two of group 1 (`mods : event`),
+    # and group 2 in full (`text` — the associated-text codepoints, `nil` when
+    # absent). See `Input#parse_key_event` for how these are extracted.
+    def self.from_csi(final : Char, g0_0 : Int32?, g0_1 : Int32?, g0_2 : Int32?,
+                      g1_0 : Int32?, g1_1 : Int32?, g2 : Array(Int32?)?) : KeyEvent
+      if final == '~' && g0_0 == 27
         # modifyOtherKeys format 0: CSI 27 ; mods ; number ~
-        modval = groups[1]?.try(&.[0]?) || 1
-        number = groups[2]?.try(&.[0]?) || 0
+        modval = g1_0 || 1
+        number = g2.try(&.[0]?) || 0
         return new number, 'u', mods_from(modval), Type::Press
       end
 
-      number = g0[0]? || 0
-      shifted = g0[1]?
-      base = g0[2]?
-      modval = g1[0]? || 1
-      event = g1[1]? || 1
-      text = decode_text groups[2]?
+      number = g0_0 || 0
+      modval = g1_0 || 1
+      event = g1_1 || 1
+      text = decode_text g2
 
       new number, final, mods_from(modval), (Type.from_value?(event) || Type::Press),
-        shifted, base, text
+        g0_1, g0_2, text
     end
 
     private def self.mods_from(value : Int32) : Modifiers
