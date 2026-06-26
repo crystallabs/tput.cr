@@ -299,9 +299,8 @@ class Tput
         count += 1
         cur = 0
         case o
-        when 59 # ';' parameter separator
- then
-        when 58 then colon = true # ':' kitty sub-parameter
+        when 58 then colon = true # ':' kitty sub-parameter (enhanced marker)
+        when 59                   # ';' parameter separator: nothing extra
         else
           final = o
           break
