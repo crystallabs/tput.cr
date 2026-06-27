@@ -89,6 +89,22 @@ class Tput
         end_hyperlink
       end
 
+      # OSC 7: reports *path* to the terminal as the current working directory
+      # (as a `file://` URI), so terminals that track cwd — "open new tab/split
+      # here", window/tab titles — follow along. *host* is the URI host (empty =
+      # local). Routed through tmux's DCS passthrough; ignored where unsupported.
+      def report_cwd(path : String, host : String = "") : Nil
+        _tprint "\e]7;file://#{host}#{path}\x07"
+      end
+
+      # OSC 9;4: drives the terminal's progress indicator (taskbar / tab badge).
+      # *state*: 0 = clear, 1 = normal (show *progress*, 0–100), 2 = error,
+      # 3 = indeterminate, 4 = warning/paused. Supported by ConEmu, Windows
+      # Terminal, WezTerm, ghostty, … and ignored elsewhere.
+      def progress(progress : Int32 = 0, state : Int32 = 1) : Nil
+        _tprint "\e]9;4;#{state};#{progress}\x07"
+      end
+
       # Begins a synchronized update (DEC private mode 2026): the terminal holds
       # off presenting output until `#end_synchronized_update`, then repaints the
       # whole frame at once — removing the flicker/tearing of a multi-write
