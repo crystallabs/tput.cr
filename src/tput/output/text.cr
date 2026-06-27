@@ -322,6 +322,11 @@ class Tput
             end
 
             next unless part
+            # A component whose SGR body is empty (e.g. "normal"/"default", which
+            # yield a bare "\e[m") must be dropped — emitting it would inject a
+            # stray empty parameter like "\e[;31m". In the JS original "" is
+            # falsy and skipped here; Crystal's "" is truthy, so skip explicitly.
+            next if part.empty?
             next if used[part]?
             used[part] = true
             outbuf.push part
@@ -679,7 +684,13 @@ class Tput
       def repeat_preceding_character(param = 1)
         @cursor.x += param
         _ncoords
-        put(&.rep?(param)) || _print { |io| io << "\e[" << param << "b" }
+        # REP repeats the character already emitted, so the sequence carries only
+        # the count. Do NOT use the terminfo `rep` cap here: it is a different
+        # operation (`repeat_char`, format `%p1%c…%p2…`) that takes the *character*
+        # as its first parameter — feeding it the count alone emits that count as
+        # a literal control char plus a malformed sequence. There is no terminfo
+        # capability for REP, so emit it directly.
+        _print { |io| io << "\e[" << param << "b" }
       end
 
       alias_previous rep, rpc
@@ -691,7 +702,11 @@ class Tput
       #   Ps = 2  -> Clear Stops on Line.
       #   http:#vt100.net/annarbor/aaa-ug/section6.html
       def tab_clear(param = 0)
-        put(&.tbc?(param)) || _print { |io| io << "\e[" << param << "g" }
+        # The terminfo `tbc` cap is `clear_all_tabs` — the fixed, non-parametric
+        # `CSI 3 g` ("clear all") form. Use it only for `param == 3`; otherwise
+        # (notably the default `param == 0`, "clear the current column") emit the
+        # parametric `CSI Ps g` directly, or `tbc` would wrongly clear all stops.
+        (param == 3 && put(&.tbc?)) || _print { |io| io << "\e[" << param << "g" }
       end
 
       alias_previous tbc

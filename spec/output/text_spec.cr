@@ -524,4 +524,52 @@ describe Tput::Output::Text do
       end
     end
   end
+
+  describe "tab_clear" do
+    # terminfo `tbc` is the fixed `CSI 3 g` (clear-all) cap; only param 3 may use
+    # it. The default (param 0, clear the current column) must emit `CSI 0 g`,
+    # not clear every tab stop.
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "clears the current column by default (param 0) with #{t[1]}" do
+        t[0].tab_clear.should be_true
+        x.o.should eq "\e[0g"
+      end
+
+      it "clears all tab stops for param 3 with #{t[1]}" do
+        t[0].tab_clear(3).should be_true
+        x.o.should eq "\e[3g"
+      end
+    end
+  end
+
+  describe "_attr multi-component" do
+    # A reset-yielding component ("default"/"normal" -> "\e[m") has an empty SGR
+    # body; in a multi-component spec it must be dropped, not emitted as a stray
+    # empty parameter (which would produce "\e[;31m").
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "drops empty components instead of emitting a stray parameter with #{t[1]}" do
+        t[0]._attr("default, red fg").should eq "\e[31m"
+      end
+    end
+  end
+
+  describe "repeat_preceding_character (REP)" do
+    # REP carries only the count. The terminfo `rep` cap is a different operation
+    # (repeat_char, char as first param), so it must NOT be used here — on a
+    # rep-capable terminal like `ansi` it would emit the count as a control char
+    # plus a malformed sequence instead of `CSI Ps b`.
+    it "emits CSI Ps b even on a terminal that has the rep cap" do
+      buf = IO::Memory.new
+      t = Tput.new(
+        terminfo: Unibilium.from_terminal("ansi"),
+        input: IO::Memory.new,
+        output: buf,
+        screen_size: Tput::DEFAULT_SCREEN_SIZE)
+      t.flush
+      buf.clear
+      t.repeat_preceding_character 3
+      t.flush
+      String.new(buf.to_slice).should eq "\e[3b"
+    end
+  end
 end
