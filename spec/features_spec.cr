@@ -211,6 +211,30 @@ describe Tput::Features do
     end
   end
 
+  describe "ACS parsing" do
+    # acsc is a list of (canonical, terminal-specific) pairs. With a non-identity
+    # mapping the canonical codes are '0' (BLOCK) and 'm' (LLCORNER); 'q' and 'x'
+    # are only terminal-specific bytes and must not become canonical keys.
+    it "walks acs_chars pairwise and keys off the canonical (first) char" do
+      t = terminfo_tput { |ti| ti.set(Unibilium::Entry::String::Acs_chars, "0qmx") }
+      f = t.features
+
+      idx = f.broken_acs? ? 2 : 1
+      glyph0 = Tput::ACSC::Data['0'][idx].as(Char)
+      glyphm = Tput::ACSC::Data['m'][idx].as(Char)
+
+      f.acsc['0'].should eq glyph0
+      f.acsc['m'].should eq glyphm
+      # 'q'/'x' are pair-second members, never canonical keys.
+      f.acsc.has_key?('q').should be_false
+      f.acsc.has_key?('x').should be_false
+
+      # Reverse map points the glyph back to its canonical char.
+      f.acscr[glyph0].should eq '0'
+      f.acscr[glyphm].should eq 'm'
+    end
+  end
+
   describe "hardware cursor live probing" do
     it "confirms cursor styling from a DECSCUSR (` q`) DECRQSS readback" do
       with_env({"TERM" => "dumb", "ITERM_SESSION_ID" => nil}) do

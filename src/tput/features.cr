@@ -585,12 +585,20 @@ class Tput
 
       acs_chars = @tput.shim.try(&.acs_chars.try { |v| String.new v }) || ""
       @sources["acsc"] = @tput.shim ? "terminfo acs_chars capability" : "default — no terminfo (hardcoded mode)"
-      ACSC::Data.each do |ch, _data|
-        next unless i = acs_chars.index ch
 
-        nxt = acs_chars[i + 1]?
-        next if !nxt || !ACSC::Data[nxt]?
-        ch2 = ACSC::Data[nxt][broken_acs? ? 2 : 1].as Char
+      # `acs_chars` is a flat list of (canonical, terminal-specific) character
+      # pairs. The *first* char of each pair is the canonical VT100 ACS code, and
+      # that canonical code is what determines the glyph. Walk the string strictly
+      # pair-by-pair: searching for each char with `index` instead lands on a
+      # pair's second (terminal-specific) member whenever the mapping isn't the
+      # identity, then pairs it with the wrong neighbour — yielding wrong glyphs
+      # and spurious keys.
+      i = 0
+      while i + 1 < acs_chars.size
+        ch = acs_chars[i]
+        i += 2
+        next unless ACSC::Data[ch]?
+        ch2 = ACSC::Data[ch][broken_acs? ? 2 : 1].as Char
 
         acsc[ch] = ch2
         acscr[ch2] = ch
