@@ -90,6 +90,8 @@ class Tput
         "ansi_cursor"      => ansi_cursor?.to_s,
         "ansi_hpa"         => ansi_hpa?.to_s,
         "ansi_vpa"         => ansi_vpa?.to_s,
+        "ansi_edit"        => ansi_edit?.to_s,
+        "ansi_scroll"      => ansi_scroll?.to_s,
         "setbuf"           => setbuf?.to_s,
         "number_of_colors" => number_of_colors.to_s,
         "truecolor"        => truecolor?.to_s,
@@ -116,6 +118,14 @@ class Tput
       h["palette"] = det "palette", pal.try { |s| "#{known}/16: #{s}" }
 
       h["da_params"] = det "da_params", da_params.try(&.join(';'))
+      h["da2_params"] = det "da2_params", da2_params.try(&.join(';'))
+      h["terminal_version"] = det "terminal_version", terminal_version
+      h["kitty_keyboard"] = det "kitty_keyboard", kitty_keyboard_flags.try(&.to_s)
+      h["modify_other_keys"] = det "modify_other_keys", modify_other_keys.try(&.to_s)
+      # Boolean probe result: `true` only after a positive DECRQM reply; before
+      # that (or when unsupported) it reads `(not probed)`, matching the nil-means-
+      # no-positive-result convention of the other probe fields above.
+      h["in_band_resize"] = det "in_band_resize", (in_band_resize? ? "true" : nil)
       h
     end
 

@@ -83,9 +83,6 @@ class Tput
   @mode : LibC::Termios? = nil
 
   @[JSON::Field(ignore: true)]
-  getter? force_unicode
-
-  @[JSON::Field(ignore: true)]
   getter terminfo : Unibilium?
 
   @[JSON::Field(ignore: true)]
@@ -96,6 +93,7 @@ class Tput
 
   getter? cursor_hidden : Bool = false
 
+  @[JSON::Field(ignore: true)]
   getter? force_unicode : Bool
 
   @name : String
@@ -206,7 +204,10 @@ class Tput
     screen_size = nil,
     probe = Superconf.tput_probe,
   )
-    @force_unicode = true
+    # Honor the constructor argument; default (nil) means auto-detect, so the
+    # locale/TERM logic in `Features#detect_unicode` runs instead of being
+    # short-circuited to always-on.
+    @force_unicode = force_unicode || false
 
     @screen = screen_size || get_screen_size
     @cursor = Point.new

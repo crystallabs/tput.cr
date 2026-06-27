@@ -5,7 +5,16 @@ class Tput
 
     # Gets terminal/screen size as number of columns and rows.
     def get_screen_size
-      r, c = ENV["TPUT_SCREEN_SIZE"]?.try { |s| s.split('x', 2).map &.to_i } ||
+      r, c = ENV["TPUT_SCREEN_SIZE"]?.try { |s|
+               # Accept only a well-formed "<rows>x<cols>"; a malformed override
+               # (single number, non-numeric, junk) yields nil and falls through
+               # to real detection instead of crashing startup with an
+               # IndexError/ArgumentError.
+               nums = s.split('x', 2).map &.to_i?
+               if nums.size == 2 && (rr = nums[0]) && (cc = nums[1])
+                 {rr, cc}
+               end
+             } ||
              # Size *this* terminal by querying its own output fd, so multiple
              # `Tput`s on different terminals each get their real dimensions
              # rather than all sharing the launching terminal's (which is what

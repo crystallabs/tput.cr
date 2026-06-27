@@ -20,6 +20,14 @@ describe "Tput#dump / detections" do
         feat.has_key?("number_of_colors").should be_true
         feat.has_key?("unicode").should be_true
         feat["unicode"].source.empty?.should be_false
+
+        # Every detected ANSI fast-path feature is reported (including
+        # ansi_edit/ansi_scroll, which were once missing from the dump).
+        {"ansi_cursor", "ansi_hpa", "ansi_vpa", "ansi_edit", "ansi_scroll"}.each do |k|
+          feat.has_key?(k).should be_true
+          feat[k].source.empty?.should be_false
+          feat[k].source.should_not eq "unknown"
+        end
       end
     end
   end
@@ -70,6 +78,34 @@ describe "Tput#dump / detections" do
       probed["da_params"].source.should eq "probed via DA1 (CSI c) reply"
       probed["ambiguous_width"].value.should eq "1"
     end
+
+    it "surfaces every seeded probe-only field, marked (not probed) before probing" do
+      # Each of these is seeded with provenance in Features#initialize and must
+      # appear in the live-probing section even before Tput#probe! runs.
+      probed = Tput::Test.new.p.features.probed_detections
+      {"ambiguous_width", "default_foreground", "default_background", "palette",
+       "da_params", "da2_params", "terminal_version", "kitty_keyboard",
+       "modify_other_keys", "in_band_resize"}.each do |k|
+        probed.has_key?(k).should be_true
+        probed[k].value.should eq "(not probed)"
+        probed[k].source.empty?.should be_false
+      end
+    end
+
+    it "surfaces in_band_resize once positively probed" do
+      tp = Tput::Test.new.p
+      tp.features.probed_detections["in_band_resize"].value.should eq "(not probed)"
+
+      canned = IO::Memory.new
+      canned << "\e[?2048;1$y" # DECRQM: mode 2048 (in-band resize) supported
+      canned << "\e[?62;1;6c"  # DA1 terminator
+      canned.rewind
+      tp.probe_consume canned, 1.second
+
+      probed = tp.features.probed_detections
+      probed["in_band_resize"].value.should eq "true"
+      probed["in_band_resize"].source.should eq "probed via DECRQM (CSI ? 2048 $ p)"
+    end
   end
 
   describe "JSON serialization" do
@@ -87,6 +123,10 @@ describe "Tput#dump / detections" do
       json.should contain %("emulator":)
       json.should contain %("screen":)
       json.should contain %("width": 80)
+    end
+
+    it "excludes the internal force_unicode flag (JSON::Field ignore)" do
+      x.t.to_json.should_not contain "force_unicode"
     end
   end
 end

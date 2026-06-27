@@ -147,6 +147,31 @@ describe Tput::Features do
     end
   end
 
+  describe "force_unicode constructor option" do
+    it "is honored instead of being forced always-on (env auto-detect otherwise)" do
+      with_env({
+        "NCURSES_FORCE_UNICODE" => nil, "XTERM_LOCALE" => nil, "LANG" => nil,
+        "LANGUAGE" => nil, "LC_ALL" => nil, "LC_CTYPE" => nil, "TERM" => "xterm",
+      }) do
+        # Default (not forced): env decides, and with no UTF-8 indicator that's
+        # false — proving detect_unicode actually runs (it was dead before).
+        auto = plain_tput
+        auto.force_unicode?.should be_false
+        auto.features.unicode?.should be_false
+        auto.features.sources["unicode"].should contain "default"
+
+        # Explicit force_unicode: true overrides the environment.
+        forced = Tput.new(
+          input: IO::Memory.new, output: IO::Memory.new,
+          screen_size: Tput::DEFAULT_SCREEN_SIZE, probe: false,
+          force_unicode: true)
+        forced.force_unicode?.should be_true
+        forced.features.unicode?.should be_true
+        forced.features.sources["unicode"].should eq "Tput#force_unicode constructor option"
+      end
+    end
+  end
+
   describe "hardware cursor styling detection" do
     it "flags xterm-family terminals as cursor-styleable (DECSCUSR + OSC 12)" do
       with_env({"TERM" => "xterm-256color", "ITERM_SESSION_ID" => nil}) do
