@@ -181,6 +181,18 @@ describe "Tput::Probe XTVERSION / DA2" do
     t.probe_consume(IO::Memory.new("\e[?2048;0$y\e[c"), 1.second)
     t.features.in_band_resize?.should be_false
   end
+
+  it "applies every color in a combined OSC 4 palette reply" do
+    # xterm answers a batched `OSC 4 ; 0 ; ? ; 1 ; ? ; …` query with a single
+    # reply "of the same form", carrying all the index;color pairs at once.
+    t = new_tput
+    t.probe_consume(
+      IO::Memory.new("\e]4;0;rgb:0000/0000/0000;1;rgb:ffff/0000/0000;15;rgb:ffff/ffff/ffff\a\e[c"),
+      1.second)
+    t.features.palette[0].not_nil!.to_s.should eq "#000000"
+    t.features.palette[1].not_nil!.to_s.should eq "#ff0000"
+    t.features.palette[15].not_nil!.to_s.should eq "#ffffff"
+  end
 end
 
 describe "Tput::Response parsers" do

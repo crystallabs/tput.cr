@@ -325,12 +325,18 @@ class Tput
         # supported (and thus settable). We don't need the value itself.
         f.confirm_cursor_color! "probed via OSC 12 reply"
       when "4"
-        return if parts.size < 3
-        idx = parts[1].to_i?
-        return unless idx && 0 <= idx < 16
-        if rgb = parse_rgb parts[2]
-          f.palette[idx] = rgb
-          f.sources["palette"] = "probed via OSC 4 replies"
+        # A single OSC 4 reply can carry *several* `index;rgb:…` pairs: xterm
+        # answers a batched query (`OSC 4 ; 0 ; ? ; 1 ; ? ; …`) with one reply
+        # "of the same form", so all 16 colors arrive together. Walk every pair
+        # rather than just the first. (`rgb:…` has no `;`, so the split aligns.)
+        i = 1
+        while i + 1 < parts.size
+          idx = parts[i].to_i?
+          if idx && 0 <= idx < 16 && (rgb = parse_rgb parts[i + 1])
+            f.palette[idx] = rgb
+            f.sources["palette"] = "probed via OSC 4 replies"
+          end
+          i += 2
         end
       end
     end
