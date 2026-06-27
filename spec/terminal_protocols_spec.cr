@@ -136,6 +136,26 @@ describe "Emulator probe hardening (XTVERSION)" do
   end
 end
 
+describe "Emulator screen detection" do
+  it "detects GNU screen from a suffixed TERM (e.g. screen-256color)" do
+    with_env({"TERM" => "screen-256color", "TMUX" => nil}) do
+      plain_tput.emulator.screen?.should be_true
+    end
+  end
+
+  it "still detects a bare TERM=screen" do
+    with_env({"TERM" => "screen", "TMUX" => nil}) do
+      plain_tput.emulator.screen?.should be_true
+    end
+  end
+
+  it "does not flag a non-screen TERM" do
+    with_env({"TERM" => "xterm-256color", "TMUX" => nil}) do
+      plain_tput.emulator.screen?.should be_false
+    end
+  end
+end
+
 describe "Tput::Probe XTVERSION / DA2" do
   it "detects DA2 (CSI > c) without mistaking it for the DA1 terminator" do
     t = new_tput
@@ -174,6 +194,13 @@ describe "Tput::Response parsers" do
     t = new_tput
     io = IO::Memory.new("\eP>|WezTerm 20240203\e\\")
     t.read_xtversion_response(io, 1.second).should eq "WezTerm 20240203"
+  end
+
+  it "parses an XTVERSION DCS reply terminated by BEL instead of ST" do
+    # Exercises the shared OSC/DCS string reader's BEL-termination path.
+    t = new_tput
+    io = IO::Memory.new("\eP>|kitty(0.32.0)\a")
+    t.read_xtversion_response(io, 1.second).should eq "kitty(0.32.0)"
   end
 
   it "parses DECRQM replies (supported vs not)" do

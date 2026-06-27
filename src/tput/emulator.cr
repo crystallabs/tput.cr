@@ -117,8 +117,8 @@ class Tput
       @sources["tmux"] = %(env TMUX set)
       # XXX Detect TMUX version?
 
-      @screen = (ENV["TERM"]? == "screen")
-      @sources["screen"] = %(env TERM == "screen")
+      @screen = ENV["TERM"]?.try(&.starts_with?("screen")) || @tput.name?("screen")
+      @sources["screen"] = %(env TERM starts with "screen", or terminal name matches "screen")
 
       @kitty = to_b(ENV["KITTY_WINDOW_ID"]?) || @tput.name?("xterm-kitty")
       @sources["kitty"] = %(env KITTY_WINDOW_ID set, or terminal name "xterm-kitty")

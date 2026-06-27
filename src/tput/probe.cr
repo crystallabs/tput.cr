@@ -245,22 +245,7 @@ class Tput
     # Reads the payload of an OSC sequence up to its terminator (BEL, or
     # ST = `ESC \`). Returns the payload without the terminator.
     private def probe_read_osc(io : IO, timeout : Time::Span) : String
-      data = String::Builder.new
-      loop do
-        b = probe_read_byte io, timeout
-        return data.to_s unless b
-        case b
-        when 0x07_u8 # BEL
-          return data.to_s
-        when 0x1b_u8 # possible ST: ESC \
-          nxt = probe_read_byte io, timeout
-          return data.to_s if nxt.nil? || nxt == '\\'.ord
-          data << '\e'
-          data << nxt.chr
-        else
-          data << b.chr
-        end
-      end
+      probe_read_string_terminated io, timeout
     end
 
     # Reads the payload of a DCS sequence (everything after `ESC P`) up to its
@@ -268,6 +253,13 @@ class Tput
     # terminator. The DECRQSS reply we care about looks like `1$rPm` where `P`
     # is the active SGR parameter list, e.g. `1$r0;48:2::1:2:3m`.
     private def probe_read_dcs(io : IO, timeout : Time::Span) : String
+      probe_read_string_terminated io, timeout
+    end
+
+    # Shared reader for an OSC or DCS control-string payload: both run until a
+    # string terminator (ST = `ESC \`) or BEL and return the bytes before it. A
+    # lone `ESC` not followed by `\` is kept as literal payload.
+    private def probe_read_string_terminated(io : IO, timeout : Time::Span) : String
       data = String::Builder.new
       loop do
         b = probe_read_byte io, timeout
