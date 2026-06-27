@@ -19,25 +19,28 @@ class Tput
 
     # Wrap escape sequences in DCS sequences and directly print to `@output`.
     #
-    # Tmux will only forward escape sequences to the terminal if surrounded by a
-    # DCS sequence.
+    # A terminal multiplexer (tmux or GNU screen) only forwards an escape
+    # sequence to the outer terminal if it is wrapped in that multiplexer's DCS
+    # passthrough. This method applies the wrapping when the detected emulator is
+    # tmux or screen, then prints directly to `@output` (any existing buffer is
+    # first flushed). On a non-multiplexed terminal the behavior is identical to
+    # `#_write`.
     #
-    # This method wraps the output in DCS sequences if the detected terminal
-    # emulator is tmux, and then directly prints content to `@output`.
-    # (Any existing buffer is first flushed.)
-    #
-    # If the terminal emulator is not detected to be tmux, the behavior is
-    # identical to `#_write`.
-    #
-    #     Example: `DCS tmux; ESC Pt ST`
-    #     Real: `DCS tmux; ESC Pt ESC \`
+    #     Example (tmux):   `DCS tmux; ESC Pt ST`  ->  `\ePtmux;\e … \e\\`
+    #     Example (screen): `DCS ESC Pt ST`        ->  `\eP … \e\\`
     def _tprint(data)
-      if emulator.tmux?
+      if emulator.tmux? || emulator.screen?
         # Replace all STs with BELs so they can be nested within the DCS code.
         data = data.gsub /\e\\/, "\x07"
 
-        # Wrap in tmux forward DCS:
-        data = "\ePtmux;\e" + data + "\e\\"
+        # Wrap in the multiplexer's forward DCS. tmux needs the inner sequence's
+        # leading ESC doubled — its `\ePtmux;\e` prefix supplies the extra ESC;
+        # GNU screen forwards the payload verbatim, so it takes a plain `\eP`.
+        data = if emulator.tmux?
+                 "\ePtmux;\e" + data + "\e\\"
+               else
+                 "\eP" + data + "\e\\"
+               end
 
         # TODO
         # # If we've never even flushed yet, it means we're still in
