@@ -187,6 +187,31 @@ class Tput
       c
     end
 
+    # Reads one raw 8-bit byte (`0..255`), or `nil` on EOF/timeout. Mirrors
+    # `#next_char`'s optional read timeout but bypasses UTF-8 decoding — needed
+    # for the X10 mouse encoding, whose payload bytes are raw values that may
+    # exceed `0x7F` (a coordinate past column/row 95) and would be corrupted by
+    # `read_char`.
+    private def next_byte(timeout : Bool = false) : Int32?
+      input = @input
+
+      if timeout && input.responds_to? :"read_timeout="
+        input.read_timeout = @read_timeout
+      end
+
+      begin
+        b = input.read_byte
+      rescue IO::TimeoutError
+        b = nil
+      end
+
+      if timeout && input.responds_to? :"read_timeout="
+        input.read_timeout = nil
+      end
+
+      b.try &.to_i
+    end
+
     def listen(& : InputEvent -> Nil)
       with_raw_input do
         sequence = [] of Char
@@ -291,7 +316,12 @@ class Tput
       matched = 0
       loop do
         c = yield
-        break unless c
+        unless c
+          # Stream ended mid-paste: a partially-matched terminator prefix was
+          # actually paste content, so flush it before returning.
+          body << term[0, matched] if matched > 0
+          break
+        end
         if c == term[matched]
           matched += 1
           break if matched == term.size # full terminator consumed
@@ -487,12 +517,16 @@ class Tput
     private def read_mouse(sequence, &) : Mouse::Event?
       case sequence[2]? || '\0'
       when 'M'
-        # X10 / normal encoding: exactly three raw bytes follow.
-        cb = yield
-        cx = yield
-        cy = yield
+        # X10 / normal encoding: exactly three raw 8-bit bytes follow. They are
+        # read as bytes (not via the UTF-8 `read_char` path) so a coordinate
+        # past column/row 95 (byte >= 0x80) survives intact, and recorded in
+        # *sequence* verbatim (codepoints 0..255).
+        cb = next_byte true
+        cx = next_byte true
+        cy = next_byte true
         return nil unless cb && cx && cy
-        Mouse.parse_x10 cb.ord, cx.ord, cy.ord
+        sequence << cb.chr << cx.chr << cy.chr
+        Mouse.parse_x10 cb, cx, cy
       when 'I'      then Mouse::Event.focus
       when 'O'      then Mouse::Event.blur
       when '<'      then read_sgr_or_dec { yield }

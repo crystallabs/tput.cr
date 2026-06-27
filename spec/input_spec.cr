@@ -28,6 +28,17 @@ private def one_mouse(data : String) : Tput::Mouse::Event?
   ev[0][2]
 end
 
+private def feed_paste(data : String) : Array(String)
+  pastes = [] of String
+  t = Tput.new \
+    input: IO::Memory.new(data),
+    output: IO::Memory.new,
+    screen_size: Tput::DEFAULT_SCREEN_SIZE,
+    probe: false
+  t.listen { |e| pastes << e.paste.not_nil! if e.paste? }
+  pastes
+end
+
 describe Tput::Input do
   describe "key parsing" do
     it "parses CSI cursor keys" do
@@ -119,6 +130,14 @@ describe Tput::Input do
       one_key("\em").should eq Tput::Key::AltM
       one_key("\ez").should eq Tput::Key::AltZ
     end
+
+    it "does not mistake C1 control characters for AltEnter/ShiftTab" do
+      # U+0080/U+0081 are C1 controls (arriving as UTF-8 0xC2 0x80 / 0xC2 0x81);
+      # their codepoints 128/129 must not collide with the auto-numbered
+      # AltEnter(128)/ShiftTab(129) enum members.
+      one_key("\u0080").should be_nil
+      one_key("\u0081").should be_nil
+    end
   end
 
   describe "mouse parsing" do
@@ -158,6 +177,23 @@ describe Tput::Input do
       m.x.should eq (0x10 + 0xff) - 0x20 - 1
     end
 
+    it "reads X10 coordinate bytes raw, not UTF-8 decoded" do
+      # A column past 95 sends a byte >= 0x80; read as a byte it survives intact
+      # (run through `read_char` it would be mangled into U+FFFD).
+      io = IO::Memory.new
+      io.write Bytes[0x1bu8, '['.ord.to_u8, 'M'.ord.to_u8, 0x20u8, 0xc8u8, 0x22u8]
+      io.rewind
+      t = Tput.new \
+        input: io,
+        output: IO::Memory.new,
+        screen_size: Tput::DEFAULT_SCREEN_SIZE,
+        probe: false
+      mice = [] of Tput::Mouse::Event
+      t.listen { |e| mice << e.mouse.not_nil! if e.mouse? }
+      mice.size.should eq 1
+      mice[0].x.should eq (0xc8 - 32 - 1) # 167, decoded from the raw byte
+    end
+
     it "parses URxvt encoding" do
       m = one_mouse("\e[32;10;20M").not_nil!
       m.button.should eq Tput::Mouse::Button::Left
@@ -179,6 +215,22 @@ describe Tput::Input do
       one_mouse("\e[I").not_nil!.action.should eq Tput::Mouse::Action::Focus
       one_mouse("\e[O").not_nil!.action.should eq Tput::Mouse::Action::Blur
     end
+
+    it "reports extra side buttons (8/9) as Unknown via SGR, not Left/Middle" do
+      # Bit 7 marks buttons 8-11 (back/forward); their low bits must not be
+      # mistaken for Left/Middle/Right.
+      back = one_mouse("\e[<128;5;5M").not_nil!
+      back.action.should eq Tput::Mouse::Action::Down
+      back.button.should eq Tput::Mouse::Button::Unknown
+      one_mouse("\e[<129;5;5M").not_nil!.button.should eq Tput::Mouse::Button::Unknown
+    end
+
+    it "normalizes the urxvt wheel-during-motion bug (128/129)" do
+      # urxvt reports 128/129 instead of 96/97 for a wheel up/down during a
+      # drag; both must still decode as a wheel, keeping the up/down direction.
+      one_mouse("\e[128;5;5M").not_nil!.action.should eq Tput::Mouse::Action::WheelUp
+      one_mouse("\e[129;5;5M").not_nil!.action.should eq Tput::Mouse::Action::WheelDown
+    end
   end
 
   # vt300 reports are not auto-routed (the ancient `\e[24…~[x,y]\r` form
@@ -192,6 +244,35 @@ describe Tput::Input do
       m.y.should eq 19
       Tput::Mouse.parse_vt300(2, 1, 1).button.should eq Tput::Mouse::Button::Middle
       Tput::Mouse.parse_vt300(5, 1, 1).button.should eq Tput::Mouse::Button::Right
+    end
+  end
+
+  describe "bracketed paste" do
+    it "delivers the body up to the terminator" do
+      feed_paste("\e[200~hello\e[201~").should eq ["hello"]
+    end
+
+    it "flushes a partial terminator left by a truncated stream" do
+      # The stream ends in the middle of the `\e[201~` terminator; those bytes
+      # are paste content and must not be dropped.
+      feed_paste("\e[200~abc\e[20").should eq ["abc\e[20"]
+    end
+  end
+
+  describe "Tput::Mouse.parse_dec" do
+    it "decodes button press/release pairs, keeping the button on release" do
+      # Even codes are presses, the following odd code the matching release.
+      mid_up = Tput::Mouse.parse_dec 5, 10, 20, 1 # middle button up
+      mid_up.action.should eq Tput::Mouse::Action::Up
+      mid_up.button.should eq Tput::Mouse::Button::Middle
+
+      right_up = Tput::Mouse.parse_dec 7, 10, 20, 1 # right button up
+      right_up.action.should eq Tput::Mouse::Action::Up
+      right_up.button.should eq Tput::Mouse::Button::Right
+
+      left_up = Tput::Mouse.parse_dec 3, 10, 20, 1 # left button up
+      left_up.action.should eq Tput::Mouse::Action::Up
+      left_up.button.should eq Tput::Mouse::Button::Left
     end
   end
 end

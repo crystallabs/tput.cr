@@ -183,11 +183,15 @@ class Tput
     # Reads a `Control` input from *char*.  If an escape sequence was detected,
     # calls the given block for the next `Char?`.
     def self.read_control(char : Char, &) : Key?
-      case char.ord
+      case o = char.ord
       when Key::Escape.value
         read_escape_sequence(char) { yield } || Key::Escape
       else
-        Key.from_value?(char.ord)
+        # Only the 7-bit C0 controls (and DEL) map to a legacy key by codepoint.
+        # Restrict the lookup to that range so a C1 control (U+0080/U+0081,
+        # arriving e.g. as UTF-8 `0xC2 0x80`) is not mistaken for the
+        # auto-numbered `AltEnter` (128) / `ShiftTab` (129) enum members.
+        Key.from_value?(o) if o < 0x80
       end # || Key::Unknown
     end
 

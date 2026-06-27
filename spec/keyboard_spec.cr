@@ -104,6 +104,12 @@ describe Tput::KeyEvent do
       ev.char.should be_nil
       ev.modifier_key?.should be_false
     end
+
+    it "surfaces a supplementary-plane character (emoji) through char" do
+      # U+1F600 is above the kitty functional-key PUA (U+E000..U+F8FF); it is
+      # real text and must not be filtered out like a functional key code.
+      one_kb("\e[128512u").char.should eq '\u{1F600}'
+    end
   end
 
   describe "modifyOtherKeys format 0 (27 ; mods ; code ~)" do

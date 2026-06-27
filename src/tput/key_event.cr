@@ -142,9 +142,11 @@ class Tput
       # control combinations, represented through `to_legacy_key`/`mods`.
       return nil if ctrl? || alt? || super? || meta? || hyper?
       cp = (shift? ? shifted : nil) || number
-      # Functional keys (kitty codes for arrows, F-keys, modifiers, …) live in
-      # the Unicode Private Use Area (0xE000+); they are not text.
-      return nil if cp < 0x20 || cp >= 0xE000
+      # Functional keys (kitty codes for arrows, F-keys, modifiers, …) occupy the
+      # Unicode Private Use Area the protocol reserves for them, U+E000..U+F8FF;
+      # they are not text. Codepoints above that range (emoji and other
+      # supplementary-plane characters) are real text and must pass through.
+      return nil if cp < 0x20 || (0xE000 <= cp <= 0xF8FF)
       cp.chr rescue nil
     end
 

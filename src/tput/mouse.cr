@@ -110,6 +110,7 @@ class Tput
     #   * bit  4   : control
     #   * bit  5   : motion (a drag/move report rather than a click)
     #   * bit  6   : wheel (then bit 0 selects up=0 / down=1)
+    #   * bit  7   : extra button (8-11, e.g. back/forward) — reported as Unknown
     #
     # *released* is supplied by the caller when the encoding itself signals a
     # release independently of the button bits (SGR's trailing `m`); for X10 a
@@ -125,11 +126,18 @@ class Tput
         return {action, Button::None, shift, meta, ctrl}
       end
 
-      button = case cb & 3
-               when 0 then Button::Left
-               when 1 then Button::Middle
-               when 2 then Button::Right
-               else        Button::None
+      # Extra buttons (8-11, e.g. the back/forward side buttons) set bit 7; the
+      # low button bits then no longer mean Left/Middle/Right, so report them as
+      # Unknown rather than mis-mapping a back click onto a left click.
+      button = if (cb & 128) != 0
+                 Button::Unknown
+               else
+                 case cb & 3
+                 when 0 then Button::Left
+                 when 1 then Button::Middle
+                 when 2 then Button::Right
+                 else        Button::None
+                 end
                end
 
       # Order matters. SGR signals a release explicitly (trailing `m`); a motion
@@ -175,24 +183,35 @@ class Tput
     # and there is no explicit release distinction; unlike X10 the coordinates
     # are decimal and unbounded.
     def self.parse_urxvt(cb : Int32, cx : Int32, cy : Int32) : Event
-      # Work around a urxvt bug that reports 128/129 for a wheel event during
-      # motion; both mean "wheel" (67 == 0x43, i.e. wheel bit set).
-      cb = 67 if cb == 128 || cb == 129
+      # Work around a urxvt bug that reports 128/129 instead of 96/97 for a
+      # wheel up/down during motion. Map them back to the proper +32-biased
+      # wheel values (96 = up, 97 = down) so that, after the bias is stripped
+      # below, `decode_button` still sees the wheel bit *and* the correct
+      # direction. (The previous `cb = 67` both lost the direction and, once
+      # the bias was removed, cleared the wheel bit — mis-decoding the event as
+      # a plain motion.)
+      cb = 96 if cb == 128
+      cb = 97 if cb == 129
       action, button, shift, meta, ctrl = decode_button(cb - 32)
       Event.new action, button, (cx - 1), (cy - 1), shift, meta, ctrl
     end
 
     # Parses a DEC-locator event report (`\e[ Cb ; Cx ; Cy ; Cp & w`). *cb* is
-    # the locator event code (2 = left, 4 = middle, 6 = right, 3 = release),
-    # *cx*/*cy* the cell coordinates, *cp* the page.
+    # the locator event code, *cx*/*cy* the cell coordinates, *cp* the page.
+    #
+    # Each button has a press/release pair of codes (even = press, odd =
+    # release): 2/3 = left, 4/5 = middle, 6/7 = right.
     def self.parse_dec(cb : Int32, cx : Int32, cy : Int32, cp : Int32) : Event
-      action = cb == 3 ? Action::Up : Action::Down
+      # Earlier code recognized only the left release (3), mis-decoding the
+      # middle/right releases as presses and dropping the button identity on
+      # every release.
       button = case cb
-               when 2 then Button::Left
-               when 4 then Button::Middle
-               when 6 then Button::Right
-               else        Button::Unknown
+               when 2, 3 then Button::Left
+               when 4, 5 then Button::Middle
+               when 6, 7 then Button::Right
+               else           Button::Unknown
                end
+      action = cb.odd? ? Action::Up : Action::Down
       Event.new action, button, (cx - 1), (cy - 1), page: cp
     end
 
