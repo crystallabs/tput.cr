@@ -32,5 +32,13 @@ describe Tput::Output::Bell do
       x.p.decsmbv = Tput::Volume::Low2
       x.o.should eq "\e[3 u"
     end
+
+    it "silences with Volume::Off (DECSMBV Ps=0 is high, so it maps to Ps=1)" do
+      x.t.margin_bell_volume = Tput::Volume::Off
+      x.o.should eq "\e[1 u"
+      # DECSWBV keeps Ps=0 as off, so the warning bell is left untranslated.
+      x.t.warning_bell_volume = Tput::Volume::Off
+      x.o.should eq "\e[0 t"
+    end
   end
 end

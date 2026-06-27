@@ -18,6 +18,16 @@ describe Tput::Output::Colors do
       x.o.should eq "\ePtmux;\e\e]112\a\e\\"
       x.p.emulator.tmux = false
     end
+
+    it "wraps the terminfo path in DCS under tmux as well" do
+      # The `Cr` capability is written via a plain write, which would bypass the
+      # multiplexer passthrough; under tmux it must take the wrapping fallback so
+      # the reset still reaches the outer terminal.
+      x.t.emulator.tmux = true
+      x.t.reset_colors
+      x.o.should eq "\ePtmux;\e\e]112\a\e\\"
+      x.t.emulator.tmux = false
+    end
   end
 
   describe "dynamic_colors" do

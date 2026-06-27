@@ -24,7 +24,14 @@ class Tput
       def erase_in_display(param = Erase::Below)
         # Disabled originally
         # extended tput.E3 = ^[[3;J
-        put(&.ed?(param.value)) || _print { |io| io << "\e[" << param.value << 'J' }
+        #
+        # The terminfo `ed`/`clr_eos` capability is hardcoded to "erase below"
+        # (Ps=0) and carries no parameter, so delegating to it for Above/All/
+        # SavedLines would silently emit `\e[J` and erase the wrong region.
+        # Only use the capability for the default Below case; otherwise emit the
+        # explicit CSI with the requested parameter.
+        return if param.below? && put(&.ed?)
+        _print { |io| io << "\e[" << param.value << 'J' }
       end
 
       alias_previous ed
