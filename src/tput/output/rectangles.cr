@@ -41,12 +41,18 @@ class Tput
 
       alias_previous deccra
 
-      # CSI Ps x  Select Attribute Change Extent (DECSACE).
+      # CSI Ps * x  Select Attribute Change Extent (DECSACE), VT420 and up.
       #     Ps = 0  -> from start to end position, wrapped.
       #     Ps = 1  -> from start to end position, wrapped.
       #     Ps = 2  -> rectangle (exact).
+      #
+      # The `*` (0x2A) intermediate byte is mandatory: without it the terminal
+      # parses `CSI Ps x` as DECREQTPARM (Request Terminal Parameters), a wholly
+      # different function that triggers an unsolicited parameter report instead
+      # of selecting the change extent. Like every sibling rectangle command here
+      # (`$r`, `$t`, `$v`, `$x`, `$z`, `${`), DECSACE needs its intermediate.
       def select_change_extent(param = 0)
-        _print "\e[#{param}x"
+        _print "\e[#{param}*x"
       end
 
       alias_previous decsace
