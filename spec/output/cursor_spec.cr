@@ -212,6 +212,29 @@ describe Tput::Output::Cursor do
     end
   end
 
+  describe "save_cursor_a / restore_cursor_a (ANSI.SYS)" do
+    # The `_a` variants are SCOSC/SCORC (`CSI s` / `CSI u`) and must emit those
+    # literal sequences even when a terminfo is loaded — they must NOT route
+    # through the terminfo `sc`/`rc` caps, which are the distinct DECSC/DECRC
+    # (`\e7`/`\e8`) operations. `#save_cursor`/`#restore_cursor` are the DECSC ones.
+    it "emits CSI s / CSI u, not DECSC / DECRC, with terminfo" do
+      x.t.cup 8, 9; x.o
+
+      x.t.save_cursor_a.should be_true
+      x.o.should eq "\e[s"
+      x.t.saved_cursor.not_nil!.x.should eq 9
+      x.t.saved_cursor.not_nil!.y.should eq 8
+
+      x.t.cursor.x = 0
+      x.t.cursor.y = 0
+
+      x.t.restore_cursor_a.should be_true
+      x.o.should eq "\e[u"
+      x.t.cursor.x.should eq 9
+      x.t.cursor.y.should eq 8
+    end
+  end
+
   describe "dynamic_cursor_color" do
     it "works with terminfo" do
       x.t.dynamic_cursor_color "blue"

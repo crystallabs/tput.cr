@@ -373,7 +373,12 @@ class Tput
       #   Save cursor (ANSI.SYS).
       def save_cursor_a
         @saved_cursor = @cursor.dup
-        put(&.sc?) || _print "\e[s"
+        # Emit the literal ANSI.SYS `CSI s` (SCOSC). Do NOT route through the
+        # terminfo `sc` cap: that is DECSC (`\e7`), a *different* operation that
+        # also saves attributes/charset and interacts with the scroll region.
+        # The `_a` variant exists precisely to provide the SCOSC form; `#save_cursor`
+        # is the DECSC one.
+        _print "\e[s"
       end
 
       alias_previous sc_a
@@ -386,7 +391,10 @@ class Tput
           @cursor.y = sp.y
           _ncoords
         end
-        put(&.rc?) || _print "\e[u"
+        # Counterpart of `#save_cursor_a`: emit the literal ANSI.SYS `CSI u`
+        # (SCORC), not the terminfo `rc` cap (DECRC, `\e8`) which restores the
+        # state saved by DECSC rather than SCOSC.
+        _print "\e[u"
       end
 
       alias_previous rc_a
