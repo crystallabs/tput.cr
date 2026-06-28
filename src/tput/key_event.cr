@@ -162,12 +162,12 @@ class Tput
       return nil unless press? || repeat?
 
       case final
-      when 'A' then nav Key::Up, Key::ShiftUp, Key::AltUp, Key::CtrlUp
-      when 'B' then nav Key::Down, Key::ShiftDown, Key::AltDown, Key::CtrlDown
-      when 'C' then nav Key::Right, Key::ShiftRight, Key::AltRight, Key::CtrlRight
-      when 'D' then nav Key::Left, Key::ShiftLeft, Key::AltLeft, Key::CtrlLeft
-      when 'H' then nav Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome
-      when 'F' then nav Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd
+      when 'A', 'B', 'C', 'D', 'H', 'F'
+        # Cursor/Home/End keys; the base/shift/alt/ctrl table is shared with the
+        # legacy parser (`Key.csi_letter_keys`), `nav` applies this event's mods.
+        if keys = Key.csi_letter_keys final
+          nav(*keys)
+        end
       when '~' then tilde_key
       when 'u' then u_key
       else          nil
@@ -190,20 +190,16 @@ class Tput
     end
 
     private def tilde_key : Key?
-      base = case number
-             when 1, 7 then {Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome}
-             when 2    then {Key::Insert, Key::ShiftInsert, Key::AltInsert, Key::CtrlInsert}
-             when 3    then {Key::Delete, Key::ShiftDelete, Key::AltDelete, Key::CtrlDelete}
-             when 4, 8 then {Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd}
-             when 5    then {Key::PageUp, Key::ShiftPageUp, Key::AltPageUp, Key::CtrlPageUp}
-             when 6    then {Key::PageDown, Key::ShiftPageDown, Key::AltPageDown, Key::CtrlPageDown}
-             else           nil
-             end
       # The navigation keys carry distinct modified members (via `nav`); the
       # function keys (`\e[15;1:1~` F5, …) do not — delegate them to the same
       # `Key.function_key` table the legacy parser uses, so a kitty-reported
-      # F-key still projects onto the legacy `Key` channel.
-      base ? nav(*base) : Key.function_key(number)
+      # F-key still projects onto the legacy `Key` channel. The navigation table
+      # itself is shared with the legacy parser (`Key.csi_tilde_keys`).
+      if keys = Key.csi_tilde_keys number
+        nav(*keys)
+      else
+        Key.function_key(number)
+      end
     end
 
     # Maps a `u`-final key number to a legacy `Key`, applying ctrl/alt the way

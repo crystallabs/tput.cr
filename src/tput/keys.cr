@@ -442,14 +442,30 @@ class Tput
     # (2 = shift, 3 = alt, 5 = ctrl). Modifiers apply to the navigation keys;
     # function keys ignore them (no distinct modified-F-key members exist).
     private def self.csi_tilde_key(n : Int32?, mod : Int32?) : Key?
+      if keys = csi_tilde_keys n
+        csi_modified mod, *keys
+      else
+        function_key n # F1-F20 / Menu (no distinct modified members)
+      end
+    end
+
+    # The four legacy navigation members (base / shift / alt / ctrl) for a
+    # `\e[ N ~` parameter, or `nil` for the function keys (which have no distinct
+    # modified members — see `#function_key`).
+    #
+    # Shared by the legacy `#csi_tilde_key` and the enhanced-keyboard projection
+    # `KeyEvent#tilde_key` (like `#function_key`), so both routes agree on the
+    # navigation-key mapping; each route then applies its own modifier scheme
+    # (`#csi_modified` vs `KeyEvent#nav`).
+    def self.csi_tilde_keys(n : Int32?) : Tuple(Key, Key, Key, Key)?
       case n
-      when 1, 7 then csi_modified mod, Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome
-      when 2    then csi_modified mod, Key::Insert, Key::ShiftInsert, Key::AltInsert, Key::CtrlInsert
-      when 3    then csi_modified mod, Key::Delete, Key::ShiftDelete, Key::AltDelete, Key::CtrlDelete
-      when 4, 8 then csi_modified mod, Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd
-      when 5    then csi_modified mod, Key::PageUp, Key::ShiftPageUp, Key::AltPageUp, Key::CtrlPageUp
-      when 6    then csi_modified mod, Key::PageDown, Key::ShiftPageDown, Key::AltPageDown, Key::CtrlPageDown
-      else           function_key n # F1-F20 / Menu (no distinct modified members)
+      when 1, 7 then {Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome}
+      when 2    then {Key::Insert, Key::ShiftInsert, Key::AltInsert, Key::CtrlInsert}
+      when 3    then {Key::Delete, Key::ShiftDelete, Key::AltDelete, Key::CtrlDelete}
+      when 4, 8 then {Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd}
+      when 5    then {Key::PageUp, Key::ShiftPageUp, Key::AltPageUp, Key::CtrlPageUp}
+      when 6    then {Key::PageDown, Key::ShiftPageDown, Key::AltPageDown, Key::CtrlPageDown}
+      else           nil
       end
     end
 
@@ -488,14 +504,26 @@ class Tput
     # `\e[ [1;mod] <letter>` cursor / Home / End keys, with optional modifier
     # (2 = shift, 3 = alt, 5 = ctrl).
     private def self.csi_letter_key(final : Int32, mod : Int32?) : Key?
+      if keys = csi_letter_keys final.chr
+        csi_modified mod, *keys
+      end
+    end
+
+    # The four legacy cursor/Home/End members (base / shift / alt / ctrl) for a
+    # `\e[ … <letter>` final, or `nil` for any other letter.
+    #
+    # Shared by the legacy `#csi_letter_key` and the enhanced-keyboard projection
+    # `KeyEvent#to_legacy_key` (like `#csi_tilde_keys`), so both routes agree on
+    # the cursor-key mapping; each route then applies its own modifier scheme.
+    def self.csi_letter_keys(final : Char) : Tuple(Key, Key, Key, Key)?
       case final
-      when 'F'.ord then csi_modified mod, Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd
-      when 'H'.ord then csi_modified mod, Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome
-      when 'A'.ord then csi_modified mod, Key::Up, Key::ShiftUp, Key::AltUp, Key::CtrlUp
-      when 'B'.ord then csi_modified mod, Key::Down, Key::ShiftDown, Key::AltDown, Key::CtrlDown
-      when 'C'.ord then csi_modified mod, Key::Right, Key::ShiftRight, Key::AltRight, Key::CtrlRight
-      when 'D'.ord then csi_modified mod, Key::Left, Key::ShiftLeft, Key::AltLeft, Key::CtrlLeft
-      else              nil
+      when 'A' then {Key::Up, Key::ShiftUp, Key::AltUp, Key::CtrlUp}
+      when 'B' then {Key::Down, Key::ShiftDown, Key::AltDown, Key::CtrlDown}
+      when 'C' then {Key::Right, Key::ShiftRight, Key::AltRight, Key::CtrlRight}
+      when 'D' then {Key::Left, Key::ShiftLeft, Key::AltLeft, Key::CtrlLeft}
+      when 'H' then {Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome}
+      when 'F' then {Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd}
+      else          nil
       end
     end
 
