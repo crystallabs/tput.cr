@@ -273,7 +273,12 @@ class Tput
 
       # Save Cursor Locally
       def lsave_cursor(key = :local)
-        @_saved[key] = CursorState.new @cursor, @cursor_hidden
+        # `@cursor` is a mutable `Point` (a reference type), so the saved state
+        # must hold a *copy* — exactly as `#save_cursor` does with `@cursor.dup`.
+        # Storing the live `@cursor` aliased the saved position to the cursor
+        # itself, so every later move mutated the "saved" point in place and
+        # `#lrestore_cursor` would restore the *current* position, not the saved one.
+        @_saved[key] = CursorState.new @cursor.dup, @cursor_hidden
       end
 
       # Restore Cursor Locally

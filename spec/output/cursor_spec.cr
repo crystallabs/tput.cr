@@ -295,6 +295,29 @@ describe Tput::Output::Cursor do
     end
   end
 
+  describe "lsave_cursor / lrestore_cursor (local save)" do
+    # `@cursor` is a mutable `Point` (reference type), so the local save must
+    # store a *copy*. Storing the live cursor aliased the saved state to the
+    # cursor itself: a later move mutated the "saved" point in place, so the
+    # restore returned the current position instead of the saved one.
+    it "restores the position captured at save time, not the latest one" do
+      x.t.cup 8, 9; x.o
+      x.t.lsave_cursor("local")
+
+      # Move away after saving; this must NOT disturb the saved state.
+      x.t.cup 2, 3; x.o
+      x.t.cursor.x.should eq 3
+      x.t.cursor.y.should eq 2
+
+      x.t.lrestore_cursor("local")
+      # The local restore re-issues a cup to the saved position; drain it from
+      # the shared buffer so it does not leak into the next example.
+      x.o.should eq "\e[9;10H"
+      x.t.cursor.x.should eq 9
+      x.t.cursor.y.should eq 8
+    end
+  end
+
   describe "dynamic_cursor_color" do
     it "works with terminfo" do
       x.t.dynamic_cursor_color "blue"
