@@ -1053,32 +1053,171 @@ class Tput
       SteadyVBar    = 6
     end
 
+    # GUI mouse-pointer shapes settable via xterm's `OSC 22 ; Pt ST`
+    # (see `Tput::Output#mouse_cursor_shape`). `#cursor_name` yields the
+    # on-the-wire name handed to the terminal.
+    #
+    # Naming — where a shape exists in both Qt's `Qt::CursorShape` and the X11
+    # cursor font (`X11/cursorfont.h`), the **Qt name is the primary member and
+    # the X11 cursor-font name is an alias** (e.g. `ArrowCursor`/`LeftPtr`,
+    # `PointingHandCursor`/`Hand2`, `IBeamCursor`/`Xterm`). The other cursor-font
+    # glyphs are present under their cursorfont names, and the Qt-only shapes
+    # (diagonal resizes, drag, open/closed hand, forbidden, busy, blank,
+    # splitters) under their Qt names.
+    #
+    # On-the-wire mapping (`#cursor_name`):
+    #   * Members backed by a cursor-font glyph emit that glyph name — understood
+    #     wherever OSC 22 works.
+    #   * Qt-only shapes with no cursor-font glyph emit an Xcursor *theme* name
+    #     (e.g. `left_ptr_watch`, `dnd-move`); these resolve only on terminals
+    #     whose OSC 22 falls back to the Xcursor library (recent xterm).
+    #
+    # The change applies only while the pointer is over the terminal window and
+    # is best-effort: xterm honors it, most other emulators (and Wayland-native
+    # terminals) ignore it; an Xcursor theme may remap the glyph. OSC 22 has no
+    # custom-bitmap option, so Qt's `BitmapCursor`/`CustomCursor` (which name a
+    # caller-supplied pixmap rather than a shape) have no equivalent here.
     enum MouseCursorShape
-      ArrowCursor
-      UpArrowCursor
-      CrossCursor
-      WaitCursor
-      IBeamCursor
-      SizeVerCursor
-      SizeHorCursor
-      SizeBDiagCursor
+      XCursor
+      Arrow
+      BasedArrowDown
+      BasedArrowUp
+      Boat
+      Bogosity
+      BottomLeftCorner
+      BottomRightCorner
+      BottomSide
+      BottomTee
+      BoxSpiral
+      UpArrowCursor # X11 center_ptr
+      CenterPtr = UpArrowCursor
+      Circle
+      Clock
+      CoffeeMug
+      Cross
+      CrossReverse
+      CrossCursor # X11 crosshair
+      Crosshair = CrossCursor
+      DiamondCross
+      Dot
+      Dotbox
+      DoubleArrow
+      DraftLarge
+      DraftSmall
+      DrapedBox
+      Exchange
+      SizeAllCursor # X11 fleur
+      Fleur = SizeAllCursor
+      Gobbler
+      Gumby
+      Hand1
+      PointingHandCursor # X11 hand2
+      Hand2 = PointingHandCursor
+      Heart
+      Icon
+      IronCross
+      ArrowCursor # X11 left_ptr
+      LeftPtr = ArrowCursor
+      LeftSide
+      LeftTee
+      LeftButton
+      LlAngle
+      LrAngle
+      Man
+      MiddleButton
+      Mouse
+      Pencil
+      Pirate
+      Plus
+      WhatsThisCursor # X11 question_arrow
+      QuestionArrow = WhatsThisCursor
+      RightPtr
+      RightSide
+      RightTee
+      RightButton
+      RtlLogo
+      Sailboat
+      SbDownArrow
+      SizeHorCursor # X11 sb_h_double_arrow
+      SbHDoubleArrow = SizeHorCursor
+      SbLeftArrow
+      SbRightArrow
+      SbUpArrow
+      SizeVerCursor # X11 sb_v_double_arrow
+      SbVDoubleArrow = SizeVerCursor
+      Shuttle
+      Sizing
+      Spider
+      Spraycan
+      Star
+      Target
+      Tcross
+      TopLeftArrow
+      TopLeftCorner
+      TopRightCorner
+      TopSide
+      TopTee
+      Trek
+      UlAngle
+      Umbrella
+      UrAngle
+      WaitCursor # X11 watch
+      Watch = WaitCursor
+      IBeamCursor # X11 xterm
+      Xterm = IBeamCursor
+
+      # Qt shapes with no X11 cursor-font glyph; `#cursor_name` emits an Xcursor
+      # theme name for these. Offset to leave the cursor-font block contiguous.
+      SizeBDiagCursor = 100
       SizeFDiagCursor
-      SizeAllCursor
-      BlankCursor
       SplitVCursor
       SplitHCursor
-      PointingHandCursor
+      BlankCursor
       ForbiddenCursor
-      WhatsThisCursor
       BusyCursor
       OpenHandCursor
       ClosedHandCursor
       DragCopyCursor
       DragMoveCursor
       DragLinkCursor
-      LastCursor         = DragLinkCursor
-      BitmapCursor       = 24
-      CustomCursor       = 25
+
+      # The name OSC 22 expects on the wire for this shape.
+      def cursor_name : String
+        case self
+        # Qt-primary members backed by a cursor-font glyph (their `to_s` is the
+        # Qt name, so the cursor-font name is mapped explicitly).
+        when ArrowCursor        then "left_ptr"
+        when UpArrowCursor      then "center_ptr"
+        when CrossCursor        then "crosshair"
+        when WaitCursor         then "watch"
+        when IBeamCursor        then "xterm"
+        when SizeVerCursor      then "sb_v_double_arrow"
+        when SizeHorCursor      then "sb_h_double_arrow"
+        when SizeAllCursor      then "fleur"
+        when PointingHandCursor then "hand2"
+        when WhatsThisCursor    then "question_arrow"
+        # Qt-only shapes -> Xcursor theme names (narrower terminal support).
+        when SizeBDiagCursor    then "size_bdiag"
+        when SizeFDiagCursor    then "size_fdiag"
+        when SplitVCursor       then "split_v"
+        when SplitHCursor       then "split_h"
+        when BlankCursor        then "blank"
+        when ForbiddenCursor    then "crossed_circle"
+        when BusyCursor         then "left_ptr_watch"
+        when OpenHandCursor     then "openhand"
+        when ClosedHandCursor   then "closedhand"
+        when DragCopyCursor     then "copy"
+        when DragMoveCursor     then "dnd-move"
+        when DragLinkCursor     then "dnd-link"
+        # X11 names the cursor font spells irregularly.
+        when XCursor            then "X_cursor"
+        when LeftButton         then "leftbutton"
+        when MiddleButton       then "middlebutton"
+        when RightButton        then "rightbutton"
+        # Remaining members: the underscored member name IS the cursor-font name.
+        else to_s.underscore
+        end
+      end
     end
 
     enum TextFormat

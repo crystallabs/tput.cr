@@ -334,3 +334,54 @@ describe "OSC 52 + synchronized output writers" do
     s.should contain "\e[?2026l" # emitted even though the block raised
   end
 end
+
+describe "OSC 22 mouse-pointer shape" do
+  it "emits the X11 cursor-font name for a shape (enum form)" do
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.mouse_cursor_shape(Tput::MouseCursorShape::PointingHandCursor).should be_true
+    t.flush
+    buf.to_s.should eq "\e]22;hand2\a"
+  end
+
+  it "accepts a raw cursor name string" do
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.mouse_cursor_shape("watch")
+    t.flush
+    buf.to_s.should eq "\e]22;watch\a"
+  end
+
+  it "resets to the terminal default with an empty Pt" do
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.reset_mouse_cursor_shape.should be_true
+    t.flush
+    buf.to_s.should eq "\e]22;\a"
+  end
+
+  it "maps a Qt-only shape to its Xcursor theme name" do
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.mouse_cursor_shape(Tput::MouseCursorShape::BusyCursor)
+    t.flush
+    buf.to_s.should eq "\e]22;left_ptr_watch\a"
+  end
+end
+
+describe Tput::MouseCursorShape do
+  it "aliases the X11 cursor-font name to the Qt-primary member" do
+    Tput::MouseCursorShape::LeftPtr.should eq Tput::MouseCursorShape::ArrowCursor
+    Tput::MouseCursorShape::Hand2.should eq Tput::MouseCursorShape::PointingHandCursor
+    # `to_s` prefers the Qt name (the primary member).
+    Tput::MouseCursorShape::LeftPtr.to_s.should eq "ArrowCursor"
+  end
+
+  it "yields the cursor-font wire name via #cursor_name" do
+    Tput::MouseCursorShape::ArrowCursor.cursor_name.should eq "left_ptr"
+    Tput::MouseCursorShape::IBeamCursor.cursor_name.should eq "xterm"
+    Tput::MouseCursorShape::XCursor.cursor_name.should eq "X_cursor"
+    Tput::MouseCursorShape::LeftButton.cursor_name.should eq "leftbutton"
+    Tput::MouseCursorShape::SbDownArrow.cursor_name.should eq "sb_down_arrow"
+  end
+end

@@ -239,6 +239,38 @@ class Tput
       def set_pointer_mode(param = "")
         _print { |io| io << "\e[>" << param << 'p' }
       end
+
+      # OSC 22 ; Pt ST
+      #   Set the *GUI mouse-pointer* shape (the windowing-system cursor the user
+      #   moves with the mouse) while the pointer is over this terminal window.
+      #   This is distinct from `Output::Cursor#cursor_shape`, which styles the
+      #   blinking text caret.
+      #
+      # *Pt* is an X11 cursor-font glyph name — pass a `MouseCursorShape` (whose
+      # `#cursor_name` supplies it) or the raw name string. The change is
+      # per-window and best-effort: xterm honors OSC 22, but most other emulators
+      # (and Wayland-native terminals) ignore it, and an Xcursor theme may remap
+      # the glyph. It persists only until `#reset_mouse_cursor_shape`, the pointer
+      # leaves the window, or the program exits — so a caller that sets it should
+      # arrange to reset it (e.g. on mouse-out).
+      def mouse_cursor_shape(shape : MouseCursorShape)
+        mouse_cursor_shape shape.cursor_name
+      end
+
+      # :ditto:
+      def mouse_cursor_shape(name : String)
+        _tprint "\e]22;#{name}\x07"
+        true
+      end
+
+      # OSC 22 ; ST
+      #   Restore the GUI mouse-pointer to the terminal's default shape, undoing a
+      #   previous `#mouse_cursor_shape`. xterm treats an empty *Pt* as "reset to
+      #   default"; terminals without OSC 22 ignore it.
+      def reset_mouse_cursor_shape
+        _tprint "\e]22;\x07"
+        true
+      end
     end
   end
 end
