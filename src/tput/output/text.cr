@@ -307,6 +307,7 @@ class Tput
         parts = [] of String
         color = nil
         m = nil
+        multi = false
 
         case param
         when Array
@@ -315,12 +316,21 @@ class Tput
           # spec carries no attribute, so treat it like a blank/"normal" one
           # (consistent with the `parts[0].blank?` -> "normal" handling below).
           param = (parts.empty? || parts[0].blank?) ? "normal" : parts[0]
+          multi = parts.size > 1
         when String
           param = param.blank? ? "normal" : param
-          parts = param.split /\s*[,;]\s*/
+          # Only the multi-component form needs splitting. The overwhelmingly
+          # common single spec — including every truecolor "#rrggbb fg" — has no
+          # `,`/`;` separator, so skip the regex scan and the 1-element Array it
+          # would allocate. Byte-identical: a separator-less string splits to
+          # exactly `[param]` (size 1), which already fell straight through here.
+          if param.includes?(',') || param.includes?(';')
+            parts = param.split /\s*[,;]\s*/
+            multi = parts.size > 1
+          end
         end
 
-        if parts.size > 1
+        if multi
           used = {} of String => Bool
           outbuf = [] of String
 
