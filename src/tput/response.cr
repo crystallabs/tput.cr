@@ -363,17 +363,30 @@ class Tput
       result
     end
 
-    # Reads CSI replies from *io* until one whose final byte is in *finals*
-    # arrives, returning `{params, final}`. Unrelated bytes and non-matching
-    # sequences are skipped. Returns `nil` on timeout/EOF.
-    private def read_csi_reply(io : IO, timeout : Time::Span, finals : String) : {String, Char}?
+    # Scans *io* for the next `ESC <intro>` sequence, skipping unrelated bytes,
+    # then yields to read and parse that sequence's body. The block returns a
+    # parsed reply to stop and return it, or `nil` to keep scanning for another
+    # matching sequence (CSI/OSC filter by final byte / prefix; DCS takes the
+    # first). Returns `nil` on timeout/EOF.
+    private def read_reply(io : IO, timeout : Time::Span, intro : Char, & : -> T?) : T? forall T
       loop do
         b = probe_read_byte(io, timeout) || return nil
         next unless b == 0x1b_u8
         nb = probe_read_byte(io, timeout) || return nil
-        next unless nb == '['.ord
+        next unless nb == intro.ord
+        if result = yield
+          return result
+        end
+      end
+    end
+
+    # Reads CSI replies from *io* until one whose final byte is in *finals*
+    # arrives, returning `{params, final}`. Unrelated bytes and non-matching
+    # sequences are skipped. Returns `nil` on timeout/EOF.
+    private def read_csi_reply(io : IO, timeout : Time::Span, finals : String) : {String, Char}?
+      read_reply(io, timeout, '[') do
         params, final = probe_read_csi io, timeout
-        return {params, final} if finals.includes? final
+        finals.includes?(final) ? {params, final} : nil
       end
     end
 
@@ -388,13 +401,9 @@ class Tput
     # Reads OSC replies from *io* until one whose payload starts with *prefix*
     # arrives, returning the payload. Returns `nil` on timeout/EOF.
     private def read_osc_reply(io : IO, timeout : Time::Span, prefix : String) : String?
-      loop do
-        b = probe_read_byte(io, timeout) || return nil
-        next unless b == 0x1b_u8
-        nb = probe_read_byte(io, timeout) || return nil
-        next unless nb == ']'.ord
+      read_reply(io, timeout, ']') do
         data = probe_read_osc io, timeout
-        return data if data.starts_with? prefix
+        data.starts_with?(prefix) ? data : nil
       end
     end
 
@@ -405,13 +414,7 @@ class Tput
     # XTVERSION wants the first `>|` payload, while XTGETTCAP merges several
     # replies until every requested name is answered.
     private def read_dcs_reply(io : IO, timeout : Time::Span) : String?
-      loop do
-        b = probe_read_byte(io, timeout) || return nil
-        next unless b == 0x1b_u8
-        nb = probe_read_byte(io, timeout) || return nil
-        next unless nb == 'P'.ord # DCS
-        return probe_read_dcs io, timeout
-      end
+      read_reply(io, timeout, 'P') { probe_read_dcs io, timeout }
     end
   end
 end
