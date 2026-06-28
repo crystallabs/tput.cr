@@ -254,6 +254,7 @@ class Tput
         when 101 then Key::Clear
         when 91  then read_bracket_csi { yield } # `\e[[…` putty / Cygwin function keys
         when 63  then read_private_csi { yield } # `\e[?…` private report (color scheme 997)
+        when 62  then read_gt_csi { yield }      # `\e[>…` secondary-DA-style reply (DA2)
         when 48..57
           # A numeric CSI parameter list: a navigation/function key (`\e[3~`,
           # `\e[1;5C`, …) or a URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
@@ -356,6 +357,25 @@ class Tput
       end
       return nil unless final
       return Key::ColorScheme if final == 'n'.ord && p0 == 997
+      nil
+    end
+
+    # Reads and discards a `\e[>… <final>` report. The `>` prefix introduces the
+    # secondary device-attributes reply (`\e[> Pp ; Pv ; Pc c`) and similar
+    # `>`-parameterized terminal replies; none map to a key. Like
+    # `#read_private_csi` drains `\e[?…` reports, the *whole* sequence — through
+    # the final byte (`0x40`-`0x7E`) — must be consumed, otherwise a reply that
+    # arrives mid-`#listen` leaks its parameter list and final byte out as a
+    # burst of phantom keystrokes. Always returns `nil`.
+    private def self.read_gt_csi(&) : Key?
+      loop do
+        o = yield.try(&.ord)
+        break unless o
+        # Parameter bytes (`0x30`-`0x3F`: digits, `;`, `:`) and CSI intermediates
+        # (`0x20`-`0x2F`) continue the sequence; the first byte outside that
+        # range is the final byte (consumed here) — or a stray that also ends it.
+        break unless 0x20 <= o <= 0x3F
+      end
       nil
     end
 

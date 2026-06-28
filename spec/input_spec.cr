@@ -150,6 +150,14 @@ describe Tput::Input do
       feed("\e[4;1$y").should be_empty
     end
 
+    it "fully consumes a secondary device-attributes (DA2) reply" do
+      # `\e[>0;276;0c` is the DA2 reply (`CSI > Pp ; Pv ; Pc c`). The `>` prefix
+      # introduces no key, but if it arrives mid-`listen` the whole parameter
+      # list and final `c` must be consumed; truncating at `>` would leak
+      # `0;276;0c` as a burst of phantom keystrokes.
+      feed("\e[>0;276;0c").should be_empty
+    end
+
     it "does not mistake C1 control characters for AltEnter/ShiftTab" do
       # U+0080/U+0081 are C1 controls (arriving as UTF-8 0xC2 0x80 / 0xC2 0x81);
       # their codepoints 128/129 must not collide with the auto-numbered
