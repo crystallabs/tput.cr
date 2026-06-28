@@ -178,9 +178,14 @@ class Tput
     # Only single shift/alt/ctrl map to distinct members; anything else (a
     # combination, or super/meta) falls back to the unmodified key.
     private def nav(base : Key, shift : Key, alt : Key, ctrl : Key) : Key
-      return shift if mods == Modifiers::Shift
-      return alt if mods == Modifiers::Alt
-      return ctrl if mods == Modifiers::Ctrl
+      # Ignore the ambient lock state (CapsLock / NumLock), which the kitty
+      # protocol reports as ordinary modifier bits: NumLock in particular is
+      # commonly on, and without this every modified nav key (Ctrl+Up, …) would
+      # fail the exact-match below and fall through to its unmodified base.
+      effective = mods & ~(Modifiers::CapsLock | Modifiers::NumLock)
+      return shift if effective == Modifiers::Shift
+      return alt if effective == Modifiers::Alt
+      return ctrl if effective == Modifiers::Ctrl
       base
     end
 

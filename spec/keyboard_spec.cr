@@ -151,6 +151,22 @@ describe Tput::KeyEvent do
     feed_kb("\e[A")[0][1].should eq Tput::Key::Up
     feed_kb("\e[1;5C")[0][1].should eq Tput::Key::CtrlRight
   end
+
+  describe "ignores ambient lock state in the modifier parameter" do
+    # The kitty scheme folds CapsLock (64) and NumLock (128) into the modifier
+    # bitmask, so the on-the-wire parameter is `1 + ctrl(4) + lock`. A modified
+    # nav key must still project to its modified legacy member rather than
+    # degrading to the base key just because a lock happens to be on.
+    it "via the legacy final form" do
+      feed_kb("\e[1;69A")[0][1].should eq Tput::Key::CtrlUp    # Ctrl + CapsLock
+      feed_kb("\e[1;133C")[0][1].should eq Tput::Key::CtrlRight # Ctrl + NumLock
+      feed_kb("\e[1;66H")[0][1].should eq Tput::Key::ShiftHome  # Shift + CapsLock
+    end
+
+    it "via the enhanced final form (kitty event type)" do
+      feed_kb("\e[1;69:1A")[0][1].should eq Tput::Key::CtrlUp # Ctrl + CapsLock press
+    end
+  end
 end
 
 describe "Tput::Probe keyboard detection" do
