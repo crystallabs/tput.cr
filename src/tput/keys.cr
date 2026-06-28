@@ -328,7 +328,12 @@ class Tput
         case o
         when 48..57 then cur = cur * 10 + (o - 48)
         when 59     then p0 = cur if p0.nil?; cur = 0
-        else             p0 = cur if p0.nil?; final = o; break
+        when 32..47
+          # A CSI *intermediate* byte (0x20-0x2F), e.g. the `$` in a DECRPM
+          # reply `\e[? Ps ; Pm $ y`. It is not the final byte, so keep
+          # scanning; otherwise the real final (`y`) is left unread and leaks
+          # out of `#listen` as a phantom keystroke.
+        else p0 = cur if p0.nil?; final = o; break
         end
       end
       return nil unless final

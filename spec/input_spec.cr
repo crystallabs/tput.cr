@@ -131,6 +131,14 @@ describe Tput::Input do
       one_key("\ez").should eq Tput::Key::AltZ
     end
 
+    it "fully consumes a private DECRPM reply ending in an intermediate byte" do
+      # `\e[?2026;1$y` (a DECRPM reply to a DECRQM mode query) ends in `$ y`,
+      # where `$` is a CSI intermediate byte and `y` the real final. The whole
+      # sequence must be consumed; truncating at `$` would leave `y` to surface
+      # as a phantom keystroke.
+      feed("\e[?2026;1$y").should be_empty
+    end
+
     it "does not mistake C1 control characters for AltEnter/ShiftTab" do
       # U+0080/U+0081 are C1 controls (arriving as UTF-8 0xC2 0x80 / 0xC2 0x81);
       # their codepoints 128/129 must not collide with the auto-numbered
