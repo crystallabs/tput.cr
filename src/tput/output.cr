@@ -124,11 +124,29 @@ class Tput
     end
 
     def _print(&block : IO -> Nil)
+      # Yield the block directly instead of forwarding it (`_buffer_print &block`
+      # / `_with_io &block`). Passing a block to a method that captures it as a
+      # typed `&block : IO -> Nil` parameter materializes it as a heap `Proc`
+      # closure (~16 B/call); since this block-form `_print` is on the per-frame
+      # render hot path (every cursor move emits via it), that allocation showed
+      # up at 16 B/op. Inlining the dispatch keeps the block a true yield (no
+      # closure), so the fast paths allocate nothing. The branch logic below is
+      # byte-for-byte the same as `_buffer_print(&block)` + `_with_io`.
       if use_buffer?
-        _buffer_print &block
+        if @_exiting
+          flush
+          yield(@ret || @output)
+        else
+          # As in `_with_io`, a diverter (`@ret`) wins over the internal buffer so
+          # block-form fast-path output is captured rather than buffered/leaked.
+          yield(@ret || @_buf)
+        end
       else
-        _with_io &block
+        # `@ret` (a diverter, e.g. Crysterm's `divert`) takes precedence over
+        # `@output`, matching `_owrite`/`_oprint`.
+        yield(@ret || @output)
       end
+      true
     end
 
     # def _write(bytes : Bytes)
