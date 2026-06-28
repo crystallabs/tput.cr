@@ -577,61 +577,53 @@ class Tput
       nil
     end
 
-    # Parses a DEC-locator report (`\e[ Cb ; Cx ; Cy ; Cp & w`) already captured
-    # in *sequence* (the numeric-CSI key parser consumed the whole report through
-    # its `w` final). Mirrors `#read_urxvt`'s fixed-locals scan but terminates on
-    # the `&` intermediate and requires all four parameters.
-    private def read_dec(sequence) : Mouse::Event?
-      p0 = p1 = p2 = p3 = 0
+    # Scans the `;`-separated decimal parameters of a numeric-CSI mouse report
+    # already captured in *sequence* (from index 2) into a fixed four-slot
+    # buffer. Scanning stops at the first byte in *terminators* — the report's
+    # intermediate/final (`&` for DEC-locator, `M`/`m` for URxvt) — or at any
+    # other non-digit, non-`;` byte. Returns the buffer paired with the number of
+    # parameters seen, so the caller can verify it got enough. The buffer is a
+    # `StaticArray` returned by value, keeping this allocation-free on the hot
+    # mouse-drag path (where these reports arrive in bursts).
+    private def scan_csi_mouse_params(sequence, terminators : String) : Tuple(StaticArray(Int32, 4), Int32)
+      params = StaticArray(Int32, 4).new(0)
       idx = 0
       cur = 0
       i = 2
       while i < sequence.size
         c = sequence[i]
-        case c
-        when '0'..'9' then cur = cur * 10 + (c.ord - '0'.ord)
-        when ';', '&'
-          case idx
-          when 0 then p0 = cur
-          when 1 then p1 = cur
-          when 2 then p2 = cur
-          when 3 then p3 = cur
-          end
-          idx += 1; cur = 0
-          break if c == '&' # `&` closes Cp; `w` follows
-        else break
+        if '0' <= c <= '9'
+          cur = cur * 10 + (c.ord - '0'.ord)
+        elsif c == ';' || terminators.includes?(c)
+          params[idx] = cur if idx < 4
+          idx += 1
+          cur = 0
+          break if c != ';' # a terminator (intermediate/final) closes the report
+        else
+          break
         end
         i += 1
       end
+      {params, idx}
+    end
+
+    # Parses a DEC-locator report (`\e[ Cb ; Cx ; Cy ; Cp & w`) already captured
+    # in *sequence* (the numeric-CSI key parser consumed the whole report through
+    # its `w` final). Terminates on the `&` intermediate and requires all four
+    # parameters.
+    private def read_dec(sequence) : Mouse::Event?
+      params, idx = scan_csi_mouse_params sequence, "&"
       return nil unless idx >= 4 # Cb ; Cx ; Cy ; Cp (the `&` closes Cp -> idx 4)
-      Mouse.parse_dec p0, p1, p2, p3
+      Mouse.parse_dec params[0], params[1], params[2], params[3]
     end
 
     # Parses a URxvt report (`\e[ Cb ; Cx ; Cy M`) already captured in
-    # *sequence* (the key parser consumed the whole parameter list).
+    # *sequence* (the key parser consumed the whole parameter list). Terminates
+    # on the `M`/`m` final and requires three parameters.
     private def read_urxvt(sequence) : Mouse::Event?
-      p0 = p1 = p2 = 0
-      idx = 0
-      cur = 0
-      i = 2
-      while i < sequence.size
-        c = sequence[i]
-        case c
-        when '0'..'9' then cur = cur * 10 + (c.ord - '0'.ord)
-        when ';', 'M', 'm'
-          case idx
-          when 0 then p0 = cur
-          when 1 then p1 = cur
-          when 2 then p2 = cur
-          end
-          idx += 1; cur = 0
-          break if c != ';'
-        else break
-        end
-        i += 1
-      end
+      params, idx = scan_csi_mouse_params sequence, "Mm"
       return nil unless idx >= 3 # Cb ; Cx ; Cy
-      Mouse.parse_urxvt p0, p1, p2
+      Mouse.parse_urxvt params[0], params[1], params[2]
     end
   end
 end
