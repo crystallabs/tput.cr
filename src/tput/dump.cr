@@ -54,11 +54,23 @@ class Tput
     end
   end
 
+  # Builds a `{name => Detection}` map, pairing each stringified value with its
+  # recorded provenance from *sources* (or `"unknown"` when none). Shared by the
+  # emulator and feature static-detection reports, whose values come from a
+  # literal `{name => value}` map.
+  # :nodoc:
+  def self.build_detections(pairs, sources : Hash(String, String)) : Hash(String, Detection)
+    h = Hash(String, Detection).new
+    pairs.each do |name, value|
+      h[name] = Detection.new value.to_s, (sources[name]? || "unknown")
+    end
+    h
+  end
+
   class Emulator
     # `{name => Detection}` for every emulator flag, with provenance.
     def detections : Hash(String, Tput::Detection)
-      h = Hash(String, Tput::Detection).new
-      {
+      Tput.build_detections({
         "osxterm"    => osxterm?,
         "iterm2"     => iterm2?,
         "xfce"       => xfce?,
@@ -69,10 +81,7 @@ class Tput
         "xterm"      => xterm?,
         "tmux"       => tmux?,
         "screen"     => screen?,
-      }.each do |name, value|
-        h[name] = Tput::Detection.new value.to_s, (sources[name]? || "unknown")
-      end
-      h
+      }, sources)
     end
   end
 
@@ -80,29 +89,25 @@ class Tput
     # `{name => Detection}` for the statically-detected features (env vars,
     # terminfo, constructor options).
     def static_detections : Hash(String, Tput::Detection)
-      h = Hash(String, Tput::Detection).new
-      {
-        "unicode"          => unicode?.to_s,
-        "broken_acs"       => broken_acs?.to_s,
-        "pc_rom_charset"   => pc_rom_charset?.to_s,
-        "magic_cookie"     => magic_cookie?.to_s,
-        "padding"          => padding?.to_s,
-        "ansi_cursor"      => ansi_cursor?.to_s,
-        "ansi_hpa"         => ansi_hpa?.to_s,
-        "ansi_vpa"         => ansi_vpa?.to_s,
-        "ansi_edit"        => ansi_edit?.to_s,
-        "ansi_scroll"      => ansi_scroll?.to_s,
-        "setbuf"           => setbuf?.to_s,
-        "number_of_colors" => number_of_colors.to_s,
-        "truecolor"        => truecolor?.to_s,
-        "color"            => color?.to_s,
-        "cursor_style"     => cursor_style?.to_s,
-        "cursor_color"     => cursor_color?.to_s,
+      Tput.build_detections({
+        "unicode"          => unicode?,
+        "broken_acs"       => broken_acs?,
+        "pc_rom_charset"   => pc_rom_charset?,
+        "magic_cookie"     => magic_cookie?,
+        "padding"          => padding?,
+        "ansi_cursor"      => ansi_cursor?,
+        "ansi_hpa"         => ansi_hpa?,
+        "ansi_vpa"         => ansi_vpa?,
+        "ansi_edit"        => ansi_edit?,
+        "ansi_scroll"      => ansi_scroll?,
+        "setbuf"           => setbuf?,
+        "number_of_colors" => number_of_colors,
+        "truecolor"        => truecolor?,
+        "color"            => color?,
+        "cursor_style"     => cursor_style?,
+        "cursor_color"     => cursor_color?,
         "acsc"             => "#{acsc.size} mapping(s)",
-      }.each do |name, value|
-        h[name] = Tput::Detection.new value, (sources[name]? || "unknown")
-      end
-      h
+      }, sources)
     end
 
     # `{name => Detection}` for the live-probed features. Values read
