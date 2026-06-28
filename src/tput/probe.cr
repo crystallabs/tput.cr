@@ -63,13 +63,9 @@ class Tput
           probe_write build_probe_query
           result = probe_consume @input, timeout
 
-          # Restore the cursor saved by DECSC (`\e7`) at the head of the query,
-          # then erase from there to the end of the display (`\e[J`). This wipes
-          # the `…` width probe and any printable fragments a non-conforming
-          # terminal echoed from our DCS/DECRQSS queries (e.g. `$qm`, `$q q`),
-          # including any that wrapped onto following lines, and leaves the
-          # cursor exactly where it was before probing.
-          probe_write "\e8\e[J"
+          # Clean up everything the probe drew, leaving the cursor exactly where
+          # it was before probing. See `build_probe_cleanup`.
+          probe_write build_probe_cleanup
         end
       end
 
@@ -200,6 +196,25 @@ class Tput
         io << "\e[>c"      # DA2: secondary attributes (`CSI > … c`), before DA1
         io << "\e[c"       # DA1: capabilities + terminator
       end
+    end
+
+    # Builds the post-probe cleanup string, run after all replies are consumed.
+    #
+    # The width probe printed `…` at *column 1* (`build_probe_query` does `\r…`),
+    # so the leftover sits to the left of wherever the cursor was when probing
+    # started. A bare `\e8\e[J` (restore-then-erase) erases only from the saved
+    # *column* rightward, so it would leave the `…` (and any fragments a
+    # non-conforming terminal echoed from `\r` onward) on screen whenever probing
+    # did not begin at column 1.
+    #
+    # So: `\e8` restores to the cursor saved by DECSC (`\e7`) at the head of the
+    # query — bringing us back to the saved *line* even if echoed output wrapped
+    # the cursor downward; `\r` parks at column 1 of that line; `\e[J` erases from
+    # there to the end of the display, wiping the `…` and any echoed fragments
+    # (`$qm`, `$q q`, …), including ones that wrapped onto following lines; and a
+    # final `\e8` puts the cursor back exactly where it was before probing.
+    def build_probe_cleanup : String
+      "\e8\r\e[J\e8"
     end
 
     # Writes *data* straight to the terminal, bypassing the output buffer,

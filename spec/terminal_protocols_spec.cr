@@ -202,6 +202,16 @@ describe "Tput::Probe XTVERSION / DA2" do
     t.features.in_band_resize?.should be_false
   end
 
+  it "cleans up the width probe from column 1, not the saved column" do
+    # The `…` width probe is drawn at column 1 (`\r…`). The cleanup must restore
+    # the cursor, return to column 1, and only then erase to the end of display —
+    # otherwise the `…` survives whenever probing did not start at column 1.
+    cleanup = new_tput.build_probe_cleanup
+    cleanup.should eq "\e8\r\e[J\e8"
+    cleanup.index("\r").not_nil!.should be < cleanup.index("\e[J").not_nil! # CR before erase
+    cleanup.ends_with?("\e8").should be_true                                # cursor restored last
+  end
+
   it "applies every color in a combined OSC 4 palette reply" do
     # xterm answers a batched `OSC 4 ; 0 ; ? ; 1 ; ? ; …` query with a single
     # reply "of the same form", carrying all the index;color pairs at once.
