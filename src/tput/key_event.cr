@@ -194,7 +194,11 @@ class Tput
              when 6    then {Key::PageDown, Key::ShiftPageDown, Key::AltPageDown, Key::CtrlPageDown}
              else           nil
              end
-      base ? nav(*base) : nil
+      # The navigation keys carry distinct modified members (via `nav`); the
+      # function keys (`\e[15;1:1~` F5, …) do not — delegate them to the same
+      # `Key.function_key` table the legacy parser uses, so a kitty-reported
+      # F-key still projects onto the legacy `Key` channel.
+      base ? nav(*base) : Key.function_key(number)
     end
 
     # Maps a `u`-final key number to a legacy `Key`, applying ctrl/alt the way

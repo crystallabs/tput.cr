@@ -394,27 +394,39 @@ class Tput
       when 4, 8 then csi_modified mod, Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd
       when 5    then csi_modified mod, Key::PageUp, Key::ShiftPageUp, Key::AltPageUp, Key::CtrlPageUp
       when 6    then csi_modified mod, Key::PageDown, Key::ShiftPageDown, Key::AltPageDown, Key::CtrlPageDown
-      when 11   then Key::F1 # rxvt
-      when 12   then Key::F2 # rxvt
-      when 13   then Key::F3 # rxvt
-      when 14   then Key::F4 # rxvt
-      when 15   then Key::F5
-      when 17   then Key::F6
-      when 18   then Key::F7
-      when 19   then Key::F8
-      when 20   then Key::F9
-      when 21   then Key::F10
-      when 23   then Key::F11
-      when 24   then Key::F12
-      when 25   then Key::F13
-      when 26   then Key::F14
-      when 28   then Key::F15
-      when 29   then Key::Menu # `\e[29~` is Menu on modern xterm (historically F16)
-      when 31   then Key::F17
-      when 32   then Key::F18
-      when 33   then Key::F19
-      when 34   then Key::F20
-      else           nil
+      else           function_key n # F1-F20 / Menu (no distinct modified members)
+      end
+    end
+
+    # Maps a `\e[ N ~` parameter for the function keys F1-F20 / Menu. These have
+    # no distinct *modified* enum members, so any held modifier is intentionally
+    # ignored (matching the legacy parser). `nil` for any non-function-key `n`.
+    #
+    # Shared by the legacy `#csi_tilde_key` and the enhanced-keyboard projection
+    # `KeyEvent#tilde_key`, so both routes agree on the function-key numbering.
+    def self.function_key(n : Int32?) : Key?
+      case n
+      when 11 then Key::F1 # rxvt
+      when 12 then Key::F2 # rxvt
+      when 13 then Key::F3 # rxvt
+      when 14 then Key::F4 # rxvt
+      when 15 then Key::F5
+      when 17 then Key::F6
+      when 18 then Key::F7
+      when 19 then Key::F8
+      when 20 then Key::F9
+      when 21 then Key::F10
+      when 23 then Key::F11
+      when 24 then Key::F12
+      when 25 then Key::F13
+      when 26 then Key::F14
+      when 28 then Key::F15
+      when 29 then Key::Menu # `\e[29~` is Menu on modern xterm (historically F16)
+      when 31 then Key::F17
+      when 32 then Key::F18
+      when 33 then Key::F19
+      when 34 then Key::F20
+      else         nil
       end
     end
 

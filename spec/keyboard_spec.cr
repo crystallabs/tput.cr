@@ -137,6 +137,14 @@ describe Tput::KeyEvent do
       kev.not_nil!.release?.should be_true
       key.should be_nil
     end
+
+    it "projects a kitty function key (tilde + event type) onto the legacy Key" do
+      feed_kb("\e[15;1:1~")[0][1].should eq Tput::Key::F5  # F5 press
+      feed_kb("\e[15;5:1~")[0][1].should eq Tput::Key::F5  # Ctrl+F5 (no modified-F member)
+      feed_kb("\e[29;1:1~")[0][1].should eq Tput::Key::Menu
+      feed_kb("\e[34;1:1~")[0][1].should eq Tput::Key::F20
+      feed_kb("\e[15;1:3~")[0][1].should be_nil            # release must not project
+    end
   end
 
   it "does not disturb legacy (non-enhanced) parsing" do
