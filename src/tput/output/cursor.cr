@@ -276,18 +276,24 @@ class Tput
       # ESC 8 Restore Cursor (DECRC).
       def restore_cursor(key : String? = nil, hide : Bool = false)
         return lrestore_cursor(key, hide) if key
+        put(&.rc?) || _print "\e8" if _restore_saved_cursor
+      end
+
+      # Restores `@cursor` from `@saved_cursor` (the position captured by
+      # `#save_cursor`/`#save_cursor_a`) and reports whether a saved position
+      # existed. Clamps the restored point back onto the screen: it was in bounds
+      # when captured, but the screen may have shrunk since (terminal resize), and
+      # the terminal's own DECRC/SCORC clamps to the current size — so without this
+      # `@cursor` would be left out of bounds and desync from where the terminal
+      # actually places the cursor, breaking every later relative move.
+      private def _restore_saved_cursor : Bool
         if sp = @saved_cursor
           @cursor.x = sp.x
           @cursor.y = sp.y
-          # Clamp the restored position back onto the screen, exactly as the
-          # SCORC counterpart `#restore_cursor_a` already does. The saved point
-          # was in bounds when captured, but the screen may have shrunk since
-          # (terminal resize); the terminal's own DECRC clamps to the current
-          # size, so without this `@cursor` would be left out of bounds and
-          # desync from where the terminal actually places the cursor — breaking
-          # every later relative move computed from it.
           _ncoords
-          put(&.rc?) || _print "\e8"
+          true
+        else
+          false
         end
       end
 
@@ -410,11 +416,7 @@ class Tput
       # CSI u
       #   Restore cursor (ANSI.SYS).
       def restore_cursor_a
-        if sp = @saved_cursor
-          @cursor.x = sp.x
-          @cursor.y = sp.y
-          _ncoords
-        end
+        _restore_saved_cursor
         # Counterpart of `#save_cursor_a`: emit the literal ANSI.SYS `CSI u`
         # (SCORC), not the terminfo `rc` cap (DECRC, `\e8`) which restores the
         # state saved by DECSC rather than SCOSC.

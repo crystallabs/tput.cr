@@ -6,6 +6,14 @@ class Tput
       include Crystallabs::Helpers::Logging
       include Macros
 
+      # ICH/DCH/ECH share one emit shape: prefer the parametric edit cap as a
+      # fast path only when the terminal isn't verified standard-ANSI, otherwise
+      # the literal `CSI <param> <final>` is both the ANSI fast path and the
+      # universal fallback. They differ only in their cap and final CSI byte.
+      private macro _emit_char_edit(param, cap, final)
+        (!features.ansi_edit? && put(&.{{cap}}?({{param}}))) || _print { |io| io << "\e[" << {{param}} << {{final}} }
+      end
+
       # # Prints text with optional attributes
       # def print(txt, attr = nil)
       #  # XXX to_slice until it's replaced with direct io write
@@ -130,22 +138,10 @@ class Tput
         end
 
         @cursor.x = 0
-        # TODO - maybe it is not enough to check the bottom of the screen, but
-        # scroll region?
-        _x, y = _adjust_xy_rel 0, 1
-        @cursor.y += y
-
-        # TODO the IFs
-        # if y == 1
-        #  # We can proceed
         # NOTE: This is a line feed (LF), so always emit a literal "\n".
         # The terminfo `nel` capability is NOT used here: it encodes NEL
         # (next-line, e.g. "\eE" on xterm), which is a distinct operation.
-        _print "\n"
-        # else
-        #  # We are already on the last line; either ignoring the sequence
-        #  # or scrolling should happen.
-        # end
+        _advance_line "\n"
       end
 
       alias_previous feed, lf, next_line, nel
@@ -156,18 +152,7 @@ class Tput
       #
       # Aliases: vtab, vt
       def vertical_tab
-        # TODO - maybe it is not enough to check the bottom of the screen, but
-        # scroll region?
-        _x, y = _adjust_xy_rel 0, 1
-        @cursor.y += y
-
-        # TODO the IFs
-        # if y == 1
-        #  # We can proceed
-        _print "\v"
-        # else
-        #  # We are already on the last line; what happens?
-        # end
+        _advance_line "\v"
       end
 
       alias_previous vtab, vt
@@ -178,21 +163,24 @@ class Tput
       #
       # Aliases: ff
       def form_feed
+        _advance_line "\f"
+      end
+
+      alias_previous ff
+
+      # Moves the cursor one row down (within scroll limits, via `_adjust_xy_rel`)
+      # without changing the column, then emits *seq*. Shared by the one-row-down
+      # controls `#line_feed` ("\n"), `#vertical_tab` ("\v") and `#form_feed`
+      # ("\f"), which differ only in the byte written.
+      private def _advance_line(seq : String)
         # TODO - maybe it is not enough to check the bottom of the screen, but
         # scroll region?
         _x, y = _adjust_xy_rel 0, 1
         @cursor.y += y
-
-        # TODO the IFs
-        # if y == 1
-        #  # We can proceed
-        _print "\f"
-        # else
-        #  # We are already on the last line; what happens?
-        # end
+        # TODO the IFs: when y == 1 we proceed; otherwise we are already on the
+        # last line and either the sequence is ignored or scrolling should happen.
+        _print seq
       end
-
-      alias_previous ff
 
       # Places a tab stop at the current cursor position.
       #
@@ -554,7 +542,7 @@ class Tput
         # move) — doing so desynced the tracked cursor from the terminal's real
         # cursor on every insert. `delete_chars`/`erase_character` correctly leave
         # the cursor alone too.
-        (!features.ansi_edit? && put(&.ich?(param))) || _print { |io| io << "\e[" << param << '@' }
+        _emit_char_edit param, ich, '@'
       end
 
       alias_previous ich
@@ -603,7 +591,7 @@ class Tput
       def delete_chars(param = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        (!features.ansi_edit? && put(&.dch?(param))) || _print { |io| io << "\e[" << param << 'P' }
+        _emit_char_edit param, dch, 'P'
       end
 
       alias_previous dch
@@ -614,7 +602,7 @@ class Tput
       def erase_character(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        (!features.ansi_edit? && put(&.ech?(param))) || _print { |io| io << "\e[" << param << 'X' }
+        _emit_char_edit param, ech, 'X'
       end
 
       alias_previous ech, erase_chars
