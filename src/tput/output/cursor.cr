@@ -508,21 +508,28 @@ class Tput
       # CSI Ps ; Ps f
       #   Horizontal and Vertical Position [row;column] (default =
       #   [1,1]) (HVP).
-      # TODO adjust_xy
       def hv_position(row = 0, col = 0)
-        @cursor.y = row
-        @cursor.x = col
-        _ncoords
+        # Adjust through `_adjust_xy_abs` (like the CUP twin `#cursor_position`)
+        # rather than assigning the raw args and only clamping the tracked cursor
+        # afterwards with `_ncoords`. The old code emitted the *unadjusted*
+        # `row`/`col` while storing the clamped position, so:
+        #   * negative args — which mean "from the bottom/right edge", exactly as
+        #     in `#cursor_position` — produced a malformed CSI with a negative
+        #     parameter (e.g. `hv_position(-1, -1)` -> "\e[0;0f"/"\e[-?…"), and
+        #   * out-of-range args desynced the emitted sequence from `@cursor`.
+        # Now the wire output and `@cursor` always agree, and edge-relative
+        # (negative) coordinates work as they do for `#cursor_position`.
+        @cursor.x, @cursor.y = _adjust_xy_abs col, row
         # D O:
         # Does not exist (?):
         # put(&.hvp", row, col);
         # Mirror the terminfo `cup` branch (emits `CSI r;c H`); only the
         # no-terminfo fallback uses the `CSI r;c f` (HVP) form.
         if features.ansi_cursor?
-          _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << 'H' }
+          _print { |io| io << "\e[" << @cursor.y + 1 << ';' << @cursor.x + 1 << 'H' }
         else
-          put(&.cup?(row, col)) ||
-            _print { |io| io << "\e[" << row + 1 << ';' << col + 1 << 'f' }
+          put(&.cup?(@cursor.y, @cursor.x)) ||
+            _print { |io| io << "\e[" << @cursor.y + 1 << ';' << @cursor.x + 1 << 'f' }
         end
       end
 

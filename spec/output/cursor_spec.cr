@@ -178,6 +178,39 @@ describe Tput::Output::Cursor do
     end
   end
 
+  describe "hv_position (HVP)" do
+    # HVP is the twin of CUP (#cursor_position), so it must adjust its
+    # coordinates the same way: clamp/​wrap through _adjust_xy_abs and emit the
+    # *resulting* cursor. Previously it emitted the raw, unadjusted args while
+    # storing the clamped position — desyncing the wire output from @cursor, and
+    # turning edge-relative (negative) coordinates into a malformed CSI.
+    it "tracks the cursor and emits the adjusted position (terminfo)" do
+      x.t.cup 0, 0; x.o
+      x.t.hv_position(5, 7).should be_true
+      x.o.should eq "\e[6;8H"
+      x.t.cursor.y.should eq 5
+      x.t.cursor.x.should eq 7
+    end
+
+    it "wraps negative coordinates from the bottom/right edge, like cursor_position" do
+      x.t.cup 0, 0; x.o
+      # -1,-1 -> bottom-right cell (row 23, col 79 on the 24x80 default screen),
+      # emitted as a valid CSI — not "\e[0;0H" / a negative parameter.
+      x.t.hv_position(-1, -1).should be_true
+      x.o.should eq "\e[24;80H"
+      x.t.cursor.y.should eq 23
+      x.t.cursor.x.should eq 79
+    end
+
+    it "clamps out-of-range coordinates so @cursor matches the wire output" do
+      x.t.cup 0, 0; x.o
+      x.t.hv_position(100_000, 100_000).should be_true
+      x.o.should eq "\e[24;80H"
+      x.t.cursor.y.should eq 23
+      x.t.cursor.x.should eq 79
+    end
+  end
+
   describe "cursor_shape" do
     it "uses a 0/1 boolean for iTerm2 BlinkingCursorEnabled (not DECSCUSR 1/2)" do
       x.t.features.cursor_style = true
