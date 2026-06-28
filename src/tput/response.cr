@@ -288,6 +288,7 @@ class Tput
     # per capability; kitty/foot batch them into one).
     def read_xtgettcap_response(io : IO, timeout : Time::Span, expected : Int32 = 1) : Hash(String, String)?
       result = nil
+      answered = 0
       loop do
         b = probe_read_byte(io, timeout) || break
         next unless b == 0x1b_u8
@@ -297,20 +298,25 @@ class Tput
         # Expect `<status>+r<body>`, status '1' (valid) or '0' (invalid).
         next unless payload.size >= 3 && payload[1] == '+' && payload[2] == 'r'
         result ||= {} of String => String
+        # xterm answers a multi-name query with one DCS reply *per* capability —
+        # a valid `1+r name=value` for a recognized name, or `0+r name` for one
+        # it doesn't know — while kitty/foot batch every recognized name into a
+        # single `1+r …` reply. Collect values from the valid replies, but count
+        # names answered across *both* statuses: an unrecognized capability
+        # (`0+r`) must still count, or the read would block until the timeout
+        # waiting for a reply that already arrived. The early-out keeps a single
+        # batched reply returning immediately, so the common case never blocks.
+        pairs = payload[3..].split(';')
         if payload[0] == '1'
-          payload[3..].split(';').each do |pair|
+          pairs.each do |pair|
             name, sep, value = pair.partition('=')
             next if name.empty?
             decoded = (n = unhex name) ? n : next
             result[decoded] = sep.empty? ? "" : (unhex(value) || "")
           end
         end
-        # xterm answers a multi-name query with one DCS reply *per* capability,
-        # while kitty/foot batch them all into one. Keep reading and merging
-        # replies until every requested name is accounted for. The early-out
-        # means a single batched reply still returns immediately (no extra
-        # blocking read), so this never slows the common case.
-        break if result.size >= expected
+        answered += pairs.size
+        break if answered >= expected
       end
       result
     end

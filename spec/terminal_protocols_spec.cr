@@ -3,6 +3,26 @@ require "./spec_helper"
 # Bracketed paste (2004), in-band resize (2048), and the XTVERSION / DA2 / OSC 52
 # / DECRQM query+reply parsers.
 
+# An IO backed by a fixed buffer that *raises* once the buffer is exhausted
+# instead of returning EOF. Lets a spec assert a reader does not read past the
+# bytes it should need (here: that XTGETTCAP stops once all names are answered,
+# rather than blocking on a further reply that a real terminal would never send).
+private class StrictEofIO < IO
+  def initialize(data : String)
+    @mem = IO::Memory.new data
+  end
+
+  def read(slice : Bytes) : Int32
+    n = @mem.read slice
+    raise IO::EOFError.new("read past end of canned data") if n == 0 && slice.size > 0
+    n
+  end
+
+  def write(slice : Bytes) : Nil
+    raise NotImplementedError.new("StrictEofIO is read-only")
+  end
+end
+
 private def feed_all(data : String)
   events = [] of {Char, Tput::Key?, String?, Tput::Resize?}
   t = Tput.new \
@@ -250,6 +270,20 @@ describe "Tput::Response parsers" do
     t = new_tput
     io = IO::Memory.new("\eP0+r#{"TN".to_slice.hexstring}\e\\")
     t.read_xtgettcap_response(io, 1.second).should eq({} of String => String)
+  end
+
+  it "stops reading once every requested name has been answered, including 0+r rejections" do
+    t = new_tput
+    # xterm answers each queried name separately: a valid `1+r` for the one it
+    # recognizes and a `0+r` echoing the one it doesn't. Both account for a
+    # requested name, so a 2-name query must finish after the second reply
+    # rather than blocking for a third that will never come. `StrictEofIO`
+    # raises instead of returning EOF, so any read past the two replies fails.
+    tn = "TN".to_slice.hexstring
+    name = "xterm".to_slice.hexstring
+    rejected = "XX".to_slice.hexstring
+    io = StrictEofIO.new("\eP1+r#{tn}=#{name}\e\\\eP0+r#{rejected}\e\\")
+    t.read_xtgettcap_response(io, 1.second, 2).should eq({"TN" => "xterm"})
   end
 end
 
