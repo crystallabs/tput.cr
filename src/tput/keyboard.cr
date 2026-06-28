@@ -103,7 +103,15 @@ class Tput
         flags = KittyKeyboard::DisambiguateEscapeCodes
         if events
           flags |= KittyKeyboard::ReportEventTypes | KittyKeyboard::ReportAllKeys |
-                   KittyKeyboard::ReportAlternateKeys # so shifted codepoints arrive
+                   KittyKeyboard::ReportAlternateKeys |  # so shifted codepoints arrive
+                   KittyKeyboard::ReportAssociatedText   # so the text a key *produces* arrives
+          # `ReportAllKeys` makes the terminal report every key — plain typing
+          # included — as an escape code, and it then stops sending the decoded
+          # text bytes. Without `ReportAssociatedText` the `u` events carry only
+          # the raw key codepoint, so `KeyEvent#char` can do no better than guess
+          # from the base/shifted codepoint — wrong for non-US layouts, AltGr,
+          # dead keys, and caps lock. Requesting the associated text is what lets
+          # `#char` reproduce what the user actually typed (see `KeyEvent#char`).
         end
         enable_kitty_keyboard flags
       when .modify_other_keys?

@@ -230,13 +230,30 @@ describe "Tput::Keyboard selection" do
     t.features.kitty_keyboard_flags = 0
     t.enable_keyboard_protocol(events: true).should eq Tput::KeyboardProtocol::Kitty
     t.flush
-    # Disambiguate(1) | ReportEventTypes(2) | ReportAlternateKeys(4) | ReportAllKeys(8) == 15
-    buf.to_s.should contain "\e[>15u"
+    # Disambiguate(1)|ReportEventTypes(2)|ReportAlternateKeys(4)|ReportAllKeys(8)|
+    # ReportAssociatedText(16) == 31
+    buf.to_s.should contain "\e[>31u"
     t.keyboard_protocol.should eq Tput::KeyboardProtocol::Kitty
 
     t.disable_keyboard_protocol
     t.flush
     buf.to_s.should contain "\e[<u"
     t.keyboard_protocol.should be_nil
+  end
+
+  it "requests associated text alongside report-all-keys" do
+    # `ReportAllKeys` makes the terminal report *every* key as an escape code and
+    # stop sending the decoded text bytes; without `ReportAssociatedText` the
+    # text a key produces (non-US layouts, AltGr, dead keys, caps lock) is lost
+    # and `KeyEvent#char` can only guess from the base/shifted codepoint. The two
+    # flags must therefore be requested together.
+    buf = IO::Memory.new
+    t = new_tput(output: buf)
+    t.features.kitty_keyboard_flags = 0
+    t.enable_keyboard_protocol(events: true)
+    t.flush
+    flags = buf.to_s.match(/\e\[>(\d+)u/).not_nil![1].to_i
+    (flags & Tput::KittyKeyboard::ReportAllKeys.value).should_not eq 0
+    (flags & Tput::KittyKeyboard::ReportAssociatedText.value).should_not eq 0
   end
 end

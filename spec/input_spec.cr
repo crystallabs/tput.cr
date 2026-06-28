@@ -256,6 +256,14 @@ describe Tput::Input do
       feed("\e[1;2w").should be_empty
     end
 
+    it "fully consumes a single-parameter DEC-locator report (CSI Pe & w)" do
+      # The "locator unavailable/outside" report is a *single*-parameter
+      # `CSI Pe & w` (e.g. `\e[0&w`). The `&` intermediate must not be mistaken
+      # for the final just because only one parameter preceded it; doing so left
+      # the `w` unread, leaking it as a phantom `w` keystroke.
+      feed("\e[0&w").should be_empty
+    end
+
     it "parses focus in/out" do
       one_mouse("\e[I").not_nil!.action.should eq Tput::Mouse::Action::Focus
       one_mouse("\e[O").not_nil!.action.should eq Tput::Mouse::Action::Blur

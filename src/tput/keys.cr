@@ -308,24 +308,28 @@ class Tput
         when 58 then colon = true # ':' kitty sub-parameter (enhanced marker)
         when 59                   # ';' parameter separator: nothing extra
         when 32..47
-          # A CSI *intermediate* byte (0x20-0x2F). In a multi-parameter
-          # sequence it is a genuine intermediate — e.g. the `$` of a
-          # *non-private* DECRPM reply `CSI Ps ; Pm $ y` (the answer to
-          # `#request_ansi_mode`/`decrqm`) — so keep scanning for the real final
-          # (`y`). Mistaking `$` for the final would leave `y` unread and leak
-          # it as a phantom keystroke (and mis-decode the reply as an rxvt
-          # ShiftXXX nav key). The private form `\e[?…$y` is handled separately
-          # in `read_private_csi`.
+          # A CSI *intermediate* byte (0x20-0x2F).
           #
-          # A *single*-parameter `$` is instead rxvt's shift-modified
-          # navigation terminator (`\e[3$` = Shift+Delete), which legitimately
-          # ends the sequence — `count` is still 1 there (only this byte closed
-          # a parameter), so fall through and treat it as the final.
-          if count >= 2
-            # `&` (0x26) is the intermediate of a DEC-locator report
-            # (`CSI Cb ; Cx ; Cy ; Cp & w`); record it so the trailing `w` final
-            # routes to the mouse parser rather than being dropped.
-            locator = true if o == '&'.ord
+          # `&` (0x26) is *always* the intermediate of a DEC-locator report
+          # (`CSI Pe [; Cx ; Cy ; Cp] & w`) — rxvt's modified-nav finals use `$`
+          # and `^`, never `&` — so record it and keep scanning for the trailing
+          # `w` regardless of how many parameters preceded it. In particular the
+          # "locator unavailable/outside" report is the *single*-parameter
+          # `CSI Pe & w` (e.g. `\e[0&w`); treating its `&` as the final would
+          # leave the `w` unread and leak it as a phantom keystroke.
+          #
+          # Other intermediates are kept only in a multi-parameter sequence —
+          # e.g. the `$` of a *non-private* DECRPM reply `CSI Ps ; Pm $ y` (the
+          # answer to `#request_ansi_mode`/`decrqm`), where mistaking `$` for the
+          # final would leak `y` and mis-decode the reply as an rxvt ShiftXXX nav
+          # key. (The private form `\e[?…$y` is handled in `read_private_csi`.)
+          # A *single*-parameter `$` is instead rxvt's shift-modified navigation
+          # terminator (`\e[3$` = Shift+Delete), which legitimately ends the
+          # sequence — `count` is still 1 there — so fall through to the final.
+          if o == '&'.ord
+            locator = true
+          elsif count >= 2
+            # genuine multi-parameter intermediate (e.g. DECRPM `$`): keep scanning
           else
             final = o
             break
