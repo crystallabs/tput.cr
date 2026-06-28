@@ -117,6 +117,33 @@ describe Tput::Output::Cursor do
     end
   end
 
+  describe "absolute positioners emit the clamped coordinate" do
+    # `_ncoords` pulls an out-of-range column/row back onto the screen, so the
+    # emitted CSI must carry the *clamped* `@cursor` value — emitting the raw
+    # `param` would desync the wire output from `@cursor` (and produce a bogus
+    # column/row for large values), just as it would for CUP/HVP.
+    it "cursor_char_absolute (cha/setx) clamps the emitted column" do
+      x.t.cup 0, 0; x.o
+      x.t.cursor_char_absolute 100_000
+      x.t.cursor.x.should eq 79
+      x.o.should eq "\e[80G"
+    end
+
+    it "cursor_line_absolute (vpa/sety) clamps the emitted row" do
+      x.t.cup 0, 0; x.o
+      x.t.cursor_line_absolute 100_000
+      x.t.cursor.y.should eq 23
+      x.o.should eq "\e[24d"
+    end
+
+    it "char_pos_absolute (hpa) clamps the emitted column (plain)" do
+      x.p.cup 0, 0; x.o
+      x.p.char_pos_absolute 100_000
+      x.p.cursor.x.should eq 79
+      x.o.should eq "\e[80`"
+    end
+  end
+
   describe "relative position helpers track the cursor" do
     # h_position_relative (hpr) must update @cursor.x just as
     # v_position_relative (vpr) updates @cursor.y; otherwise later relative

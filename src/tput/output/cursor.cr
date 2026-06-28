@@ -48,9 +48,14 @@ class Tput
       def cursor_char_absolute(param = 0)
         @cursor.x = param
         _ncoords
+        # Emit the *clamped* column (`@cursor.x`), not the raw `param`: `_ncoords`
+        # may pull an out-of-range `param` back onto the screen, so emitting the
+        # original value (and feeding it to `hpa`'s tparm) would desync the wire
+        # output from `@cursor` and produce a bogus column for large values.
+        # Mirrors the CUP/HVP setters, which already emit the adjusted coordinate.
         # Fast path: `hpa` verified standard ANSI (== this fallback), skip tparm.
-        (!features.ansi_hpa? && put(&.hpa?(param))) ||
-          _print { |io| io << "\e[" << param + 1 << 'G' }
+        (!features.ansi_hpa? && put(&.hpa?(@cursor.x))) ||
+          _print { |io| io << "\e[" << @cursor.x + 1 << 'G' }
       end
 
       alias_previous cha, setx, set_x
@@ -71,9 +76,12 @@ class Tput
         # must be 0 — the first row — matching `cursor_char_absolute`.
         @cursor.y = param
         _ncoords
+        # Emit the *clamped* row (`@cursor.y`), not the raw `param` — see the note
+        # in `#cursor_char_absolute`: `_ncoords` may clamp an out-of-range `param`,
+        # so emitting the original would desync the wire output from `@cursor`.
         # Fast path: `vpa` verified standard ANSI (== this fallback), skip tparm.
-        (!features.ansi_vpa? && put(&.vpa?(param))) ||
-          _print { |io| io << "\e[" << param + 1 << 'd' }
+        (!features.ansi_vpa? && put(&.vpa?(@cursor.y))) ||
+          _print { |io| io << "\e[" << @cursor.y + 1 << 'd' }
       end
 
       alias_previous vpa, sety, line_absolute, line_pos_absolute, set_y
@@ -446,12 +454,15 @@ class Tput
         # must be 0 — the first column — matching `cursor_char_absolute`.
         @cursor.x = param
         _ncoords
+        # Emit the *clamped* column (`@cursor.x`), not the raw `param` — see the
+        # note in `#cursor_char_absolute`: `_ncoords` may clamp an out-of-range
+        # `param`, so emitting the original would desync the wire from `@cursor`.
         # When terminfo is present its `hpa` emits the `CSI Ps G` form; only the
         # no-terminfo fallback uses `CSI Ps \``. The fast path mirrors terminfo.
         if features.ansi_hpa?
-          _print { |io| io << "\e[" << param + 1 << 'G' }
+          _print { |io| io << "\e[" << @cursor.x + 1 << 'G' }
         else
-          put(&.hpa?(param)) || _print { |io| io << "\e[" << param + 1 << '`' }
+          put(&.hpa?(@cursor.x)) || _print { |io| io << "\e[" << @cursor.x + 1 << '`' }
         end
       end
 
