@@ -17,7 +17,7 @@ class Tput
       #   ted, any locator motion will be reported.  DECELR always can-
       #   cels any prevous rectangle definition.
       def enable_filter_rectangle(*arguments)
-        _print { |io| io << "\e["; arguments.join(io, ';'); io << "'w" }
+        locator_op 'w', *arguments
       end
 
       alias_previous decefr
@@ -34,7 +34,7 @@ class Tput
       #     Ps = 3  -> report button up transitions.
       #     Ps = 4  -> do not report button up transitions.
       def set_locator_events(*arguments)
-        _print { |io| io << "\e["; arguments.join(io, ';'); io << "'{" }
+        locator_op '{', *arguments
       end
 
       alias_previous decsle
@@ -52,7 +52,7 @@ class Tput
       #     Pu = 1  <- device physical pixels.
       #     Pu = 2  <- character cells.
       def enable_locator_reporting(*arguments)
-        _print { |io| io << "\e["; arguments.join(io, ';'); io << "'z" }
+        locator_op 'z', *arguments
       end
 
       alias_previous decelr
@@ -161,6 +161,14 @@ class Tput
       private def toggle_mode(mode : Int32, on : Bool?)
         return if on.nil?
         on ? decset(mode) : decrst(mode)
+      end
+
+      # Shared framing for the DEC locator ops that take coordinate/parameter
+      # args: `CSI P… ' <final>` (DECEFR `'w`, DECSLE `'{`, DECELR `'z`). The
+      # `'` (0x27) intermediate byte mirrors `Rectangles#rectangle_op`'s `$`.
+      # Byte-identical to the inlined form.
+      private def locator_op(final : Char, *arguments)
+        _print { |io| io << "\e["; arguments.join(io, ';'); io << '\'' << final }
       end
     end
   end

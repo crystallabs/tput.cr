@@ -17,15 +17,7 @@ class Tput
       # NOTE: this emits the same sequence as `Cursor#reset_cursor_color`; both
       # names are kept for parity with the upstream API.
       def reset_colors(param = "")
-        # `put_extended` writes the terminfo `Cr` capability directly via `_write`,
-        # which bypasses the multiplexer DCS passthrough that the fallback applies
-        # through `_tprint`. Under tmux/GNU screen that would stop the reset from
-        # reaching the outer terminal, so route through the (wrapping) fallback —
-        # the inner terminal's `Cr` is irrelevant for passthrough anyway.
-        unless emulator.tmux? || emulator.screen?
-          return if put_extended("Cr", param)
-        end
-        _tprint("\e]112\x07")
+        set_dynamic_color("Cr", param, "\e]112\x07")
       end
 
       # Changes the terminal's dynamic colors. *param* is the color spec (e.g.
@@ -38,12 +30,22 @@ class Tput
       #     OSC Ps ; Pt BEL
       #       Change dynamic colors
       def dynamic_colors(param)
-        # See `#reset_colors`: avoid the direct-write `put_extended` path under a
-        # multiplexer so the OSC sequence is DCS-wrapped and forwarded outward.
+        set_dynamic_color("Cs", param, "\e]12;#{param}\x07")
+      end
+
+      # Emits a dynamic-color OSC sequence, preferring the terminfo *cap*
+      # capability and falling back to *fallback* otherwise.
+      #
+      # `put_extended` writes the terminfo capability directly via `_write`,
+      # which bypasses the multiplexer DCS passthrough that the fallback applies
+      # through `_tprint`. Under tmux/GNU screen that would stop the change from
+      # reaching the outer terminal, so route through the (wrapping) fallback —
+      # the inner terminal's capability is irrelevant for passthrough anyway.
+      private def set_dynamic_color(cap : String, param, fallback : String)
         unless emulator.tmux? || emulator.screen?
-          return if put_extended("Cs", param)
+          return if put_extended(cap, param)
         end
-        _tprint("\e]12;#{param}\x07")
+        _tprint(fallback)
       end
     end
   end
