@@ -275,6 +275,32 @@ describe Tput::Features do
     end
   end
 
+  describe "NCURSES_NO_* disable flags (magic_cookie / setbuf)" do
+    # These variables are *disable* switches: the feature is on by default and
+    # the variable's presence turns it off (like NCURSES_NO_PADDING). The old
+    # logic was inverted — it defaulted the feature to false and let the
+    # `NO_`-named variable *enable* it.
+    it "defaults magic_cookie/setbuf to true and disables them by presence" do
+      with_env({"NCURSES_NO_MAGIC_COOKIE" => nil, "NCURSES_NO_SETBUF" => nil}) do
+        f = plain_tput.features
+        f.magic_cookie?.should be_true
+        f.setbuf?.should be_true
+        f.sources["magic_cookie"].should contain "default"
+        f.sources["setbuf"].should contain "default"
+      end
+
+      # Presence of the variable disables the feature, regardless of its value
+      # ("0" must not be read as "enable").
+      with_env({"NCURSES_NO_MAGIC_COOKIE" => "0", "NCURSES_NO_SETBUF" => "1"}) do
+        f = plain_tput.features
+        f.magic_cookie?.should be_false
+        f.setbuf?.should be_false
+        f.sources["magic_cookie"].should contain "NCURSES_NO_MAGIC_COOKIE"
+        f.sources["setbuf"].should contain "NCURSES_NO_SETBUF"
+      end
+    end
+  end
+
   describe "hardware cursor live probing" do
     it "confirms cursor styling from a DECSCUSR (` q`) DECRQSS readback" do
       with_env({"TERM" => "dumb", "ITERM_SESSION_ID" => nil}) do

@@ -322,14 +322,20 @@ class Tput
       detect_ncurses_flag "magic_cookie", "NCURSES_NO_MAGIC_COOKIE"
     end
 
-    # Detects a boolean feature that is off by default and turned on by the
-    # presence (and truthy value) of an `NCURSES_NO_*` env variable, recording
-    # the env var or the default as provenance. Shared by the `magic_cookie` and
-    # `setbuf` detections.
+    # Detects a boolean feature that is *on* by default and turned *off* by the
+    # presence of an `NCURSES_NO_*` env variable, recording the env var or the
+    # default as provenance. Shared by the `magic_cookie` and `setbuf`
+    # detections.
+    #
+    # The `NCURSES_NO_*` variables are *disable* switches (their very name says
+    # "no <feature>"), so — exactly like `detect_padding`/`NCURSES_NO_PADDING`,
+    # and matching ncurses/blessed — the feature defaults to true and the
+    # variable's mere presence turns it off. The value is irrelevant:
+    # `NCURSES_NO_SETBUF` set to anything (even `"0"`) means "no setbuf".
     private def detect_ncurses_flag(feature : String, env : String) : Bool
-      v = to_b ENV[env]?, false
-      @sources[feature] = ENV[env]? ? "env #{env}" : "default (false)"
-      v
+      present = !ENV[env]?.nil?
+      @sources[feature] = present ? "env #{env} (disabled)" : "default (true)"
+      !present
     end
 
     def detect_padding
