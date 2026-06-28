@@ -376,8 +376,7 @@ class Tput
       result = nil
       with_raw_input do
         with_sync_output do
-          @output.print request
-          @output.flush
+          probe_write request
           result = yield @input
         end
       end
