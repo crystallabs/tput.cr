@@ -259,8 +259,13 @@ class Tput
     # Shared reader for an OSC or DCS control-string payload: both run until a
     # string terminator (ST = `ESC \`) or BEL and return the bytes before it. A
     # lone `ESC` not followed by `\` is kept as literal payload.
+    #
+    # Bytes are accumulated raw and decoded as UTF-8 only at the end: a payload
+    # like a window title (`get_text_params`) or terminal name (XTVERSION) may
+    # carry multi-byte characters, and decoding each byte on its own as a
+    # codepoint would turn them into Latin-1 mojibake.
     private def probe_read_string_terminated(io : IO, timeout : Time::Span) : String
-      data = String::Builder.new
+      data = IO::Memory.new
       loop do
         b = probe_read_byte io, timeout
         return data.to_s unless b
@@ -270,10 +275,10 @@ class Tput
         when 0x1b_u8 # possible ST: ESC \
           nxt = probe_read_byte io, timeout
           return data.to_s if nxt.nil? || nxt == '\\'.ord
-          data << '\e'
-          data << nxt.chr
+          data.write_byte 0x1b_u8
+          data.write_byte nxt
         else
-          data << b.chr
+          data.write_byte b
         end
       end
     end

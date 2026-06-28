@@ -80,6 +80,13 @@ describe Tput::Response do
       t.read_text_params_response(IO::Memory.new("\e]12;rgb:1111/2222/3333\e\\"), 1.second, 12)
         .should eq "rgb:1111/2222/3333"
     end
+
+    it "preserves multi-byte UTF-8 in the payload (e.g. a window title)" do
+      # The shared OSC/DCS reader must not decode each byte as its own codepoint;
+      # "é" (2 bytes) and "—" (3 bytes) have to survive intact, not become mojibake.
+      t.read_text_params_response(IO::Memory.new("\e]0;café — app\a"), 1.second, 0)
+        .should eq "café — app"
+    end
   end
 
   describe "#read_cursor_color_response" do
