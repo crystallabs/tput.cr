@@ -13,7 +13,7 @@ class Tput
     getter term : Unibilium
 
     def initialize
-      @term = Unibilium.from_env # _file "../support/xterm-256color"
+      @term = Unibilium.from_file "#{__DIR__}/../support/xterm-256color"
 
       # tput with terminfo
       @t = Tput.new \

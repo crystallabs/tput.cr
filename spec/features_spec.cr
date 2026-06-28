@@ -32,7 +32,7 @@ end
 
 # A Tput backed by the current terminfo, after *mutate* tweaks its extensions.
 def terminfo_tput(&)
-  ti = Unibilium.from_env
+  ti = Unibilium.from_file "#{__DIR__}/../support/xterm-256color"
   yield ti
   Tput.new(
     terminfo: ti,

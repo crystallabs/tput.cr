@@ -123,7 +123,7 @@ class Tput
       end
     end
 
-    def _print(&block : IO -> Nil)
+    def _print(& : IO -> Nil)
       # Yield the block directly instead of forwarding it (`_buffer_print &block`
       # / `_with_io &block`). Passing a block to a method that captures it as a
       # typed `&block : IO -> Nil` parameter materializes it as a heap `Proc`

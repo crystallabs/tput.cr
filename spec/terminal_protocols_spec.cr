@@ -208,8 +208,8 @@ describe "Tput::Probe XTVERSION / DA2" do
     # otherwise the `…` survives whenever probing did not start at column 1.
     cleanup = new_tput.build_probe_cleanup
     cleanup.should eq "\e8\r\e[J\e8"
-    cleanup.index("\r").not_nil!.should be < cleanup.index("\e[J").not_nil! # CR before erase
-    cleanup.ends_with?("\e8").should be_true                                # cursor restored last
+    cleanup.index!("\r").should be < cleanup.index!("\e[J") # CR before erase
+    cleanup.ends_with?("\e8").should be_true                # cursor restored last
   end
 
   it "applies every color in a combined OSC 4 palette reply" do

@@ -252,7 +252,7 @@ describe "Tput::Keyboard selection" do
     t.features.kitty_keyboard_flags = 0
     t.enable_keyboard_protocol(events: true)
     t.flush
-    flags = buf.to_s.match(/\e\[>(\d+)u/).not_nil![1].to_i
+    flags = buf.to_s.match!(/\e\[>(\d+)u/)[1].to_i
     (flags & Tput::KittyKeyboard::ReportAllKeys.value).should_not eq 0
     (flags & Tput::KittyKeyboard::ReportAssociatedText.value).should_not eq 0
   end

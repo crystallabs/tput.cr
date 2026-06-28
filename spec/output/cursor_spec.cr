@@ -330,7 +330,7 @@ describe Tput::Output::Cursor do
       # instance — so shrinking the screen below does not corrupt that constant
       # and leak into other examples/spec files.
       z = Tput.new(
-        terminfo: Unibilium.from_env,
+        terminfo: Unibilium.from_file("#{__DIR__}/../../support/xterm-256color"),
         input: IO::Memory.new,
         output: IO::Memory.new,
         screen_size: Tput::Size.new(80, 24))
