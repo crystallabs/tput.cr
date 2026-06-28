@@ -252,6 +252,27 @@ describe Tput::Features do
       Tput::ACSC::Data['F'][1].should eq '╠' # D_LTEE (vertical and right)
       Tput::ACSC::Data['G'][1].should eq '╣' # D_RTEE (vertical and left)
     end
+
+    # GEQUAL/LEQUAL must be keyed by their canonical VT100 acsc source chars
+    # ('z' and 'y'), the way real terminfo emits them (xterm's acs_chars carry
+    # "yyzz"). GEQUAL was once mis-keyed under '>' (its ASCII fallback glyph),
+    # so the 'z' pair found no Data entry and ≥ was silently dropped from acsc.
+    it "maps GEQUAL/LEQUAL by their canonical 'z'/'y' acsc chars" do
+      Tput::ACSC::Data.has_key?('z').should be_true # GEQUAL
+      Tput::ACSC::Data.has_key?('y').should be_true # LEQUAL
+      Tput::ACSC::Data['z'][0].should eq :GEQUAL
+      Tput::ACSC::Data['z'][1].should eq '≥'
+      # '>' is GEQUAL's ASCII fallback, never an acsc source char/key.
+      Tput::ACSC::Data.has_key?('>').should be_false
+
+      # End-to-end through parse_acs: a terminfo whose acs_chars carries the
+      # standard "yyzz" must resolve GEQUAL for 'z' (not skip it).
+      t = terminfo_tput { |ti| ti.set(Unibilium::Entry::String::Acs_chars, "yyzz") }
+      f = t.features
+      idx = f.broken_acs? ? 2 : 1
+      f.acsc['z'].should eq Tput::ACSC::Data['z'][idx].as(Char)
+      f.acsc['y'].should eq Tput::ACSC::Data['y'][idx].as(Char)
+    end
   end
 
   describe "hardware cursor live probing" do

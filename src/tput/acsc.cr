@@ -17,7 +17,7 @@ class Tput
       '.' => {:DARROW, '\u2193', 'v'},     # ↓ arrow pointing down
       'f' => {:DEGREE, '\u00b0', '\''},    # ° degree symbol
       '`' => {:DIAMOND, '\u25c6', '+'},    # ◆ diamond
-      '>' => {:GEQUAL, '\u2265', '>'},     # ≥ greater-than-or-equal-to
+      'z' => {:GEQUAL, '\u2265', '>'},     # ≥ greater-than-or-equal-to
       'q' => {:HLINE, '\u2500', '-'},      # ─ horizontal line
       'i' => {:LANTERN, '\u2603', '#'},    # ☃ lantern symbol
       ',' => {:LARROW, '\u2190', '<'},     # ← arrow pointing left
