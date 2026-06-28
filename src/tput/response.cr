@@ -262,11 +262,7 @@ class Tput
     # Parses an XTVERSION reply (`DCS > | <name> ST`) and returns `<name>`.
     def read_xtversion_response(io : IO, timeout : Time::Span) : String?
       loop do
-        b = probe_read_byte(io, timeout) || return nil
-        next unless b == 0x1b_u8
-        nb = probe_read_byte(io, timeout) || return nil
-        next unless nb == 'P'.ord # DCS
-        payload = probe_read_dcs io, timeout
+        payload = read_dcs_reply(io, timeout) || return nil
         return payload[2..] if payload.starts_with? ">|"
       end
     end
@@ -290,11 +286,7 @@ class Tput
       result = nil
       answered = 0
       loop do
-        b = probe_read_byte(io, timeout) || break
-        next unless b == 0x1b_u8
-        nb = probe_read_byte(io, timeout) || break
-        next unless nb == 'P'.ord # DCS
-        payload = probe_read_dcs io, timeout
+        payload = read_dcs_reply(io, timeout) || break
         # Expect `<status>+r<body>`, status '1' (valid) or '0' (invalid).
         next unless payload.size >= 3 && payload[1] == '+' && payload[2] == 'r'
         result ||= {} of String => String
@@ -403,6 +395,22 @@ class Tput
         next unless nb == ']'.ord
         data = probe_read_osc io, timeout
         return data if data.starts_with? prefix
+      end
+    end
+
+    # Reads the next DCS reply (`ESC P … ST`) from *io* and returns its payload,
+    # skipping unrelated bytes and non-DCS sequences. Returns `nil` on
+    # timeout/EOF. Unlike `read_csi_reply`/`read_osc_reply`, callers (XTVERSION,
+    # XTGETTCAP) loop over this themselves, since their stop condition differs:
+    # XTVERSION wants the first `>|` payload, while XTGETTCAP merges several
+    # replies until every requested name is answered.
+    private def read_dcs_reply(io : IO, timeout : Time::Span) : String?
+      loop do
+        b = probe_read_byte(io, timeout) || return nil
+        next unless b == 0x1b_u8
+        nb = probe_read_byte(io, timeout) || return nil
+        next unless nb == 'P'.ord # DCS
+        return probe_read_dcs io, timeout
       end
     end
   end
