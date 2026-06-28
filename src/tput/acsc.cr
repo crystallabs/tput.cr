@@ -45,9 +45,9 @@ class Tput
       'Q' => {:T_HLINE, '\u2501', '-'},    # ━ thick horizontal line
       'M' => {:T_LLCORNER, '\u2517', '+'}, # ┗ thick lower left corner
       'J' => {:T_LRCORNER, '\u251b', '+'}, # ┛ thick lower right corner
-      'T' => {:T_LTEE, '\u252b', '+'},     # ┫ thick tee pointing right
+      'T' => {:T_LTEE, '\u2523', '+'},     # ┣ thick tee pointing right (vertical and right)
       'N' => {:T_PLUS, '\u254b', '+'},     # ╋ thick large plus
-      'U' => {:T_RTEE, '\u2523', '+'},     # ┣ thick tee pointing left
+      'U' => {:T_RTEE, '\u252b', '+'},     # ┫ thick tee pointing left (vertical and left)
       'W' => {:T_TTEE, '\u2533', '+'},     # ┳ thick tee pointing down
       'L' => {:T_ULCORNER, '\u250f', '+'}, # ┏ thick upper left corner
       'K' => {:T_URCORNER, '\u2513', '+'}, # ┓ thick upper right corner

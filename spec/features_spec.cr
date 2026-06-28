@@ -233,6 +233,25 @@ describe Tput::Features do
       f.acscr[glyph0].should eq '0'
       f.acscr[glyphm].should eq 'm'
     end
+
+    # The left tee ("vertical and right", e.g. ├) and right tee ("vertical and
+    # left", e.g. ┤) must keep that orientation across all three weights. The
+    # heavy pair was once swapped (T_LTEE -> ┫, T_RTEE -> ┣).
+    it "maps the heavy left/right tees to the correct orientation" do
+      # Index 1 of each Data tuple is the Unicode glyph.
+
+      # Light reference orientation.
+      Tput::ACSC::Data['t'][1].should eq '├' # LTEE  (vertical and right)
+      Tput::ACSC::Data['u'][1].should eq '┤' # RTEE  (vertical and left)
+
+      # Heavy variants must match the same orientation, not be swapped.
+      Tput::ACSC::Data['T'][1].should eq '┣' # T_LTEE (vertical and right)
+      Tput::ACSC::Data['U'][1].should eq '┫' # T_RTEE (vertical and left)
+
+      # Double variants, for completeness.
+      Tput::ACSC::Data['F'][1].should eq '╠' # D_LTEE (vertical and right)
+      Tput::ACSC::Data['G'][1].should eq '╣' # D_RTEE (vertical and left)
+    end
   end
 
   describe "hardware cursor live probing" do
