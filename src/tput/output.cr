@@ -226,7 +226,14 @@ class Tput
       # bytes.copy_to _buf + @_buf.size
       # @_buf = _buf
       # @_buf.write bytes
-      args.each { |a| @_buf.write a }
+      #
+      # As in `_owrite`/`_buffer_print`, a diverter (`@ret`) wins over the
+      # internal buffer so diverted output is captured rather than leaked into
+      # `@_buf` (which would later flush to the real `@output`). Without this,
+      # a `@ret` set while buffering is enabled — the default — was honored by
+      # the block-form fast path but silently bypassed by this byte path.
+      dest = @ret || @_buf
+      args.each { |a| dest.write a }
       true
     end
 
@@ -237,8 +244,13 @@ class Tput
         return true
       end
 
+      # As in the block form below and `_oprint`, a diverter (`@ret`) wins over
+      # the internal buffer so diverted string output is captured rather than
+      # leaked into `@_buf`. Previously this args path always wrote to `@_buf`,
+      # so with buffering enabled (the default) a `@ret` set by a caller was
+      # honored by the block-form fast path yet silently bypassed here.
       # https://github.com/crystal-lang/crystal/pull/10152
-      args.join io: @_buf
+      args.join io: @ret || @_buf
       true
     end
 
