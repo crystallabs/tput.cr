@@ -40,4 +40,15 @@ describe "Tput::Coordinates#get_screen_size" do
       s.height.should eq Tput::DEFAULT_SCREEN_SIZE.height
     end
   end
+
+  it "rejects non-positive dimensions instead of producing a degenerate size" do
+    # Numerically well-formed but with a zero/negative dimension. `0` is truthy
+    # in Crystal, so these must be explicitly screened out — otherwise a 0x0 /
+    # negative `Size` slips through and breaks cursor clamping in `#_ncoords`.
+    {"0x10", "20x0", "0x0", "-5x10", "20x-5"}.each do |bad|
+      s = screen_for_env bad
+      s.width.should eq Tput::DEFAULT_SCREEN_SIZE.width
+      s.height.should eq Tput::DEFAULT_SCREEN_SIZE.height
+    end
+  end
 end

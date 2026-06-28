@@ -6,12 +6,15 @@ class Tput
     # Gets terminal/screen size as number of columns and rows.
     def get_screen_size
       r, c = ENV["TPUT_SCREEN_SIZE"]?.try { |s|
-               # Accept only a well-formed "<rows>x<cols>"; a malformed override
-               # (single number, non-numeric, junk) yields nil and falls through
-               # to real detection instead of crashing startup with an
-               # IndexError/ArgumentError.
+               # Accept only a well-formed "<rows>x<cols>" with both dimensions
+               # positive; a malformed override (single number, non-numeric, junk,
+               # or a non-positive dimension like "0x10"/"-5x10") yields nil and
+               # falls through to real detection. Note that `0` is truthy in
+               # Crystal, so an explicit `> 0` check is required — otherwise a
+               # zero/negative size would slip through and yield a degenerate
+               # `Size` that breaks cursor clamping in `#_ncoords`.
                nums = s.split('x', 2).map &.to_i?
-               if nums.size == 2 && (rr = nums[0]) && (cc = nums[1])
+               if nums.size == 2 && (rr = nums[0]) && (cc = nums[1]) && rr > 0 && cc > 0
                  {rr, cc}
                end
              } ||
