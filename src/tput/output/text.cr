@@ -515,10 +515,13 @@ class Tput
 
       # CSI Ps @
       # Insert Ps (Blank) Character(s) (default = 1) (ICH).
-      # XXX switch to adjust_xy
       def insert_chars(param = 1)
-        @cursor.x += param
-        _ncoords
+        # ICH inserts blank characters *at* the cursor and shifts the existing
+        # content to its right; the active position (the cursor) stays put. Do
+        # NOT advance `@cursor.x` here (that was copy-pasted from REP, which does
+        # move) — doing so desynced the tracked cursor from the terminal's real
+        # cursor on every insert. `delete_chars`/`erase_character` correctly leave
+        # the cursor alone too.
         (!features.ansi_edit? && put(&.ich?(param))) || _print { |io| io << "\e[" << param << '@' }
       end
 

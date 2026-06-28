@@ -428,6 +428,26 @@ describe Tput::Output::Text do
     end
   end
 
+  describe "insert_chars (ICH)" do
+    # ICH inserts blanks at the cursor and shifts content right; the cursor must
+    # NOT move (unlike REP). Advancing @cursor.x here desynced the tracked cursor
+    # from the terminal's real position on every insert.
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "leaves the cursor in place with #{t[1]}" do
+        t[0].setx 5; x.o
+        t[0].cursor.x.should eq 5
+
+        t[0].insert_chars(3).should be_true
+        x.o.should eq "\e[3@"
+        t[0].cursor.x.should eq 5
+
+        t[0].ich(2).should be_true
+        x.o.should eq "\e[2@"
+        t[0].cursor.x.should eq 5
+      end
+    end
+  end
+
   describe "insert_columns" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[1]}" do
