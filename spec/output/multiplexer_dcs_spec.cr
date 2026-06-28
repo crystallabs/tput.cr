@@ -46,4 +46,21 @@ describe "Tput#_tprint multiplexer DCS passthrough" do
     t._tprint "\e]8;;\e\\" # an ST-terminated OSC (e.g. OSC 8 hyperlink end)
     buf.to_s.should eq "\eP\e]8;;\a\e\\"
   end
+
+  # The OSC 8 begin/end markers need DCS passthrough, but the link's *display
+  # text* is ordinary content and must render in the pane — it must NOT be
+  # wrapped in the multiplexer passthrough (which would divert it to the outer
+  # terminal and drop it from the multiplexed screen).
+  it "does not wrap the hyperlink display text in the tmux passthrough" do
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.emulator.tmux = true
+    t.emulator.screen = false
+    t.hyperlink "label", "http://x"
+    t.flush
+    buf.to_s.should eq \
+      "\ePtmux;\e\e]8;;http://x\a\e\\" + # begin (wrapped)
+        "label" +                       # display text (NOT wrapped)
+        "\ePtmux;\e\e]8;;\a\e\\"         # end (wrapped)
+  end
 end

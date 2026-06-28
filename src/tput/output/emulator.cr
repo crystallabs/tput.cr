@@ -85,7 +85,13 @@ class Tput
       # OSC 8: emits *text* as a hyperlink to *uri* (begin + text + end).
       def hyperlink(text : String, uri : String, id : String? = nil) : Nil
         begin_hyperlink uri, id
-        _tprint text
+        # The *display* text is ordinary content and must be printed normally —
+        # NOT routed through `_tprint`. Only the OSC 8 begin/end markers are
+        # escape sequences that need the multiplexer's DCS passthrough; wrapping
+        # the text in it too (under tmux/screen) would hand the characters to the
+        # *outer* terminal instead of rendering them in the pane, so the link's
+        # label would vanish from the multiplexed screen.
+        _print text
         end_hyperlink
       end
 
