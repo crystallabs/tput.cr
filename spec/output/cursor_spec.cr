@@ -295,6 +295,41 @@ describe Tput::Output::Cursor do
     end
   end
 
+  describe "restore_cursor (DECRC)" do
+    # The saved point is in bounds when captured, but the screen may shrink
+    # before the restore (terminal resize). The terminal's own DECRC clamps to
+    # the new size, so the tracked `@cursor` must be clamped too — otherwise it
+    # is left out of bounds and every later relative move desyncs. Uses a fresh
+    # instance so mutating the screen size does not leak into other examples.
+    it "clamps the restored position back onto a shrunken screen" do
+      # Build a standalone Tput with its OWN Size instance — not the shared
+      # `Tput::DEFAULT_SCREEN_SIZE` constant that `Tput::Test` hands every
+      # instance — so shrinking the screen below does not corrupt that constant
+      # and leak into other examples/spec files.
+      z = Tput.new(
+        terminfo: Unibilium.from_env,
+        input: IO::Memory.new,
+        output: IO::Memory.new,
+        screen_size: Tput::Size.new(80, 24))
+      z.cup 8, 9
+
+      z.save_cursor.should be_true
+
+      # Shrink the screen below the saved position.
+      z.screen.width = 5
+      z.screen.height = 4
+
+      z.cursor.x = 0
+      z.cursor.y = 0
+
+      z.restore_cursor.should be_true
+      # Clamped to the new bounds (max x = 4, max y = 3) rather than the raw
+      # saved (9, 8).
+      z.cursor.x.should eq 4
+      z.cursor.y.should eq 3
+    end
+  end
+
   describe "lsave_cursor / lrestore_cursor (local save)" do
     # `@cursor` is a mutable `Point` (reference type), so the local save must
     # store a *copy*. Storing the live cursor aliased the saved state to the

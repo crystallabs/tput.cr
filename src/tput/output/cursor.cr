@@ -265,6 +265,14 @@ class Tput
         if sp = @saved_cursor
           @cursor.x = sp.x
           @cursor.y = sp.y
+          # Clamp the restored position back onto the screen, exactly as the
+          # SCORC counterpart `#restore_cursor_a` already does. The saved point
+          # was in bounds when captured, but the screen may have shrunk since
+          # (terminal resize); the terminal's own DECRC clamps to the current
+          # size, so without this `@cursor` would be left out of bounds and
+          # desync from where the terminal actually places the cursor — breaking
+          # every later relative move computed from it.
+          _ncoords
           put(&.rc?) || _print "\e8"
         end
       end
