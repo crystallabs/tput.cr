@@ -211,23 +211,21 @@ class Tput
       when 13  then Key::Enter
       when 9   then mods.shift? ? Key::ShiftTab : Key::Tab
       when 127 then Key::Backspace
-      when 'a'.ord..'z'.ord
-        if ctrl?
-          Key.from_value?(number - 'a'.ord + 1) # CtrlA..CtrlZ
-        elsif alt?
-          Key.from_value?(Key::AltA.value + (number - 'a'.ord))
-        else
-          nil
-        end
-      when 'A'.ord..'Z'.ord
-        lower = number - 'A'.ord + 'a'.ord
-        if ctrl?
-          Key.from_value?(lower - 'a'.ord + 1)
-        elsif alt?
-          Key.from_value?(Key::AltA.value + (lower - 'a'.ord))
-        else
-          nil
-        end
+      when 'a'.ord..'z'.ord then ctrl_alt_letter number
+      when 'A'.ord..'Z'.ord then ctrl_alt_letter number - 'A'.ord + 'a'.ord
+      else                       nil
+      end
+    end
+
+    # Maps a lowercase letter codepoint to its Ctrl-/Alt-modified legacy key
+    # (`CtrlA`..`CtrlZ` / `AltA`..`AltZ`), or `nil` when neither modifier is held
+    # (a plain letter — surfaced via `#char`). Shared by the `a`-`z` and `A`-`Z`
+    # branches of `#u_key`, which differ only in deriving this codepoint.
+    private def ctrl_alt_letter(lower : Int32) : Key?
+      if ctrl?
+        Key.from_value?(lower - 'a'.ord + 1) # CtrlA..CtrlZ
+      elsif alt?
+        Key.from_value?(Key::AltA.value + (lower - 'a'.ord))
       else
         nil
       end
