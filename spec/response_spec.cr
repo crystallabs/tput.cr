@@ -38,6 +38,18 @@ describe Tput::Response do
     it "parses an XTWINOPS 18 reply into {height, width}" do
       t.read_window_size_response(IO::Memory.new("\e[8;24;80t"), 1.second).should eq({24, 80})
     end
+
+    it "skips a non-size XTWINOPS report (shared 't' final) and matches op 8" do
+      # All XTWINOPS replies end in 't'; only the op code distinguishes them. A
+      # window-position report (`CSI 3 ; x ; y t`) must not be misread as the
+      # character size — it has to be skipped, and the real op-8 reply matched.
+      io = IO::Memory.new("\e[3;100;200t\e[8;24;80t")
+      t.read_window_size_response(io, 1.second).should eq({24, 80})
+    end
+
+    it "treats a lone non-size report as no answer" do
+      t.read_window_size_response(IO::Memory.new("\e[3;100;200t"), 1.second).should be_nil
+    end
   end
 
   describe "#read_pixel_size_response" do
@@ -51,6 +63,20 @@ describe Tput::Response do
 
     it "rejects a zero-valued reply (no real pixel grid, e.g. under tmux)" do
       t.read_pixel_size_response(IO::Memory.new("\e[6;0;0t"), 1.second).should be_nil
+    end
+
+    it "disambiguates cell size (op 6) from a stale text-area report (op 4)" do
+      # `get_cell_size_pixels` sends `CSI 16 t` and must read back only the cell
+      # report (op 6, e.g. 20x10). A leftover text-area-pixels report (op 4,
+      # e.g. 480x800) sharing the `t` final must be skipped, not returned as the
+      # cell size — otherwise the cell aspect ratio is wildly wrong.
+      io = IO::Memory.new("\e[4;480;800t\e[6;20;10t")
+      t.read_pixel_size_response(io, 1.second, 6).should eq({20, 10})
+    end
+
+    it "disambiguates text-area size (op 4) from a stale cell report (op 6)" do
+      io = IO::Memory.new("\e[6;20;10t\e[4;480;800t")
+      t.read_pixel_size_response(io, 1.second, 4).should eq({480, 800})
     end
 
     it "returns nil at EOF with no reply" do

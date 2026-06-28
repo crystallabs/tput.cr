@@ -90,7 +90,7 @@ class Tput
     # dimensions are zero (some terminals, and many multiplexers, answer with
     # `0`s when they have no real pixel grid) are treated as no answer.
     def get_text_area_size_pixels(timeout : Time::Span = RESPONSE_TIMEOUT) : {Int32, Int32}?
-      query("\e[14t", timeout) { |io| read_pixel_size_response io, timeout }
+      query("\e[14t", timeout) { |io| read_pixel_size_response io, timeout, 4 }
     end
 
     # Requests the *cell* size in pixels via XTWINOPS 16 (`CSI 16 t`) and returns
@@ -98,7 +98,7 @@ class Tput
     # source for a terminal's true cell aspect ratio. Zero-valued replies (see
     # `#get_text_area_size_pixels`) are treated as no answer.
     def get_cell_size_pixels(timeout : Time::Span = RESPONSE_TIMEOUT) : {Int32, Int32}?
-      query("\e[16t", timeout) { |io| read_pixel_size_response io, timeout }
+      query("\e[16t", timeout) { |io| read_pixel_size_response io, timeout, 6 }
     end
 
     # Requests Terminal Parameters (DECREQTPARM, `CSI Ps x`) and returns the
@@ -217,20 +217,44 @@ class Tput
       read_csi_ints io, timeout, "c"
     end
 
-    # Parses an XTWINOPS size reply (`CSI 8 ; height ; width t`).
-    def read_window_size_response(io : IO, timeout : Time::Span) : {Int32, Int32}?
-      ints = read_csi_ints(io, timeout, "t") || return nil
-      return nil unless ints.size >= 3
-      {ints[1], ints[2]}
+    # Reads the next XTWINOPS report whose leading op code is one of *codes* and
+    # returns its `{height, width}`. Every XTWINOPS reply shares the `t` final —
+    # 8 = text-area size in chars, 4 = text-area size in px, 6 = cell size in px,
+    # 3 = window position, … — so the op code is what actually distinguishes
+    # them. Filtering on it (and skipping non-matching `t`-final reports rather
+    # than returning their parameters) keeps a stale position/pixel report from
+    # being misread as the requested size. Returns `nil` on timeout/EOF.
+    private def read_xtwinops_size(io : IO, timeout : Time::Span, *codes : Int32) : {Int32, Int32}?
+      loop do
+        ints = read_csi_ints(io, timeout, "t") || return nil
+        return {ints[1], ints[2]} if ints.size >= 3 && codes.includes?(ints[0])
+      end
     end
 
-    # Parses an XTWINOPS pixel-size reply (`CSI 4 ; h ; w t` for op 14, or
-    # `CSI 6 ; h ; w t` for op 16). Shares the wire shape of a window-size
-    # reply, but rejects zero dimensions: a terminal with no real pixel grid
-    # (notably under tmux/screen) may answer the query with `0`s, which is not a
-    # usable size and would yield a nonsense aspect ratio.
+    # Parses an XTWINOPS text-area-in-characters reply (`CSI 8 ; height ; width t`).
+    def read_window_size_response(io : IO, timeout : Time::Span) : {Int32, Int32}?
+      read_xtwinops_size io, timeout, 8
+    end
+
+    # Parses an XTWINOPS pixel-size reply, accepting only the report whose op
+    # code is in *codes* — op 4 (`CSI 4 ; h ; w t`) answers `CSI 14 t`
+    # (text-area pixels), op 6 (`CSI 6 ; h ; w t`) answers `CSI 16 t` (cell
+    # size). The two are *not* interchangeable (text area ≫ a single cell), so
+    # each caller filters on its own op code; otherwise a stale report of the
+    # other kind would be returned as the requested size (the same op-code
+    # disambiguation `#read_window_size_response` applies for op 8). With no
+    # *codes* given, both are accepted (the generic wire-shape parser).
+    #
+    # Rejects zero dimensions: a terminal with no real pixel grid (notably under
+    # tmux/screen) may answer with `0`s, which is not a usable size and would
+    # yield a nonsense aspect ratio.
     def read_pixel_size_response(io : IO, timeout : Time::Span) : {Int32, Int32}?
-      h, w = read_window_size_response(io, timeout) || return nil
+      read_pixel_size_response io, timeout, 4, 6
+    end
+
+    # :ditto:
+    def read_pixel_size_response(io : IO, timeout : Time::Span, *codes : Int32) : {Int32, Int32}?
+      h, w = read_xtwinops_size(io, timeout, *codes) || return nil
       return nil unless h > 0 && w > 0
       {h, w}
     end
