@@ -361,10 +361,7 @@ class Tput
     # absent reply.
     def read_decrqm_response(io : IO, timeout : Time::Span, mode : Int32) : Bool?
       reply = read_csi_reply(io, timeout, "y") || return nil
-      ints = reply[0].tr("?$", "").split(';').map(&.to_i?)
-      return nil unless ints[0]? == mode
-      ps = ints[1]?
-      !!(ps && ps != 0)
+      probe_decrqm_recognized? reply[0], mode
     end
 
     # --- Internals ------------------------------------------------------------

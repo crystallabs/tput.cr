@@ -137,8 +137,7 @@ class Tput
           when 'y'
             # DECRQM reply (`CSI ? mode ; Ps $ y`): mode-support probe. A `Ps`
             # of 1–4 means the mode is recognized. We probe 2048 (in-band resize).
-            ints = params.tr("?$", "").split(';').map(&.to_i?)
-            if ints[0]? == 2048 && (ps = ints[1]?) && ps != 0
+            if probe_decrqm_recognized? params, 2048
               f.in_band_resize = true
               f.sources["in_band_resize"] = "probed via DECRQM (CSI ? 2048 $ p)"
             end
@@ -323,6 +322,19 @@ class Tput
     private def probe_ints(params : String) : Array(Int32)
       params = params.lstrip "?>=<"
       params.split(';').map { |p| p.to_i? || 0 }
+    end
+
+    # Interprets a DECRQM reply parameter string (`?<mode>;Ps$`) for *mode*:
+    # returns `true` if the mode is recognized (`Ps` 1–4), `false` if not
+    # recognized (`Ps` 0), `nil` if the reply concerns a different mode. The
+    # `?` private marker and `$` intermediate are stripped before parsing.
+    # Shared by the startup probe (`probe_consume`) and the on-demand
+    # `Response#read_decrqm_response`.
+    private def probe_decrqm_recognized?(params : String, mode : Int32) : Bool?
+      ints = params.tr("?$", "").split(';').map(&.to_i?)
+      return nil unless ints[0]? == mode
+      ps = ints[1]?
+      !!(ps && ps != 0)
     end
 
     # Applies one parsed OSC color reply to *f*. Recognized forms:
