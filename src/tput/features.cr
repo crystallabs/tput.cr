@@ -319,8 +319,16 @@ class Tput
     end
 
     def detect_magic_cookie
-      v = to_b ENV["NCURSES_NO_MAGIC_COOKIE"]?, false
-      @sources["magic_cookie"] = ENV["NCURSES_NO_MAGIC_COOKIE"]? ? "env NCURSES_NO_MAGIC_COOKIE" : "default (false)"
+      detect_ncurses_flag "magic_cookie", "NCURSES_NO_MAGIC_COOKIE"
+    end
+
+    # Detects a boolean feature that is off by default and turned on by the
+    # presence (and truthy value) of an `NCURSES_NO_*` env variable, recording
+    # the env var or the default as provenance. Shared by the `magic_cookie` and
+    # `setbuf` detections.
+    private def detect_ncurses_flag(feature : String, env : String) : Bool
+      v = to_b ENV[env]?, false
+      @sources[feature] = ENV[env]? ? "env #{env}" : "default (false)"
       v
     end
 
@@ -410,9 +418,7 @@ class Tput
     end
 
     def detect_setbuf
-      v = to_b ENV["NCURSES_NO_SETBUF"]?, false
-      @sources["setbuf"] = ENV["NCURSES_NO_SETBUF"]? ? "env NCURSES_NO_SETBUF" : "default (false)"
-      v
+      detect_ncurses_flag "setbuf", "NCURSES_NO_SETBUF"
     end
 
     # Detects whether the terminal supports 24-bit direct ("true") color.
