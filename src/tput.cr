@@ -271,9 +271,17 @@ class Tput
   def put(&)
     @shim.try { |s|
       yield(s).try { |data|
-        features.padding? ? _pad_write(data) : _write(data)
+        _put_write data
       }
     }
+  end
+
+  # Writes capability output, honoring the terminal's padding feature: routes
+  # through `#_pad_write` (which interprets embedded `$<...>` delays) when
+  # padding is enabled, and the plain `#_write` otherwise. Shared by `#put` and
+  # `#put_extended`.
+  private def _put_write(data)
+    features.padding? ? _pad_write(data) : _write(data)
   end
 
   # Like `#put`, but resolves a *user-defined* (extended) string capability by
@@ -296,7 +304,7 @@ class Tput
     @terminfo.try { |ti|
       ti.extensions.get_str?(name).try { |cap|
         data = ti.run(cap, *args)
-        features.padding? ? _pad_write(data) : _write(data)
+        _put_write data
         true
       }
     }
