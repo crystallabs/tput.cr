@@ -321,17 +321,11 @@ class Tput
     resize = in_band_resize_enabled?
 
     lsave_cursor :pause
-    disable_mouse if mouse
-    disable_keyboard_protocol if kbd
-    disable_bracketed_paste if paste
-    disable_in_band_resize if resize
-    normal_buffer if alt
-    show_cursor
-
-    # Make sure the restore sequences actually reach the terminal before we
-    # hand it back to cooked mode.
-    flush
-    suspend_raw_input
+    # The teardown below uses the live predicates, which still equal the locals
+    # captured just above (nothing between has changed them); the locals are kept
+    # for the resume continuation. The comment about flushing before cooked mode
+    # lives on `#_teardown_terminal`.
+    _teardown_terminal
 
     @_resume = -> {
       @_resume = nil
@@ -356,6 +350,17 @@ class Tput
   # reporting, and returns the input to cooked mode. Intended for clean
   # teardown on exit. (Listener/instance bookkeeping is the caller's concern.)
   def restore_terminal : Nil
+    _teardown_terminal
+  end
+
+  # Emits the sequences that hand the terminal back to another program: disable
+  # mouse reporting, the enhanced keyboard protocol, bracketed paste and in-band
+  # resize, leave the alternate buffer, and show the cursor — then flush so those
+  # restore sequences actually reach the terminal before `#suspend_raw_input`
+  # returns input to cooked mode. Shared by `#pause` and `#restore_terminal`;
+  # each `if` guards on the live predicate so only currently-active features are
+  # turned off.
+  private def _teardown_terminal : Nil
     disable_mouse if mouse_enabled?
     disable_keyboard_protocol if @keyboard_protocol
     disable_bracketed_paste if bracketed_paste_enabled?
