@@ -17,6 +17,26 @@ class Tput
     Meta
     CapsLock
     NumLock
+
+    # Picks among the four legacy nav-key variants (base / shift / alt / ctrl)
+    # for this modifier set, after dropping the ambient lock bits.
+    #
+    # The kitty keyboard protocol folds the active CapsLock/NumLock state into
+    # this same modifier field; NumLock in particular is commonly on, and
+    # without stripping it every modified navigation key (Ctrl+Up, Shift+Home,
+    # …) would fail the exact-match below and degrade to its unmodified base.
+    # Only a *single* shift/alt/ctrl selects a distinct member; any other
+    # combination (or super/meta) falls back to *base*.
+    #
+    # Shared by the legacy CSI parser (`Key.csi_modified`) and the
+    # enhanced-keyboard projection (`KeyEvent#nav`), so both routes agree.
+    def pick_nav(base : Key, shift : Key, alt : Key, ctrl : Key) : Key
+      effective = self & ~(CapsLock | NumLock)
+      return shift if effective == Shift
+      return alt if effective == Alt
+      return ctrl if effective == Ctrl
+      base
+    end
   end
 
   # A single, normalized **key** event — the keyboard counterpart of
@@ -178,15 +198,7 @@ class Tput
     # Only single shift/alt/ctrl map to distinct members; anything else (a
     # combination, or super/meta) falls back to the unmodified key.
     private def nav(base : Key, shift : Key, alt : Key, ctrl : Key) : Key
-      # Ignore the ambient lock state (CapsLock / NumLock), which the kitty
-      # protocol reports as ordinary modifier bits: NumLock in particular is
-      # commonly on, and without this every modified nav key (Ctrl+Up, …) would
-      # fail the exact-match below and fall through to its unmodified base.
-      effective = mods & ~(Modifiers::CapsLock | Modifiers::NumLock)
-      return shift if effective == Modifiers::Shift
-      return alt if effective == Modifiers::Alt
-      return ctrl if effective == Modifiers::Ctrl
-      base
+      mods.pick_nav base, shift, alt, ctrl
     end
 
     private def tilde_key : Key?

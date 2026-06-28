@@ -532,18 +532,12 @@ class Tput
     end
 
     private def self.csi_modified(mod : Int32?, base : Key, shift : Key, alt : Key, ctrl : Key) : Key
-      # The on-the-wire modifier parameter is `1 + bitmask`. Strip the lock bits
-      # (CapsLock = 64, NumLock = 128) before matching: terminals speaking the
-      # kitty scheme fold the active lock state into this field, and NumLock in
-      # particular is commonly on — which would otherwise degrade every modified
-      # navigation key (Ctrl+Up, Shift+Home, …) to its unmodified base.
-      m = mod ? ((mod - 1) & ~(64 | 128)) + 1 : nil
-      case m
-      when 2 then shift
-      when 3 then alt
-      when 5 then ctrl
-      else        base
-      end
+      # The on-the-wire modifier parameter is `1 + bitmask`; recover the bitmask
+      # as `Modifiers` (masking to the 8 defined bits) and let `#pick_nav` strip
+      # the lock bits and choose the variant — the same logic the enhanced
+      # projection (`KeyEvent#nav`) uses, so both routes agree.
+      m = mod ? Modifiers.from_value((mod - 1) & 0xFF) : Modifiers::None
+      m.pick_nav base, shift, alt, ctrl
     end
   end
 end
