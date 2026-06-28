@@ -33,13 +33,22 @@ class Tput
         # Replace all STs with BELs so they can be nested within the DCS code.
         data = data.gsub /\e\\/, "\x07"
 
-        # Wrap in the multiplexer's forward DCS. tmux needs the inner sequence's
-        # leading ESC doubled — its `\ePtmux;\e` prefix supplies the extra ESC;
-        # GNU screen forwards the payload verbatim, so it takes a plain `\eP`.
+        # Wrap in the multiplexer's forward DCS. Every ESC byte *inside* the
+        # wrapped payload must be doubled, otherwise the multiplexer treats it as
+        # the end of (or a new) control sequence and truncates/mangles the rest.
+        # Only the payload's ESCs are doubled — never the `\eP` introducer or the
+        # `\e\\` ST terminator that frame the passthrough.
         data = if emulator.tmux?
-                 "\ePtmux;\e" + data + "\e\\"
+                 # The `\ePtmux;` introducer is followed by `;`, so the payload's
+                 # leading ESC is itself internal and gets doubled along with the
+                 # rest. (For the common single-leading-ESC payload this yields the
+                 # same `\ePtmux;\e\e…` as before.)
+                 "\ePtmux;" + data.gsub('\e', "\e\e") + "\e\\"
                else
-                 "\eP" + data + "\e\\"
+                 # GNU screen's plain `\eP` introducer is immediately followed by
+                 # the payload's leading ESC, which stays single (matching the
+                 # historical verbatim wrapping); only *internal* ESCs are doubled.
+                 "\eP" + data.gsub(/(?<=.)\e/, "\e\e") + "\e\\"
                end
 
         # TODO

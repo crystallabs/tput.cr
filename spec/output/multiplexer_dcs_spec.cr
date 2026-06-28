@@ -47,6 +47,46 @@ describe "Tput#_tprint multiplexer DCS passthrough" do
     buf.to_s.should eq "\eP\e]8;;\a\e\\"
   end
 
+  # A payload may legitimately contain ESC bytes *after* its leading one (e.g. a
+  # sequence that itself embeds an ESC). Every such inner ESC must be doubled so
+  # the multiplexer forwards the whole payload instead of stopping at the first
+  # internal ESC. A plain single-leading-ESC payload must stay unchanged.
+  it "doubles every internal ESC in the tmux passthrough payload" do
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.emulator.tmux = true
+    t.emulator.screen = false
+    t._tprint "\eA\eB" # leading ESC + one internal ESC
+    # leading ESC doubled (internal to `\ePtmux;`) and the inner ESC doubled too
+    buf.to_s.should eq "\ePtmux;\e\eA\e\eB\e\\"
+
+    # A single-leading-ESC payload is unchanged from the historical wrapping.
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.emulator.tmux = true
+    t.emulator.screen = false
+    t._tprint "\e]7;x\a"
+    buf.to_s.should eq "\ePtmux;\e\e]7;x\a\e\\"
+  end
+
+  it "doubles every internal ESC in the GNU screen passthrough payload" do
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.emulator.tmux = false
+    t.emulator.screen = true
+    t._tprint "\eA\eB" # leading ESC + one internal ESC
+    # leading ESC sits against `\eP` and stays single; the inner ESC is doubled
+    buf.to_s.should eq "\eP\eA\e\eB\e\\"
+
+    # A single-leading-ESC payload is unchanged (verbatim) from before.
+    buf = IO::Memory.new
+    t = new_tput buf
+    t.emulator.tmux = false
+    t.emulator.screen = true
+    t._tprint "\e]7;x\a"
+    buf.to_s.should eq "\eP\e]7;x\a\e\\"
+  end
+
   # The OSC 8 begin/end markers need DCS passthrough, but the link's *display
   # text* is ordinary content and must render in the pane — it must NOT be
   # wrapped in the multiplexer passthrough (which would divert it to the outer
