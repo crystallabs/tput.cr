@@ -311,7 +311,10 @@ class Tput
         case param
         when Array
           parts = param
-          param = parts[0].blank? ? "normal" : parts[0]
+          # Guard the empty list: `parts[0]` would raise IndexError. An empty
+          # spec carries no attribute, so treat it like a blank/"normal" one
+          # (consistent with the `parts[0].blank?` -> "normal" handling below).
+          param = (parts.empty? || parts[0].blank?) ? "normal" : parts[0]
         when String
           param = param.blank? ? "normal" : param
           parts = param.split /\s*[,;]\s*/
@@ -478,7 +481,10 @@ class Tput
           if m
             color = m[1].to_i
 
-            if !val || color == -1
+            # Any negative color is the "default" sentinel, not just -1. Other
+            # negatives (e.g. -2) must NOT fall through to the `color < 16`
+            # branch below, which would emit a bogus SGR like `\e[{color+30}m`.
+            if !val || color < 0
               return _attr "default #{m[2]}"
             end
 
@@ -525,6 +531,8 @@ class Tput
       # CSI Ps @
       # Insert Ps (Blank) Character(s) (default = 1) (ICH).
       def insert_chars(param = 1)
+        param > 0 || raise ArgumentError.new "param > 0"
+
         # ICH inserts blank characters *at* the cursor and shifts the existing
         # content to its right; the active position (the cursor) stays put. Do
         # NOT advance `@cursor.x` here (that was copy-pasted from REP, which does
@@ -568,6 +576,8 @@ class Tput
       # CSI Ps P
       # Delete Ps Character(s) (default = 1) (DCH).
       def delete_chars(param = 1)
+        param > 0 || raise ArgumentError.new "param > 0"
+
         (!features.ansi_edit? && put(&.dch?(param))) || _print { |io| io << "\e[" << param << 'P' }
       end
 
@@ -577,6 +587,8 @@ class Tput
       #     CSI Ps X
       #     Erase Ps Character(s) (default = 1) (ECH).
       def erase_character(param : Int = 1)
+        param > 0 || raise ArgumentError.new "param > 0"
+
         (!features.ansi_edit? && put(&.ech?(param))) || _print { |io| io << "\e[" << param << 'X' }
       end
 
@@ -640,6 +652,8 @@ class Tput
       #
       # Aliases: decic
       def insert_columns(n = 1)
+        n > 0 || raise ArgumentError.new "n > 0"
+
         _print { |io| io << "\e[" << n << " }" }
       end
 
@@ -660,6 +674,8 @@ class Tput
       #
       # Aliases: decdc
       def delete_columns(n = 1)
+        n > 0 || raise ArgumentError.new "n > 0"
+
         _print { |io| io << "\e[" << n << " ~" }
       end
 
@@ -694,6 +710,8 @@ class Tput
 
       # CSI Ps b  Repeat the preceding graphic character Ps times (REP).
       def repeat_preceding_character(param = 1)
+        param > 0 || raise ArgumentError.new "param > 0"
+
         @cursor.x += param
         _ncoords
         # REP repeats the character already emitted, so the sequence carries only

@@ -119,12 +119,12 @@ class Tput
       # screen). Prefer the `#synchronized_update` block, which always pairs the
       # end marker.
       def begin_synchronized_update : Nil
-        _print "\e[?2026h"
+        _tprint "\e[?2026h"
       end
 
       # Ends a synchronized update (DEC 2026), presenting the buffered frame.
       def end_synchronized_update : Nil
-        _print "\e[?2026l"
+        _tprint "\e[?2026l"
       end
 
       # Brackets *block*'s output in a synchronized update (DEC 2026) so the
@@ -145,12 +145,12 @@ class Tput
       # matching this library's `full_unicode` cell model, so wide/clustered
       # glyphs stay aligned. Harmless on terminals that don't support it.
       def enable_grapheme_clustering : Nil
-        _print "\e[?2027h"
+        _tprint "\e[?2027h"
       end
 
       # Disables Unicode grapheme clustering (DEC 2027).
       def disable_grapheme_clustering : Nil
-        _print "\e[?2027l"
+        _tprint "\e[?2027l"
       end
 
       # Enables color-scheme (light/dark) change notifications (DEC private mode
@@ -159,12 +159,12 @@ class Tput
       # `color_scheme` of `Tput::Input#listen` events. Query the current scheme
       # with `#request_color_scheme`. Harmless on terminals that don't support it.
       def enable_color_scheme_notifications : Nil
-        _print "\e[?2031h"
+        _tprint "\e[?2031h"
       end
 
       # Disables color-scheme change notifications (DEC 2031).
       def disable_color_scheme_notifications : Nil
-        _print "\e[?2031l"
+        _tprint "\e[?2031l"
       end
 
       # CSI > Ps; Ps t
@@ -192,7 +192,7 @@ class Tput
       #     Ps = 3  -> Do not query window/icon labels using UTF-8.
       #   (See discussion of "Title Modes").
       def reset_title_modes(*arguments)
-        _print { |io| io << "\e[>"; arguments.join(io, ';'); io << 'T' }
+        _tprint "\e[>#{arguments.join ';'}T"
       end
 
       # CSI > Ps; Ps m
