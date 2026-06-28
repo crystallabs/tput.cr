@@ -140,26 +140,33 @@ class Tput
       end
     end
 
+    # Yields the input's `fd` and the held raw `@mode` when raw mode is currently
+    # in effect on a tty — a no-op otherwise. Shared by `#suspend_raw_input` /
+    # `#restore_raw_input`, which differ only in the `tcsetattr` they apply.
+    private def with_held_raw_mode(&)
+      input = @input
+      mode = @mode
+      if mode && input.responds_to?(:fd) && input.tty?
+        yield input.fd, mode
+      end
+    end
+
     # Temporarily returns the terminal to the saved (cooked) mode while a raw
     # `#listen` is active — used by `#pause`/`#restore_terminal`. `@mode` holds
     # the original mode captured by `preserving_tc_mode`; a no-op when raw mode
     # isn't currently held or the input isn't a tty.
     private def suspend_raw_input
-      input = @input
-      mode = @mode
-      if mode && input.responds_to?(:fd) && input.tty?
+      with_held_raw_mode do |fd, mode|
         cooked = mode
-        LibC.tcsetattr(input.fd, Termios::LineControl::TCSANOW, pointerof(cooked))
+        LibC.tcsetattr(fd, Termios::LineControl::TCSANOW, pointerof(cooked))
       end
     end
 
     # Re-applies raw mode after `#suspend_raw_input` — used by the `#resume`
     # continuation.
     private def restore_raw_input
-      input = @input
-      mode = @mode
-      if mode && input.responds_to?(:fd) && input.tty?
-        raw_from_tc_mode! input.fd, mode
+      with_held_raw_mode do |fd, mode|
+        raw_from_tc_mode! fd, mode
       end
     end
 
