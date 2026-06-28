@@ -49,7 +49,16 @@ class Tput
         if x > 0
           @cursor.x -= 1
         end
-        put(&.kbs?) || _print "\b" # "\x08"
+        # Move the cursor one column left via the terminfo `cub1` (cursor_left)
+        # OUTPUT capability — NOT `kbs`. `kbs` is `key_backspace`: the byte the
+        # Backspace *key* sends, an INPUT capability. On terminals where it
+        # differs from cub1 (e.g. macOS xterm and the linux console, where
+        # kbs is DEL / `\177`) writing it does NOT move the terminal cursor, so
+        # emitting it while decrementing `@cursor.x` above desynced the tracked
+        # cursor from the real one (the same desync class as the ICH/DECRC/SU
+        # fixes). cub1 is `\b` on xterm, matching the literal fallback; blessed's
+        # `backspace` likewise emits a plain `\x08`, never `kbs`.
+        put(&.cub1?) || _print "\b" # "\x08"
       end
 
       alias_previous kbs, bs

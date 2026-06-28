@@ -189,29 +189,35 @@ describe Tput::Output::Text do
       t[0].setx 3
       y.o # Read/empty the buffer
 
-      # Since we are at x==3, we can backspace 3 times:
+      # Since we are at x==3, we can backspace 3 times.
+      #
+      # backspace moves the cursor one column left, so it must emit the
+      # cursor_left (cub1) output cap — `\b` on xterm — NOT the key_backspace
+      # (kbs) INPUT cap, which is DEL (`\177`) on some terminals (macOS xterm,
+      # linux console) and would not move the real cursor, desyncing it from
+      # @cursor (which is decremented in the implementation).
 
       t[0].backspace.should be_true
       t[0].cursor.x.should eq 2
-      y.o.should eq "\u007F"
+      y.o.should eq "\b"
 
       t[0].bs.should be_true
       t[0].cursor.x.should eq 1
-      y.o.should eq "\u007F"
+      y.o.should eq "\b"
 
       t[0].bs.should be_true
       t[0].cursor.x.should eq 0
-      y.o.should eq "\u007F"
+      y.o.should eq "\b"
 
       # After that, x remains at 0
 
       t[0].bs.should be_true
       t[0].cursor.x.should eq 0
-      y.o.should eq "\u007F"
+      y.o.should eq "\b"
 
       t[0].bs.should be_true
       t[0].cursor.x.should eq 0
-      y.o.should eq "\u007F"
+      y.o.should eq "\b"
     end
     it "works with plain" do
       t = {y.p, "plain"}
