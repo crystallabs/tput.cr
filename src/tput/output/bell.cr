@@ -22,7 +22,7 @@ class Tput
       #     Ps = 2 , 3  or 4  -> low.
       #     Ps = 5 , 6 , 7 , or 8  -> high.
       def warning_bell_volume=(param : Volume)
-        _print { |io| io << "\e[" << param.value << " t" }
+        set_bell_volume param.value, 't'
       end
 
       alias_previous :decswbv=
@@ -38,10 +38,18 @@ class Tput
         # `Volume::Off` (value 0) to 1 so that asking for `Off` actually silences
         # the margin bell, keeping the enum's intent consistent across both bells.
         value = param.off? ? 1 : param.value
-        _print { |io| io << "\e[" << value << " u" }
+        set_bell_volume value, 'u'
       end
 
       alias_previous :decsmbv=
+
+      # Shared framing for the DEC bell-volume ops: `CSI Ps SP <final>`
+      # (DECSWBV `SP t`, DECSMBV `SP u`). The single-byte SP (0x20) intermediate
+      # mirrors the `$`/`'` intermediates of the rectangle and locator helpers.
+      # Byte-identical to the inlined form.
+      private def set_bell_volume(value, final : Char)
+        _print { |io| io << "\e[" << value << ' ' << final }
+      end
     end
   end
 end
