@@ -100,7 +100,7 @@ describe "Tput#_tprint multiplexer DCS passthrough" do
     t.flush
     buf.to_s.should eq \
       "\ePtmux;\e\e]8;;http://x\a\e\\" + # begin (wrapped)
-        "label" +                       # display text (NOT wrapped)
-        "\ePtmux;\e\e]8;;\a\e\\"         # end (wrapped)
+      "label" +                          # display text (NOT wrapped)
+      "\ePtmux;\e\e]8;;\a\e\\"           # end (wrapped)
   end
 end

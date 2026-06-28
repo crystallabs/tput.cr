@@ -219,10 +219,10 @@ class Tput
     # `nil` (use `#char`); lone modifiers and unknown functional codes too.
     private def u_key : Key?
       case number
-      when 27  then Key::Escape
-      when 13  then Key::Enter
-      when 9   then mods.shift? ? Key::ShiftTab : Key::Tab
-      when 127 then Key::Backspace
+      when 27               then Key::Escape
+      when 13               then Key::Enter
+      when 9                then mods.shift? ? Key::ShiftTab : Key::Tab
+      when 127              then Key::Backspace
       when 'a'.ord..'z'.ord then ctrl_alt_letter number
       when 'A'.ord..'Z'.ord then ctrl_alt_letter number - 'A'.ord + 'a'.ord
       else                       nil

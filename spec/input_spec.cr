@@ -223,7 +223,7 @@ describe Tput::Input do
       mice = [] of Tput::Mouse::Event
       t.listen { |e| mice << e.mouse.not_nil! if e.mouse? }
       mice.size.should eq 1
-      mice[0].x.should eq (0xc8 - 32 - 1) # 167, decoded from the raw byte
+      mice[0].x.should eq(0xc8 - 32 - 1) # 167, decoded from the raw byte
     end
 
     it "parses URxvt encoding" do

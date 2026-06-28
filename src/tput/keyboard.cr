@@ -103,8 +103,8 @@ class Tput
         flags = KittyKeyboard::DisambiguateEscapeCodes
         if events
           flags |= KittyKeyboard::ReportEventTypes | KittyKeyboard::ReportAllKeys |
-                   KittyKeyboard::ReportAlternateKeys |  # so shifted codepoints arrive
-                   KittyKeyboard::ReportAssociatedText   # so the text a key *produces* arrives
+                   KittyKeyboard::ReportAlternateKeys | # so shifted codepoints arrive
+                   KittyKeyboard::ReportAssociatedText  # so the text a key *produces* arrives
           # `ReportAllKeys` makes the terminal report every key — plain typing
           # included — as an escape code, and it then stops sending the decoded
           # text bytes. Without `ReportAssociatedText` the `u` events carry only

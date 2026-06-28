@@ -139,11 +139,11 @@ describe Tput::KeyEvent do
     end
 
     it "projects a kitty function key (tilde + event type) onto the legacy Key" do
-      feed_kb("\e[15;1:1~")[0][1].should eq Tput::Key::F5  # F5 press
-      feed_kb("\e[15;5:1~")[0][1].should eq Tput::Key::F5  # Ctrl+F5 (no modified-F member)
+      feed_kb("\e[15;1:1~")[0][1].should eq Tput::Key::F5 # F5 press
+      feed_kb("\e[15;5:1~")[0][1].should eq Tput::Key::F5 # Ctrl+F5 (no modified-F member)
       feed_kb("\e[29;1:1~")[0][1].should eq Tput::Key::Menu
       feed_kb("\e[34;1:1~")[0][1].should eq Tput::Key::F20
-      feed_kb("\e[15;1:3~")[0][1].should be_nil            # release must not project
+      feed_kb("\e[15;1:3~")[0][1].should be_nil # release must not project
     end
   end
 
@@ -158,7 +158,7 @@ describe Tput::KeyEvent do
     # nav key must still project to its modified legacy member rather than
     # degrading to the base key just because a lock happens to be on.
     it "via the legacy final form" do
-      feed_kb("\e[1;69A")[0][1].should eq Tput::Key::CtrlUp    # Ctrl + CapsLock
+      feed_kb("\e[1;69A")[0][1].should eq Tput::Key::CtrlUp     # Ctrl + CapsLock
       feed_kb("\e[1;133C")[0][1].should eq Tput::Key::CtrlRight # Ctrl + NumLock
       feed_kb("\e[1;66H")[0][1].should eq Tput::Key::ShiftHome  # Shift + CapsLock
     end

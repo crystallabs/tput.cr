@@ -1090,14 +1090,14 @@ class Tput
       BottomTee
       BoxSpiral
       UpArrowCursor # X11 center_ptr
-      CenterPtr = UpArrowCursor
+      CenterPtr          = UpArrowCursor
       Circle
       Clock
       CoffeeMug
       Cross
       CrossReverse
       CrossCursor # X11 crosshair
-      Crosshair = CrossCursor
+      Crosshair          = CrossCursor
       DiamondCross
       Dot
       Dotbox
@@ -1107,17 +1107,17 @@ class Tput
       DrapedBox
       Exchange
       SizeAllCursor # X11 fleur
-      Fleur = SizeAllCursor
+      Fleur              = SizeAllCursor
       Gobbler
       Gumby
       Hand1
       PointingHandCursor # X11 hand2
-      Hand2 = PointingHandCursor
+      Hand2              = PointingHandCursor
       Heart
       Icon
       IronCross
       ArrowCursor # X11 left_ptr
-      LeftPtr = ArrowCursor
+      LeftPtr            = ArrowCursor
       LeftSide
       LeftTee
       LeftButton
@@ -1130,7 +1130,7 @@ class Tput
       Pirate
       Plus
       WhatsThisCursor # X11 question_arrow
-      QuestionArrow = WhatsThisCursor
+      QuestionArrow      = WhatsThisCursor
       RightPtr
       RightSide
       RightTee
@@ -1139,12 +1139,12 @@ class Tput
       Sailboat
       SbDownArrow
       SizeHorCursor # X11 sb_h_double_arrow
-      SbHDoubleArrow = SizeHorCursor
+      SbHDoubleArrow     = SizeHorCursor
       SbLeftArrow
       SbRightArrow
       SbUpArrow
       SizeVerCursor # X11 sb_v_double_arrow
-      SbVDoubleArrow = SizeVerCursor
+      SbVDoubleArrow     = SizeVerCursor
       Shuttle
       Sizing
       Spider
@@ -1162,13 +1162,13 @@ class Tput
       Umbrella
       UrAngle
       WaitCursor # X11 watch
-      Watch = WaitCursor
+      Watch              = WaitCursor
       IBeamCursor # X11 xterm
-      Xterm = IBeamCursor
+      Xterm              = IBeamCursor
 
       # Qt shapes with no X11 cursor-font glyph; `#cursor_name` emits an Xcursor
       # theme name for these. Offset to leave the cursor-font block contiguous.
-      SizeBDiagCursor = 100
+      SizeBDiagCursor  = 100
       SizeFDiagCursor
       SplitVCursor
       SplitHCursor
@@ -1196,25 +1196,25 @@ class Tput
         when SizeAllCursor      then "fleur"
         when PointingHandCursor then "hand2"
         when WhatsThisCursor    then "question_arrow"
-        # Qt-only shapes -> Xcursor theme names (narrower terminal support).
-        when SizeBDiagCursor    then "size_bdiag"
-        when SizeFDiagCursor    then "size_fdiag"
-        when SplitVCursor       then "split_v"
-        when SplitHCursor       then "split_h"
-        when BlankCursor        then "blank"
-        when ForbiddenCursor    then "crossed_circle"
-        when BusyCursor         then "left_ptr_watch"
-        when OpenHandCursor     then "openhand"
-        when ClosedHandCursor   then "closedhand"
-        when DragCopyCursor     then "copy"
-        when DragMoveCursor     then "dnd-move"
-        when DragLinkCursor     then "dnd-link"
-        # X11 names the cursor font spells irregularly.
-        when XCursor            then "X_cursor"
-        when LeftButton         then "leftbutton"
-        when MiddleButton       then "middlebutton"
-        when RightButton        then "rightbutton"
-        # Remaining members: the underscored member name IS the cursor-font name.
+          # Qt-only shapes -> Xcursor theme names (narrower terminal support).
+        when SizeBDiagCursor  then "size_bdiag"
+        when SizeFDiagCursor  then "size_fdiag"
+        when SplitVCursor     then "split_v"
+        when SplitHCursor     then "split_h"
+        when BlankCursor      then "blank"
+        when ForbiddenCursor  then "crossed_circle"
+        when BusyCursor       then "left_ptr_watch"
+        when OpenHandCursor   then "openhand"
+        when ClosedHandCursor then "closedhand"
+        when DragCopyCursor   then "copy"
+        when DragMoveCursor   then "dnd-move"
+        when DragLinkCursor   then "dnd-link"
+          # X11 names the cursor font spells irregularly.
+        when XCursor      then "X_cursor"
+        when LeftButton   then "leftbutton"
+        when MiddleButton then "middlebutton"
+        when RightButton  then "rightbutton"
+          # Remaining members: the underscored member name IS the cursor-font name.
         else to_s.underscore
         end
       end
