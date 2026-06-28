@@ -5,6 +5,20 @@ class Tput
       include Crystallabs::Helpers::Boolean
       include Macros
 
+      # CUU/CUD/CUF/CUB share one emit shape and differ only in their
+      # capabilities and final CSI byte: when the terminal isn't verified
+      # standard-ANSI, prefer the parametric cap (`<parm_cap>?(param)`), else
+      # repeat the single-step cap (`<step_cap>`) `param` times; the literal
+      # `CSI <param> <final>` is both the ANSI fast path and the universal
+      # fallback. (`Int#times` returns nil, so the repeat branch yields an
+      # explicit `true` — otherwise the chain falls through and ALSO prints the
+      # CSI fallback, a double emission.)
+      private macro _emit_parm_move(param, parm_cap, step_cap, final)
+        (!features.ansi_cursor? && (put(&.{{parm_cap}}?({{param}})) ||
+          (has?(&.{{step_cap}}?) && ({{param}}.times { put(&.{{step_cap}}) }; true)))) ||
+          _print { |io| io << "\e[" << {{param}} << {{final}} }
+      end
+
       # Positioning
 
       # CSI Ps E
@@ -306,12 +320,7 @@ class Tput
         _, param = _adjust_xy_rel 0, -param
         param *= -1
         @cursor.y -= param
-        # `Int#times` returns nil, so the repeat branch must yield an explicit
-        # `true` after emitting — otherwise the chain falls through and ALSO
-        # prints the CSI fallback (double emission).
-        (!features.ansi_cursor? && (put(&.cuu?(param)) ||
-          (has?(&.cuu1?) && (param.times { put(&.cuu1) }; true)))) ||
-          _print { |io| io << "\e[" << param << 'A' }
+        _emit_parm_move param, cuu, cuu1, 'A'
       end
 
       alias_previous cuu, up
@@ -321,9 +330,7 @@ class Tput
       def cursor_down(param = 1)
         _, param = _adjust_xy_rel 0, param
         @cursor.y += param
-        (!features.ansi_cursor? && (put(&.cud?(param)) ||
-          (has?(&.cud1?) && (param.times { put(&.cud1) }; true)))) ||
-          _print { |io| io << "\e[" << param << 'B' }
+        _emit_parm_move param, cud, cud1, 'B'
       end
 
       alias_previous cud, down
@@ -334,9 +341,7 @@ class Tput
       def cursor_forward(param : Int = 1)
         param, _ = _adjust_xy_rel param
         @cursor.x += param
-        (!features.ansi_cursor? && (put(&.cuf?(param)) ||
-          (has?(&.cuf1?) && (param.times { put(&.cuf1) }; true)))) ||
-          _print { |io| io << "\e[" << param << 'C' }
+        _emit_parm_move param, cuf, cuf1, 'C'
       end
 
       alias_previous cuf, forward, right, cursor_right, parm_right_cursor
@@ -347,9 +352,7 @@ class Tput
         param, _ = _adjust_xy_rel -param
         param *= -1
         @cursor.x -= param
-        (!features.ansi_cursor? && (put(&.cub?(param)) ||
-          (has?(&.cub1?) && (param.times { put(&.cub1) }; true)))) ||
-          _print { |io| io << "\e[" << param << 'D' }
+        _emit_parm_move param, cub, cub1, 'D'
       end
 
       alias_previous cub, left, back
