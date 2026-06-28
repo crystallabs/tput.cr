@@ -289,7 +289,9 @@ class Tput
     # downsamples (e.g. `48;5;N`) and fails the match; one without DECRQSS never
     # sends a DCS reply at all.
     private def truecolor_confirmed?(data : String) : Bool
-      data.includes?("$r") && !!data.match(/48[:;]2[:;].*1[:;]2[:;]3/)
+      # Require the DECRQSS *success* status `1$r` (not a `0$r` rejection),
+      # consistent with `cursor_style_confirmed?` and this method's contract.
+      data.includes?("1$r") && !!data.match(/48[:;]2[:;].*1[:;]2[:;]3/)
     end
 
     # Decides whether a DECRQSS reply confirms DECSCUSR cursor styling. A valid
