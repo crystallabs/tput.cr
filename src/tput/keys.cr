@@ -305,6 +305,24 @@ class Tput
         case o
         when 58 then colon = true # ':' kitty sub-parameter (enhanced marker)
         when 59                   # ';' parameter separator: nothing extra
+        when 32..47
+          # A CSI *intermediate* byte (0x20-0x2F). In a multi-parameter
+          # sequence it is a genuine intermediate — e.g. the `$` of a
+          # *non-private* DECRPM reply `CSI Ps ; Pm $ y` (the answer to
+          # `#request_ansi_mode`/`decrqm`) — so keep scanning for the real final
+          # (`y`). Mistaking `$` for the final would leave `y` unread and leak
+          # it as a phantom keystroke (and mis-decode the reply as an rxvt
+          # ShiftXXX nav key). The private form `\e[?…$y` is handled separately
+          # in `read_private_csi`.
+          #
+          # A *single*-parameter `$` is instead rxvt's shift-modified
+          # navigation terminator (`\e[3$` = Shift+Delete), which legitimately
+          # ends the sequence — `count` is still 1 there (only this byte closed
+          # a parameter), so fall through and treat it as the final.
+          unless count >= 2
+            final = o
+            break
+          end
         else
           final = o
           break

@@ -139,6 +139,17 @@ describe Tput::Input do
       feed("\e[?2026;1$y").should be_empty
     end
 
+    it "fully consumes a non-private DECRPM reply ending in an intermediate byte" do
+      # `\e[4;1$y` is the reply to a *non-private* DECRQM query
+      # (`#request_ansi_mode`/`decrqm`): mode 4 (IRM) reported as set. Like the
+      # private form it ends in `$ y`, where `$` is a CSI intermediate byte and
+      # `y` the real final, but it reaches the numeric (non-`?`) CSI path.
+      # Treating `$` as the final would leave `y` to surface as a phantom
+      # keystroke and mis-decode the reply as Shift+End — the whole sequence
+      # must be consumed.
+      feed("\e[4;1$y").should be_empty
+    end
+
     it "does not mistake C1 control characters for AltEnter/ShiftTab" do
       # U+0080/U+0081 are C1 controls (arriving as UTF-8 0xC2 0x80 / 0xC2 0x81);
       # their codepoints 128/129 must not collide with the auto-numbered
