@@ -509,8 +509,9 @@ class Tput
     #
     #   * `M`      — X10 / normal (three raw bytes follow).
     #   * `I`/`O`  — focus-in / focus-out (no payload).
-    #   * `<`      — SGR (1006) or DEC-locator (the parameter list follows).
-    #   * a digit  — URxvt (1015); the whole report is already in *sequence*.
+    #   * `<`      — SGR (1006) (the parameter list follows).
+    #   * a digit  — URxvt (1015) or DEC-locator (`… & w`); the whole report is
+    #                already in *sequence* (the key parser captured it).
     #
     # Returns the parsed `Mouse::Event`, or `nil` if the stream ended or the
     # report was malformed.
@@ -527,23 +528,33 @@ class Tput
         return nil unless cb && cx && cy
         sequence << cb.chr << cx.chr << cy.chr
         Mouse.parse_x10 cb, cx, cy
-      when 'I'      then Mouse::Event.focus
-      when 'O'      then Mouse::Event.blur
-      when '<'      then read_sgr_or_dec { yield }
-      when '0'..'9' then read_urxvt sequence
-      else               nil
+      when 'I' then Mouse::Event.focus
+      when 'O' then Mouse::Event.blur
+      when '<' then read_sgr { yield }
+      when '0'..'9'
+        # A numeric-CSI mouse report, already fully captured in *sequence*: a
+        # DEC-locator report ends in `& w`, a URxvt (1015) report in `M`/`m`.
+        if sequence[-1]? == 'w'
+          read_dec sequence
+        else
+          read_urxvt sequence
+        end
+      else nil
       end
     end
 
-    # Reads an SGR (`Cb ; Cx ; Cy M|m`) or DEC-locator (`Cb ; Cx ; Cy ; Cp & w`)
-    # parameter list following the `\e[<` introducer. Yields for each char.
+    # Reads an SGR (`Cb ; Cx ; Cy M|m`) parameter list following the `\e[<`
+    # introducer. Yields for each char.
     #
-    # At most four parameters are meaningful (`Cb ; Cx ; Cy [; Cp]`), so they are
+    # Only three parameters are meaningful (`Cb ; Cx ; Cy`), so they are
     # collected into fixed locals — no per-report `Array` — on the hottest input
     # path (a mouse drag is a burst of these). *idx* counts parameters seen so a
     # final byte can verify there were enough.
-    private def read_sgr_or_dec(&) : Mouse::Event?
-      p0 = p1 = p2 = p3 = 0
+    #
+    # (DEC-locator reports are *not* `<`-introduced — they are `CSI Cb ; Cx ; Cy
+    # ; Cp & w`, reach the numeric-CSI path, and are parsed by `#read_dec`.)
+    private def read_sgr(&) : Mouse::Event?
+      p0 = p1 = p2 = 0
       idx = 0
       cur = 0
       while c = yield
@@ -553,26 +564,47 @@ class Tput
           case idx
           when 0 then p0 = cur
           when 1 then p1 = cur
-          when 2 then p2 = cur
-          when 3 then p3 = cur
           end
           idx += 1; cur = 0
         when 'M', 'm'
-          case idx
-          when 2 then p2 = cur
-          end
+          p2 = cur if idx == 2
           return nil unless idx >= 2 # Cb ; Cx ; Cy
           return Mouse.parse_sgr p0, p1, p2, c
-        when '&'
-          # DEC locator: `&` then `w`.
-          p3 = cur if idx == 3
-          return nil unless yield == 'w' && idx >= 3 # Cb ; Cx ; Cy ; Cp
-          return Mouse.parse_dec p0, p1, p2, p3
         else
           return nil
         end
       end
       nil
+    end
+
+    # Parses a DEC-locator report (`\e[ Cb ; Cx ; Cy ; Cp & w`) already captured
+    # in *sequence* (the numeric-CSI key parser consumed the whole report through
+    # its `w` final). Mirrors `#read_urxvt`'s fixed-locals scan but terminates on
+    # the `&` intermediate and requires all four parameters.
+    private def read_dec(sequence) : Mouse::Event?
+      p0 = p1 = p2 = p3 = 0
+      idx = 0
+      cur = 0
+      i = 2
+      while i < sequence.size
+        c = sequence[i]
+        case c
+        when '0'..'9' then cur = cur * 10 + (c.ord - '0'.ord)
+        when ';', '&'
+          case idx
+          when 0 then p0 = cur
+          when 1 then p1 = cur
+          when 2 then p2 = cur
+          when 3 then p3 = cur
+          end
+          idx += 1; cur = 0
+          break if c == '&' # `&` closes Cp; `w` follows
+        else break
+        end
+        i += 1
+      end
+      return nil unless idx >= 4 # Cb ; Cx ; Cy ; Cp (the `&` closes Cp -> idx 4)
+      Mouse.parse_dec p0, p1, p2, p3
     end
 
     # Parses a URxvt report (`\e[ Cb ; Cx ; Cy M`) already captured in

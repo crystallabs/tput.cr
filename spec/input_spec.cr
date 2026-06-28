@@ -198,10 +198,15 @@ describe Tput::Input do
       m.y.should eq 1
     end
 
-    it "corrects the VTE coordinate overflow in X10" do
-      # cx byte 0x10 is below the 0x20 floor -> overflowed; folded back by 0xff.
+    it "corrects the VTE coordinate overflow in X10 (mod-256 unwrap)" do
+      # VTE sends coordinates as unsigned bytes, so a `+32`-biased byte past 255
+      # wraps modulo 256 and lands below the 0x20 floor. Byte 0x10 (16) is such
+      # an overflow: its true biased byte is 16 + 256 = 272, i.e. column 240
+      # (1-based) -> cell 239 (0-based). Unwrapping by a full 256 (not 0xff, which
+      # lands one cell short at 238) recovers the correct cell.
       m = one_mouse("\e[M\x20\x10\x22").not_nil!
-      m.x.should eq (0x10 + 0xff) - 0x20 - 1
+      m.x.should eq 239
+      m.x.should eq (0x10 + 256) - 0x20 - 1
     end
 
     it "reads X10 coordinate bytes raw, not UTF-8 decoded" do
@@ -229,13 +234,26 @@ describe Tput::Input do
       m.y.should eq 19
     end
 
-    it "parses DEC-locator events" do
-      m = one_mouse("\e[<2;10;20;1&w").not_nil!
+    it "parses DEC-locator events (CSI Cb;Cx;Cy;Cp & w, no `<` prefix)" do
+      # A real DEC-locator report is introduced by a digit (the event code) and
+      # terminated by `& w`; there is no `\e[<` prefix. It must route through the
+      # numeric-CSI path and reach `Mouse.parse_dec`.
+      m = one_mouse("\e[2;10;20;1&w").not_nil!
       m.button.should eq Tput::Mouse::Button::Left
       m.action.should eq Tput::Mouse::Action::Down
       m.x.should eq 9
       m.y.should eq 19
       m.page.should eq 1
+
+      # A release (odd event code) keeps the button identity.
+      up = one_mouse("\e[7;10;20;2&w").not_nil! # right button up, page 2
+      up.button.should eq Tput::Mouse::Button::Right
+      up.action.should eq Tput::Mouse::Action::Up
+      up.page.should eq 2
+
+      # A `w` final that is NOT a DEC-locator report (no `&` intermediate) must
+      # not be mistaken for one; it is simply an unrecognized CSI and drops.
+      feed("\e[1;2w").should be_empty
     end
 
     it "parses focus in/out" do

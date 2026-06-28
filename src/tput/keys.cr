@@ -289,6 +289,7 @@ class Tput
       cur = first
       final = nil
       colon = false
+      locator = false # an `&` intermediate was seen -> DEC-locator report
       loop do
         o = yield.try(&.ord)
         break unless o
@@ -320,7 +321,12 @@ class Tput
           # navigation terminator (`\e[3$` = Shift+Delete), which legitimately
           # ends the sequence — `count` is still 1 there (only this byte closed
           # a parameter), so fall through and treat it as the final.
-          unless count >= 2
+          if count >= 2
+            # `&` (0x26) is the intermediate of a DEC-locator report
+            # (`CSI Cb ; Cx ; Cy ; Cp & w`); record it so the trailing `w` final
+            # routes to the mouse parser rather than being dropped.
+            locator = true if o == '&'.ord
+          else
             final = o
             break
           end
@@ -330,6 +336,12 @@ class Tput
         end
       end
       return nil unless final
+      # A `& w`-terminated multi-parameter report is a DEC-locator event; hand it
+      # to `Input#read_mouse`, which re-parses the captured sequence via
+      # `Mouse.parse_dec`. (Real DEC-locator reports carry no `<` introducer, so
+      # this numeric path — not the SGR `\e[<` path — is how they actually
+      # arrive.)
+      return Key::Mouse if locator && final == 'w'.ord
       classify_csi p0, p1, final, colon
     end
 

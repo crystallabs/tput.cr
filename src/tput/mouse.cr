@@ -161,11 +161,14 @@ class Tput
     # bytes following `\e[M`, each still carrying the +32 bias.
     #
     # Corrects the buggy-VTE coordinate overflow: VTE can only send unsigned
-    # chars, so a coordinate past 255 wraps below the normal `0x20` floor; a raw
-    # byte under `0x20` is therefore an overflow and is folded back by `0xff`.
+    # chars, so a coordinate whose `+32`-biased byte exceeds 255 wraps *modulo
+    # 256*, landing below the normal `0x20` floor. A raw byte under `0x20` is
+    # therefore such an overflow and is unwrapped by adding a full `256` cycle,
+    # recovering the original biased byte. (Adding `0xff` = 255, as before, lands
+    # one short and decodes every wrapped coordinate one cell too low.)
     def self.parse_x10(cb : Int32, cx : Int32, cy : Int32) : Event
-      cx += 0xff if cx < 0x20
-      cy += 0xff if cy < 0x20
+      cx += 256 if cx < 0x20
+      cy += 256 if cy < 0x20
       action, button, shift, meta, ctrl = decode_button(cb - 32)
       Event.new action, button, (cx - 32 - 1), (cy - 32 - 1), shift, meta, ctrl
     end
