@@ -29,8 +29,13 @@ class Tput
 
       # CSI Ps S  Scroll up Ps lines (default = 1) (SU).
       def scroll_up(param = 1)
-        @cursor.y -= param
-        _ncoords
+        # SU scrolls the *content* of the scrolling region up; per ECMA-48 (and
+        # xterm), "the active presentation position is not changed". Do NOT touch
+        # `@cursor` here — unlike IND (`#index`), which really does move the
+        # cursor, SU leaves it put. Mutating `@cursor.y` desynced the tracked
+        # cursor from the terminal's real cursor, corrupting every later relative
+        # move (the same desync class as the ICH/DECRC fixes). The emitted bytes
+        # never depended on the cursor, so the wire output is unchanged.
         (!features.ansi_scroll? && put(&.parm_index?(param))) || _print { |io| io << "\e[" << param << "S" }
       end
 
@@ -38,8 +43,8 @@ class Tput
 
       # CSI Ps T  Scroll down Ps lines (default = 1) (SD).
       def scroll_down(param = 1)
-        @cursor.y += param
-        _ncoords
+        # SD scrolls the content down; like SU above, the active cursor position
+        # is unchanged (ECMA-48 / xterm), so `@cursor` must be left alone.
         (!features.ansi_scroll? && put(&.parm_rindex?(param))) || _print { |io| io << "\e[" << param << "T" }
       end
 

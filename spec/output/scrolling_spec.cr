@@ -77,6 +77,28 @@ describe Tput::Output::Scrolling do
     end
   end
 
+  describe "scroll_up / scroll_down" do
+    [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
+      it "leaves the cursor position unchanged (SU/SD do not move the cursor) with #{t[1]}" do
+        t[0].setyx 5, 7
+        x.o # drain
+        t[0].cursor.x.should eq 7
+        t[0].cursor.y.should eq 5
+
+        t[0].scroll_up(4).should be_true
+        x.o.should eq "\e[4S"
+        # ECMA-48: the active cursor position is NOT changed by SU.
+        t[0].cursor.x.should eq 7
+        t[0].cursor.y.should eq 5
+
+        t[0].scroll_down(3).should be_true
+        x.o.should eq "\e[3T"
+        t[0].cursor.x.should eq 7
+        t[0].cursor.y.should eq 5
+      end
+    end
+  end
+
   describe "set_scroll_region" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[1]}" do
