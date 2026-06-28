@@ -69,6 +69,19 @@ describe Tput do
       x.p.bell
       x.o.should eq "\x07"
     end
+
+    it "does not leak buffered output to the real terminal when the block raises" do
+      # Bytes emitted before the block raised must be drained into the
+      # (discarded) capture buffer, not left in @_buf to replay to the real
+      # terminal on the next flush.
+      expect_raises(Exception, "boom") do
+        x.p.capture do |t|
+          t.cursor_pos 1, 2
+          raise "boom"
+        end
+      end
+      x.o.should eq ""
+    end
   end
 
   # Regression: a caller diverting output via `@ret` (e.g. Crysterm's `divert`)

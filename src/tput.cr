@@ -392,8 +392,14 @@ class Tput
     @ret = nil
     begin
       yield self
-      flush
     ensure
+      # Always drain the internal buffer into the capture target *before*
+      # restoring the real output — not just on the happy path. If the block
+      # raises, any bytes it already emitted are sitting in `@_buf`; leaving
+      # them there means the next real `#flush` replays them to the actual
+      # terminal as stray escape sequences. Flushing here (while `@output` is
+      # still the throwaway `io`) drains and clears `@_buf` either way.
+      flush
       @output = saved_output
       @ret = saved_ret
     end
