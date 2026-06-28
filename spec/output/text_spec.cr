@@ -15,6 +15,28 @@ describe Tput::Output::Text do
     end
   end
 
+  describe "horizontal_tab" do
+    # HT (ht/tab/htab) moves to the *next* 8-column tab stop, NOT a flat +8.
+    # From a misaligned column the tracked @cursor must land on the stop,
+    # otherwise it desyncs from where the terminal's tab actually leaves it.
+    it "advances @cursor to the next tab stop from a misaligned column" do
+      x.p.cup 0, 3; x.o
+      x.p.tab.should be_true
+      x.o.should eq "\t"
+      x.p.cursor.x.should eq 8 # next stop, not 3 + 8 = 11
+
+      x.p.cup 0, 8; x.o
+      x.p.ht.should be_true
+      x.o.should eq "\t"
+      x.p.cursor.x.should eq 16 # already aligned: advances one full stop
+
+      x.p.cup 0, 10; x.o
+      x.p.htab.should be_true
+      x.o.should eq "\t"
+      x.p.cursor.x.should eq 16 # 10 -> 16, not 10 + 8 = 18
+    end
+  end
+
   describe "shift_out" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[1]}" do
@@ -318,6 +340,23 @@ describe Tput::Output::Text do
 
       t[0].dl(12).should be_true
       x.o.should eq "\e[12M"
+    end
+  end
+
+  describe "insert_line / delete_line cursor home" do
+    # IL (CSI Ps L) and DL (CSI Ps M) move the terminal cursor to the first
+    # column of the current line; the tracked @cursor.x must follow (the row
+    # stays put), otherwise later relative moves desync from the real cursor.
+    it "resets @cursor.x to 0 while keeping the row" do
+      x.p.cup 5, 9; x.o
+      x.p.insert_line 2; x.o
+      x.p.cursor.x.should eq 0
+      x.p.cursor.y.should eq 5
+
+      x.p.cup 7, 11; x.o
+      x.p.delete_line 3; x.o
+      x.p.cursor.x.should eq 0
+      x.p.cursor.y.should eq 7
     end
   end
 

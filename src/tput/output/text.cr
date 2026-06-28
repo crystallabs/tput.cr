@@ -63,17 +63,22 @@ class Tput
 
       alias_previous kbs, bs
 
-      # TODO - Horribly broken
-      #
       # Moves the cursor to the next character tab stop.
       #
       # TODO Currently it assumes tabs are 8 characters wide. There is no support for detecting actual tab width.
       # TODO Actually - look at tab_size. So at least the user can manually adjust.
-      # TODO But, TAB doesn't move +8. It moves to the next tab stop. And there is always one at very end of line.
       #
       # Aliases: ht, tab, htab
       private def horizontal_tab
-        @cursor.x += 8
+        # HT advances to the *next* tab stop, not a flat `+8`. With the standard
+        # 8-column stops the next stop from column x is `(x // 8 + 1) * 8` — e.g.
+        # from column 3 a tab lands on 8, not 11. The old `+= 8` over-advanced
+        # `@cursor.x` from any column that wasn't already a multiple of 8,
+        # desyncing the tracked cursor from where the terminal's HT actually
+        # leaves it (the same desync class as the CHT/ICH fixes). The two agree at
+        # tab-aligned columns, so existing aligned-start specs are intact. This is
+        # the single-tab form of `#cursor_forward_tab` (CHT, param == 1).
+        @cursor.x = (@cursor.x // 8 + 1) * 8
         _ncoords
         put(&.ht?) || _print "\t"
       end
@@ -560,6 +565,12 @@ class Tput
       def insert_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
+        # IL moves the active position to the first column of the line (the line
+        # home position), unlike the character ops ICH/DCH/ECH which leave the
+        # cursor put. Reset the tracked column to match the terminal's real
+        # cursor — leaving `@cursor.x` stale desynced every later relative move
+        # (the same desync class as the ICH/SU/DECRC fixes). The row is unchanged.
+        @cursor.x = 0
         # `param == 1` uses the static `il1` cap (no tparm), so it keeps its
         # terminfo route and exact byte output; only the parameterized
         # `param > 1` case (which would invoke tparm) takes the ansi_edit fast path.
@@ -575,6 +586,10 @@ class Tput
       def delete_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
+        # Like IL, DL moves the active position to the first column of the line;
+        # keep the tracked column in sync with the terminal's real cursor (see
+        # `#insert_line`). The row is unchanged.
+        @cursor.x = 0
         # `param == 1` uses the static `dl1` cap (no tparm); only `param > 1`
         # (parameterized, would invoke tparm) takes the ansi_edit fast path.
         (param == 1 ? (put(&.dl1?) || put(&.dl?(param))) : (!features.ansi_edit? && put(&.dl?(param)))) ||

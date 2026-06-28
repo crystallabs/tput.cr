@@ -423,7 +423,14 @@ class Tput
       # CSI Ps I
       #   Cursor Forward Tabulation Ps tab stops (default = 1) (CHT).
       def cursor_forward_tab(param = 1)
-        @cursor.x += param * 8
+        # CHT moves to the *next* tab stop, not a flat `+param*8`. With the
+        # standard 8-column stops the param-th forward stop from column x is
+        # `(x // 8 + param) * 8` — e.g. from column 3, one tab lands on 8, not 11.
+        # The old `+param*8` over-advanced `@cursor.x` from any column that wasn't
+        # already a multiple of 8, desyncing the tracked cursor from where the
+        # terminal's CHT actually leaves it (the ICH/DECRC desync class). The two
+        # agree at tab-aligned columns, so existing aligned-start specs are intact.
+        @cursor.x = (@cursor.x // 8 + param) * 8
         _ncoords
         # The terminfo `tab` cap is a single, non-parametric tab; it only matches
         # one tab stop, so use it solely for `param == 1` and emit the parametric
@@ -435,7 +442,13 @@ class Tput
 
       # CSI Ps Z  Cursor Backward Tabulation Ps tab stops (default = 1) (CBT).
       def cursor_backward_tab(param = 1)
-        @cursor.x -= param * 8
+        # CBT moves to the *previous* tab stop, the mirror of CHT above. The
+        # previous 8-column stop of x>0 is `((x - 1) // 8) * 8`, and each further
+        # step subtracts another 8: `(((x - 1) // 8) - (param - 1)) * 8`. From
+        # column 10 one back-tab lands on 8, not `10-8=2`. A negative result (or
+        # x==0, which has no earlier stop) is pulled back to column 0 by `_ncoords`.
+        # Equals the old `-param*8` at tab-aligned columns, so aligned specs hold.
+        @cursor.x = @cursor.x > 0 ? (((@cursor.x - 1) // 8) - (param - 1)) * 8 : 0
         _ncoords
         # As with `tab` above, the terminfo `cbt` cap is single, non-parametric;
         # use it only for `param == 1`, else emit the parametric CBT sequence.

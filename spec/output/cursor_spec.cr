@@ -182,6 +182,29 @@ describe Tput::Output::Cursor do
       x.o.should eq "\e[2Z"
       x.t.cursor.x.should eq 24
     end
+
+    # CHT/CBT move to the next/previous tab stop; with the standard 8-column
+    # stops the tracked cursor must land on the stop, NOT a flat +/- param*8 from
+    # a misaligned column. Otherwise @cursor desyncs from where the terminal's
+    # CHT/CBT actually leaves the cursor.
+    it "advances @cursor to the next tab stop from a misaligned column" do
+      x.p.cup 0, 3; x.o
+      x.p.cursor_forward_tab 1
+      x.o.should eq "\e[1I"
+      x.p.cursor.x.should eq 8 # next stop, not 3 + 8 = 11
+
+      x.p.cup 0, 10; x.o
+      x.p.cursor_forward_tab 2
+      x.o.should eq "\e[2I"
+      x.p.cursor.x.should eq 24 # 10 -> 16 -> 24, not 10 + 16 = 26
+    end
+
+    it "retreats @cursor to the previous tab stop from a misaligned column" do
+      x.p.cup 0, 10; x.o
+      x.p.cursor_backward_tab 1
+      x.o.should eq "\e[1Z"
+      x.p.cursor.x.should eq 8 # previous stop, not 10 - 8 = 2
+    end
   end
 
   describe "single-step cursor fallback (cuu1/cud1/cuf1/cub1)" do
