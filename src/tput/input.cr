@@ -163,25 +163,37 @@ class Tput
       end
     end
 
-    def next_char(timeout : Bool = false, &)
+    # Runs *block* with the input's read timeout set to `@read_timeout` for the
+    # duration (and cleared again afterwards) when *timeout* is requested and the
+    # input supports it. Shared by `#next_char`/`#next_byte`, whose only real
+    # difference is the read call (`read_char` vs `read_byte`) wrapped here.
+    private def with_read_timeout(timeout : Bool, &)
       input = @input
 
       if timeout && input.responds_to? :"read_timeout="
         input.read_timeout = @read_timeout
       end
 
-      begin
-        c = input.read_char
-      rescue IO::TimeoutError
-        c = nil
+      result = yield
+
+      if timeout && input.responds_to? :"read_timeout="
+        input.read_timeout = nil
+      end
+
+      result
+    end
+
+    def next_char(timeout : Bool = false, &)
+      c = with_read_timeout(timeout) do
+        begin
+          @input.read_char
+        rescue IO::TimeoutError
+          nil
+        end
       end
 
       if c
         yield << c
-      end
-
-      if timeout && input.responds_to? :"read_timeout="
-        input.read_timeout = nil
       end
 
       c
@@ -193,20 +205,12 @@ class Tput
     # exceed `0x7F` (a coordinate past column/row 95) and would be corrupted by
     # `read_char`.
     private def next_byte(timeout : Bool = false) : Int32?
-      input = @input
-
-      if timeout && input.responds_to? :"read_timeout="
-        input.read_timeout = @read_timeout
-      end
-
-      begin
-        b = input.read_byte
-      rescue IO::TimeoutError
-        b = nil
-      end
-
-      if timeout && input.responds_to? :"read_timeout="
-        input.read_timeout = nil
+      b = with_read_timeout(timeout) do
+        begin
+          @input.read_byte
+        rescue IO::TimeoutError
+          nil
+        end
       end
 
       b.try &.to_i
