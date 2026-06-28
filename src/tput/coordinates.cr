@@ -99,10 +99,6 @@ class Tput
       # In absolute coords these will be 0.
       # In relative coords these will be @cursor's x/y
 
-      # Delta; by how much the desired x/y must be adjusted.
-      dx = 0
-      dy = 0
-
       # Originally requested x/y, before adjustment.
       ox = x
       oy = y
@@ -114,33 +110,35 @@ class Tput
         y += @screen.height if y < 0
       end
 
-      # The would-be absolute position.
-      nx = sx + x
-      ny = sy + y
-
-      # Check if x is out of bounds and adjust
-      if nx < 0
-        dx = nx
-        x -= nx
-      elsif nx >= s.width
-        dx = s.width - 1 - nx
-        x = s.width - 1 - sx
-      end
-
-      # Check if y is out of bounds and adjust
-      if ny < 0
-        dy = ny
-        y -= ny
-      elsif ny >= s.height
-        dy = s.height - 1 - ny
-        y = s.height - 1 - sy
-      end
+      # x and y are bounds-checked identically, differing only in the start
+      # offset (sx/sy) and the bound (screen width/height), so a single helper
+      # handles one axis at a time. `dx`/`dy` are the deltas: by how much the
+      # desired x/y had to be adjusted.
+      x, dx = _adjust_axis x, sx, s.width
+      y, dy = _adjust_axis y, sy, s.height
 
       Log.trace { my sx, sy, ox, oy, x, y, dx, dy }
 
       # Return the two values that are identical, or replace,
       # the originally requested values.
       {x, y}
+    end
+
+    # Bounds-checks a single coordinate. Given the requested offset `v`, the
+    # starting point `s` (0 for absolute, the cursor position for relative) and
+    # the screen bound `max` (width or height), returns `{adjusted_v, delta}`
+    # where `adjusted_v` keeps the absolute position `s + v` within `0..max-1`
+    # and `delta` is how far out of bounds the original would-be position was.
+    private def _adjust_axis(v, s, max)
+      # The would-be absolute position.
+      n = s + v
+      if n < 0
+        {v - n, n}
+      elsif n >= max
+        {max - 1 - s, max - 1 - n}
+      else
+        {v, 0}
+      end
     end
 
     # Returns [x,y] adjusted so that the values are within screen bounds.
