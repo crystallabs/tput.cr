@@ -146,7 +146,7 @@ class Tput
     # absent or stale (kitty, foot, WezTerm, recent xterm, …).
     def request_termcap(*names : String, timeout : Time::Span = RESPONSE_TIMEOUT) : Hash(String, String)?
       hex = names.map(&.to_slice.hexstring).join(';')
-      query("\eP+q#{hex}\e\\", timeout) { |io| read_xtgettcap_response io, timeout }
+      query("\eP+q#{hex}\e\\", timeout) { |io| read_xtgettcap_response io, timeout, names.size }
     end
 
     alias_previous xtgettcap
@@ -283,26 +283,36 @@ class Tput
 
     # Parses an XTGETTCAP reply (`DCS 1 + r <name>=<value>;… ST` on success,
     # `DCS 0 + r … ST` when nothing was recognized). Names and values arrive
-    # hex-encoded. Returns the decoded `{name => value}` pairs.
-    def read_xtgettcap_response(io : IO, timeout : Time::Span) : Hash(String, String)?
+    # hex-encoded. Returns the decoded `{name => value}` pairs, merging across
+    # multiple DCS replies until *expected* names are seen (xterm sends one reply
+    # per capability; kitty/foot batch them into one).
+    def read_xtgettcap_response(io : IO, timeout : Time::Span, expected : Int32 = 1) : Hash(String, String)?
+      result = nil
       loop do
-        b = probe_read_byte(io, timeout) || return nil
+        b = probe_read_byte(io, timeout) || break
         next unless b == 0x1b_u8
-        nb = probe_read_byte(io, timeout) || return nil
+        nb = probe_read_byte(io, timeout) || break
         next unless nb == 'P'.ord # DCS
         payload = probe_read_dcs io, timeout
         # Expect `<status>+r<body>`, status '1' (valid) or '0' (invalid).
         next unless payload.size >= 3 && payload[1] == '+' && payload[2] == 'r'
-        result = {} of String => String
-        return result unless payload[0] == '1'
-        payload[3..].split(';').each do |pair|
-          name, sep, value = pair.partition('=')
-          next if name.empty?
-          decoded = (n = unhex name) ? n : next
-          result[decoded] = sep.empty? ? "" : (unhex(value) || "")
+        result ||= {} of String => String
+        if payload[0] == '1'
+          payload[3..].split(';').each do |pair|
+            name, sep, value = pair.partition('=')
+            next if name.empty?
+            decoded = (n = unhex name) ? n : next
+            result[decoded] = sep.empty? ? "" : (unhex(value) || "")
+          end
         end
-        return result
+        # xterm answers a multi-name query with one DCS reply *per* capability,
+        # while kitty/foot batch them all into one. Keep reading and merging
+        # replies until every requested name is accounted for. The early-out
+        # means a single batched reply still returns immediately (no extra
+        # blocking read), so this never slows the common case.
+        break if result.size >= expected
       end
+      result
     end
 
     # Decodes a hex string to text, or `nil` if it is not valid hex.

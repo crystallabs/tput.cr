@@ -233,6 +233,19 @@ describe "Tput::Response parsers" do
     result.should eq({"TN" => "xterm-kitty", "Co" => "256"})
   end
 
+  it "merges XTGETTCAP replies sent one-per-capability (xterm style)" do
+    t = new_tput
+    # xterm answers a multi-name query with a *separate* DCS reply per
+    # capability, unlike kitty/foot which batch them into one. All requested
+    # caps must be collected, not just the first.
+    tn = "TN".to_slice.hexstring
+    name = "xterm".to_slice.hexstring
+    co = "Co".to_slice.hexstring
+    val = "256".to_slice.hexstring
+    io = IO::Memory.new("\eP1+r#{tn}=#{name}\e\\\eP1+r#{co}=#{val}\e\\")
+    t.read_xtgettcap_response(io, 1.second, 2).should eq({"TN" => "xterm", "Co" => "256"})
+  end
+
   it "treats an XTGETTCAP failure reply (0+r) as empty" do
     t = new_tput
     io = IO::Memory.new("\eP0+r#{"TN".to_slice.hexstring}\e\\")
