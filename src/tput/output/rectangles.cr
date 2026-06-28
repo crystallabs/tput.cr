@@ -75,6 +75,15 @@ class Tput
         _print { |io| io << "\e["; arguments.join(io, ';'); io << '$' << final }
       end
 
+      # Shared framing for the DEC erase-rectangle ops that take explicit
+      # coordinates with the standard 1-based (`+1`) conversion and screen-sized
+      # defaults: `CSI Pt;Pl;Pb;Pr $ <final>` (DECERA `$z`, DECSERA `${`).
+      # Distinct from `rectangle_op` above, which joins raw splat arguments.
+      # Byte-identical to the inlined form.
+      private def erase_rectangle_op(final : String, top, left, bottom, right)
+        _print { |io| io << "\e[" << (top + 1) << ';' << (left + 1) << ';' << (bottom + 1) << ';' << (right + 1) << final }
+      end
+
       # Erases characters from the specified rectangular area in page memory.
       # When an area is erased, all character positions are replaced with the space character.
       # Character values and visual attributes from the specified area are erased.
@@ -88,7 +97,7 @@ class Tput
       #
       # Aliases: decera
       def erase_rectangle(top = 0, left = 0, bottom = @screen.height - 1, right = @screen.width - 1)
-        _print { |io| io << "\e[" << (top + 1) << ';' << (left + 1) << ';' << (bottom + 1) << ';' << (right + 1) << "$z" }
+        erase_rectangle_op "$z", top, left, bottom, right
       end
 
       alias_previous decera
@@ -111,7 +120,7 @@ class Tput
       #
       # Aliases: decsera
       def selective_erase_rectangle(top = 0, left = 0, bottom = @screen.height - 1, right = @screen.width - 1)
-        _print { |io| io << "\e[" << (top + 1) << ';' << (left + 1) << ';' << (bottom + 1) << ';' << (right + 1) << "${" }
+        erase_rectangle_op "${", top, left, bottom, right
       end
 
       alias_previous decsera
