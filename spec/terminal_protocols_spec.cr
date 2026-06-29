@@ -24,14 +24,14 @@ private class StrictEofIO < IO
 end
 
 private def feed_all(data : String)
-  events = [] of {Char, Tput::Key?, String?, Tput::Resize?}
+  events = [] of {Char, Tput::Key?, String?, Tput::Resize?, String?}
   t = Tput.new \
     input: IO::Memory.new(data),
     output: IO::Memory.new,
     screen_size: Tput::DEFAULT_SCREEN_SIZE,
     probe: false
   t.listen do |e|
-    events << {e.char, e.key, e.paste, e.resize}
+    events << {e.char, e.key, e.paste, e.resize, e.clipboard}
   end
   events
 end
@@ -93,11 +93,12 @@ describe "color scheme (DEC 2031) + OSC 52 clipboard via listen" do
     schemes.should eq [Tput::ColorScheme::Dark, Tput::ColorScheme::Light]
   end
 
-  it "surfaces an OSC 52 clipboard reply as a paste" do
+  it "surfaces an OSC 52 clipboard reply on the clipboard channel (not paste)" do
     data = "\e]52;c;#{Base64.strict_encode "hello"}\a"
     ev = feed_all(data)
     ev.size.should eq 1
-    ev[0][2].should eq "hello" # delivered through the paste channel
+    ev[0][4].should eq "hello" # the dedicated clipboard channel
+    ev[0][2].should be_nil     # NOT the paste channel
   end
 
   it "ignores a non-clipboard OSC reply (no phantom key)" do

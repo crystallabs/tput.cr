@@ -34,9 +34,16 @@ class Tput
     getter paste : String?
     getter resize : Resize?
     getter color_scheme : ColorScheme?
+    # The decoded text of an OSC 52 clipboard *read* reply (`request_clipboard`).
+    # Distinct from `paste`: a bracketed paste is the user pasting *into* the
+    # app, whereas this is the answer to a programmatic clipboard query, so a
+    # consumer can keep its system-clipboard mirror in sync without treating it
+    # as typed/pasted input.
+    getter clipboard : String?
 
     def initialize(@char, @key = nil, @sequence : Array(Char)? = nil, @mouse = nil,
-                   @key_event = nil, @paste = nil, @resize = nil, @color_scheme = nil)
+                   @key_event = nil, @paste = nil, @resize = nil, @color_scheme = nil,
+                   @clipboard = nil)
     end
 
     # The raw input bytes for this event. A single-character event (the common
@@ -68,9 +75,14 @@ class Tput
       !@color_scheme.nil?
     end
 
-    # Whether this event is a key transition (not mouse/paste/resize/scheme).
+    # Whether this event is an OSC 52 clipboard *read* reply.
+    def clipboard? : Bool
+      !@clipboard.nil?
+    end
+
+    # Whether this event is a key transition (not mouse/paste/resize/scheme/clipboard).
     def key_transition? : Bool
-      @mouse.nil? && @paste.nil? && @resize.nil? && @color_scheme.nil?
+      @mouse.nil? && @paste.nil? && @resize.nil? && @color_scheme.nil? && @clipboard.nil?
     end
 
     # Whether this is a key *release* (only when enhanced event reporting is on).
@@ -233,6 +245,7 @@ class Tput
           paste = nil
           resize = nil
           color_scheme = nil
+          clipboard = nil
           if char.control?
             key = Key.read_control(char) { next_char(true) { sequence } }
 
@@ -281,10 +294,11 @@ class Tput
               color_scheme = parse_color_scheme sequence
               key = nil
             when Key::Osc
-              # OSC reply (`\e]…`). The OSC 52 clipboard reply is surfaced as a
-              # paste, so a programmatic clipboard read flows through the same
-              # channel as a bracketed paste.
-              paste = read_osc_clipboard { next_char(true) { sequence } }
+              # OSC reply (`\e]…`). The OSC 52 clipboard *read* reply is surfaced
+              # on its own `clipboard` channel — distinct from a bracketed paste —
+              # so a programmatic clipboard query can be told apart from the user
+              # pasting into the app.
+              clipboard = read_osc_clipboard { next_char(true) { sequence } }
               key = nil
             end
           end
@@ -300,7 +314,7 @@ class Tput
           # A real bare Escape (`key == Key::Escape`, `sequence == ['\e']`) and
           # any printable key (`char != '\e'`) are kept.
           if char == '\e' && mouse.nil? && key_event.nil? &&
-             paste.nil? && resize.nil? && color_scheme.nil? &&
+             paste.nil? && resize.nil? && color_scheme.nil? && clipboard.nil? &&
              (key.nil? || (key == Key::Escape && sequence.size > 1))
             sequence.clear
             next
@@ -311,7 +325,7 @@ class Tput
           # (most consumers never read `sequence`). Multi-byte sequences are
           # dup'd, since the live buffer is cleared and reused below.
           seq = sequence.size == 1 ? nil : sequence.dup
-          yield InputEvent.new char, key, seq, mouse, key_event, paste, resize, color_scheme
+          yield InputEvent.new char, key, seq, mouse, key_event, paste, resize, color_scheme, clipboard
           sequence.clear
         end
       end
