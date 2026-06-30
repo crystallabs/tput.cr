@@ -69,6 +69,10 @@ class Tput
         end
       end
 
+      # Probing ran: fields the terminal didn't answer should now read as
+      # "probed — terminal did not report", not the pre-probe baseline.
+      features.mark_probed!
+
       if w = result.ambiguous_width
         features.ambiguous_width = w
         features.sources["ambiguous_width"] = "probed via DSR/CPR cursor-position measurement"

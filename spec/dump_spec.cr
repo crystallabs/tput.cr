@@ -5,15 +5,24 @@ describe "Tput#dump / detections" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "exposes value + source for emulator and features with #{t[1]}" do
         d = t[0].detections
-        d.keys.should eq ["emulator", "features"]
+        d.keys.should eq ["emulator", "graphics", "features"]
 
         # Every emulator flag has a value and a non-empty source description.
         emu = d["emulator"]
         emu.has_key?("xterm").should be_true
+        # Graphics-capable emulators are reported too (once missing from dump).
+        {"kitty", "wezterm", "ghostty", "konsole", "mlterm", "foot"}.each do |k|
+          emu.has_key?(k).should be_true
+        end
         emu.each do |_name, det|
           det.source.empty?.should be_false
           det.source.should_not eq "unknown"
         end
+
+        # Derived graphics capabilities are exposed with a synthesized source.
+        gfx = d["graphics"]
+        gfx.has_key?("best_graphics").should be_true
+        gfx.each { |_name, det| det.source.empty?.should be_false }
 
         # Features: number_of_colors and its provenance are present.
         feat = d["features"]
@@ -39,7 +48,9 @@ describe "Tput#dump / detections" do
         t[0].dump io
         out = io.to_s
 
+        out.should contain "IDENTITY"
         out.should contain "EMULATOR"
+        out.should contain "GRAPHICS"
         out.should contain "FEATURES (static"
         out.should contain "FEATURES (live probing)"
         out.should contain "xterm"
@@ -74,6 +85,8 @@ describe "Tput#dump / detections" do
       probed["default_background"].value.should eq "#000000"
       probed["default_background"].source.should eq "probed via OSC 11 reply"
       probed["palette"].source.should eq "probed via OSC 4 replies"
+      # Palette reports a count, not the colors themselves.
+      probed["palette"].value.should contain "colors not listed"
       probed["da_params"].value.should eq "62;1;6"
       probed["da_params"].source.should eq "probed via DA1 (CSI c) reply"
       probed["ambiguous_width"].value.should eq "1"
@@ -90,6 +103,24 @@ describe "Tput#dump / detections" do
         probed[k].value.should eq "(not probed)"
         probed[k].source.empty?.should be_false
       end
+    end
+
+    it "stops saying (not probed) once a probe has run with no reply" do
+      f = Tput::Test.new.p.features
+      # Before probing: genuinely unknown.
+      before = f.probed_detections
+      before["in_band_resize"].value.should eq "(not probed)"
+      before["default_foreground"].value.should eq "(not probed)"
+
+      # Simulate a probe that completed but the terminal answered nothing.
+      f.mark_probed!
+      after = f.probed_detections
+      # Unanswered value fields now read as a reply that didn't come...
+      after["default_foreground"].value.should eq "(no reply)"
+      after["default_foreground"].source.should eq "probed — terminal did not report"
+      # ...and the boolean mode is now a definitive false, not "(not probed)".
+      after["in_band_resize"].value.should eq "false"
+      after["in_band_resize"].source.should eq "probed — terminal did not report"
     end
 
     it "surfaces in_band_resize once positively probed" do

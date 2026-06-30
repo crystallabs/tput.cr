@@ -153,6 +153,17 @@ class Tput
     @[JSON::Field(ignore: true)]
     getter sources = Hash(String, String).new
 
+    # Provenance recorded for the probe-only fields before any probe has run.
+    # After `Tput#probe!` runs (see `mark_probed!`), any field still carrying
+    # this baseline means "the terminal was asked but did not report it".
+    BASELINE_PROBE_SOURCE = "not probed (call Tput#probe!)"
+
+    # Whether a live probe (`Tput#probe!`) has run. Distinguishes "the terminal
+    # was asked but did not report this" from "no probe has happened yet", so the
+    # dump can stop saying "(not probed)" once probing has actually occurred.
+    @[JSON::Field(ignore: true)]
+    property? probed : Bool = false
+
     def initialize(@tput : Tput)
       @sources = Hash(String, String).new
 
@@ -161,7 +172,7 @@ class Tput
       {"ambiguous_width", "default_foreground", "default_background",
        "palette", "da_params", "kitty_keyboard", "modify_other_keys",
        "da2_params", "terminal_version", "in_band_resize"}.each do |k|
-        @sources[k] = "not probed (call Tput#probe!)"
+        @sources[k] = BASELINE_PROBE_SOURCE
       end
 
       @unicode = detect_unicode
@@ -188,6 +199,17 @@ class Tput
 
     def inspect(io)
       to_json io
+    end
+
+    # Records that a live probe (`Tput#probe!`) has run. Any probe-only field the
+    # terminal never answered still carries its pre-probe `BASELINE_PROBE_SOURCE`,
+    # so rewrite those to say a probe actually ran and got no reply — instead of
+    # the now-misleading "not probed (call Tput#probe!)". Called by `Tput#probe!`.
+    def mark_probed! : Nil
+      @probed = true
+      @sources.each do |k, v|
+        @sources[k] = "probed — terminal did not report" if v == BASELINE_PROBE_SOURCE
+      end
     end
 
     # Marks the terminal as 24-bit truecolor-capable (e.g. after a successful
