@@ -570,6 +570,63 @@ class Tput
       @sources["modify_other_keys"] = source
     end
 
+    # --- Device-attribute decoding --------------------------------------------
+    #
+    # `da_params`/`da2_params` arrive from probing as raw integer lists. These
+    # translate the well-known codes into the conformance class and feature set
+    # they stand for, so a report can show "VT420; sixel graphics, ANSI color"
+    # instead of "64;1;4;22". Best-effort: codes outside the standard tables are
+    # passed through numerically rather than dropped.
+
+    # DA1 first-parameter conformance levels (`CSI ? Pp ; … c`).
+    DA1_CLASS = {
+      1 => "VT100", 2 => "VT100 (AVO)", 6 => "VT102", 7 => "VT131",
+      12 => "VT125", 62 => "VT220", 63 => "VT320", 64 => "VT420", 65 => "VT510",
+    }
+
+    # DA1 feature attributes (the parameters after the conformance level).
+    DA1_ATTR = {
+      1 => "132 columns", 2 => "printer", 3 => "ReGIS graphics",
+      4 => "sixel graphics", 6 => "selective erase", 7 => "soft fonts (DRCS)",
+      8 => "user-defined keys", 9 => "national replacement charsets",
+      15 => "technical characters", 16 => "locator port",
+      17 => "terminal state interrogation", 18 => "windowing",
+      21 => "horizontal scrolling", 22 => "ANSI color", 28 => "rectangular editing",
+      29 => "ANSI text locator",
+    }
+
+    # DA2 first-parameter terminal-type codes (`CSI > Pp ; Pv ; Pc c`). Modern
+    # emulators reuse a base code (often 0 or 41) and encode their own build in
+    # `Pv` (see `#da2_decoded`).
+    DA2_TYPE = {
+      0 => "VT100", 1 => "VT220", 2 => "VT240", 18 => "VT330", 19 => "VT340",
+      24 => "VT320", 32 => "VT382", 41 => "VT420", 61 => "VT510", 64 => "VT520",
+      65 => "VT525",
+    }
+
+    # Human-readable decode of the probed DA1 reply: the conformance class
+    # followed by each recognized feature attribute. Empty when DA1 was not
+    # probed / not answered. The first parameter is read as the class and the
+    # rest as attributes, per the conventional modern-terminal layout.
+    def da_decoded : Array(String)
+      params = @da_params
+      return [] of String if params.nil? || params.empty?
+      out = [] of String
+      out << (DA1_CLASS[params[0]]? || "class #{params[0]}")
+      params[1..].each { |p| out << (DA1_ATTR[p]? || "attr #{p}") }
+      out
+    end
+
+    # Human-readable decode of the probed DA2 reply: terminal type and the
+    # firmware/version field. `nil` when DA2 was not probed / not answered.
+    def da2_decoded : String?
+      params = @da2_params
+      return nil if params.nil? || params.empty?
+      type = DA2_TYPE[params[0]]? || "type #{params[0]}"
+      ver = params[1]?
+      ver ? "#{type}, firmware/version #{ver}" : type
+    end
+
     # iTerm2 detection by env, replicated here because `Features` is constructed
     # before `Emulator` (see `Tput#initialize`), so `@tput.emulator` is not yet
     # available. Mirrors `Emulator#iterm2?`.

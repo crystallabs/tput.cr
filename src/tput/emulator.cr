@@ -72,6 +72,15 @@ class Tput
     # Is the emulator foot? (graphics-capable)
     property? foot : Bool
 
+    # The raw `$TERM_PROGRAM` value the emulator advertised (`""` if unset). Many
+    # emulators (Apple Terminal, iTerm2, WezTerm, VS Code, …) self-identify here;
+    # it is a primary identity signal, paired with `#term_program_version`.
+    getter term_program : String
+
+    # The raw `$TERM_PROGRAM_VERSION` value (`""` if unset) — the emulator's own
+    # reported version, when it sets one alongside `$TERM_PROGRAM`.
+    getter term_program_version : String
+
     @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
@@ -85,7 +94,10 @@ class Tput
     # Creates an instance of `Features` and performs the autodetection.
     def initialize(@tput : Tput)
       @sources = Hash(String, String).new
-      term_program = ENV["TERM_PROGRAM"]? || ""
+      term_program = @term_program = ENV["TERM_PROGRAM"]? || ""
+      @term_program_version = ENV["TERM_PROGRAM_VERSION"]? || ""
+      @sources["term_program"] = term_program.empty? ? "env TERM_PROGRAM unset" : %(env TERM_PROGRAM == "#{term_program}")
+      @sources["term_program_version"] = @term_program_version.empty? ? "env TERM_PROGRAM_VERSION unset" : %(env TERM_PROGRAM_VERSION == "#{@term_program_version}")
 
       @osxterm = term_program == "Apple_Terminal"
       @sources["osxterm"] = %(env TERM_PROGRAM == "Apple_Terminal")
@@ -178,6 +190,68 @@ class Tput
       GraphicsProtocol::None
     end
 
+    # --- Synthesized identity -------------------------------------------------
+    #
+    # The detection above is a bag of independent booleans; these collapse it
+    # into the single answer a consumer actually wants — "which terminal is
+    # this". Most-specific product wins, so a kitty that (via env leakage) also
+    # looks vaguely xterm-ish still resolves to kitty.
+
+    # Best-guess canonical product name, or `nil` if nothing matched (a bare,
+    # unidentifiable terminal). Concrete products are preferred over the generic
+    # families (vte/xterm), and multiplexers are reported separately via
+    # `#multiplexer` rather than masking the underlying terminal here.
+    def identity : String?
+      return "kitty" if kitty?
+      return "Ghostty" if ghostty?
+      return "WezTerm" if wezterm?
+      return "Konsole" if konsole?
+      return "foot" if foot?
+      return "mlterm" if mlterm?
+      return "iTerm2" if iterm2?
+      return "Apple Terminal" if osxterm?
+      return "Terminator" if terminator?
+      return "XFCE Terminal" if xfce?
+      return "rxvt" if rxvt?
+      return "xterm" if xterm?
+      return "VTE-based" if vte?
+      nil
+    end
+
+    # The terminal multiplexer the program is running *inside* (`tmux`/`screen`),
+    # or `nil`. Kept separate from `#identity` because a multiplexer wraps, but
+    # does not replace, the real terminal underneath it.
+    def multiplexer : String?
+      return "tmux" if tmux?
+      return "screen" if screen?
+      nil
+    end
+
+    # Best-effort version string for the identified terminal, or `nil`. Prefers
+    # the terminal's own XTVERSION self-report (authoritative, populated by
+    # `Tput#probe!`), falling back to the `$TERM_PROGRAM_VERSION` env hint. The
+    # XTVERSION reply usually arrives wrapped as `name(1.2.3)` or `name 1.2.3`;
+    # the bare version is extracted when present.
+    def version : String?
+      if v = @tput.features?.try(&.terminal_version)
+        if m = v.match(/\(([^)]+)\)/)
+          return m[1]
+        elsif m = v.match(/\s+(\S+)$/)
+          return m[1]
+        else
+          return v
+        end
+      end
+      term_program_version.empty? ? nil : term_program_version
+    end
+
+    # Whether `#identity`/`#version` rest on the terminal's own self-report
+    # (XTVERSION, via `Tput#probe!`) rather than env/TERM heuristics. The honest
+    # signal a tool uses to say "confirmed" vs "best guess".
+    def self_reported? : Bool
+      !@tput.features?.try(&.terminal_version).nil?
+    end
+
     # --- Probe-based hardening ------------------------------------------------
     #
     # The env/TERM detection above is best-effort: env vars propagate to child
@@ -225,6 +299,8 @@ class Tput
       @mlterm = reidentify @mlterm, "mlterm", identity, v
       @rxvt = reidentify @rxvt, "rxvt", identity, v
       @xterm = reidentify @xterm, "xterm", identity, v
+      # Apple Terminal never answers XTVERSION, so any reply means we are not it.
+      @osxterm = reidentify @osxterm, "osxterm", identity, v
 
       Log.trace { my self }
     end

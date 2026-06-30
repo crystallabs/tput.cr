@@ -56,9 +56,40 @@ class Tput
   private def dump_identity(io : IO) : Nil
     nw = 8
     io << "IDENTITY\n"
+
+    # Lead with the synthesized answer: which terminal this most likely is, its
+    # version, and whether that rests on the terminal's own self-report or just
+    # env/TERM heuristics. This is what a reader is actually after.
+    emu = emulator?
+    if emu
+      ident = emu.identity || "(unidentified)"
+      ident += " #{emu.version}" if emu.version
+      ident += " inside #{emu.multiplexer}" if emu.multiplexer
+      how = emu.self_reported? ? "XTVERSION self-report" : "env/TERM heuristic"
+      io << "  " << "emulator".ljust(nw) << "  " << ident << "  (" << how << ")\n"
+    end
+
     io << "  " << "name".ljust(nw) << "  " << @name << '\n'
     io << "  " << "aliases".ljust(nw) << "  " << (@aliases.empty? ? "(none)" : @aliases.join(", ")) << '\n'
     io << "  " << "terminfo".ljust(nw) << "  " << (@terminfo ? "loaded" : "(none — hardcoded fallback mode)") << '\n'
+
+    if emu && !emu.term_program.empty?
+      tp = emu.term_program
+      tp += " #{emu.term_program_version}" unless emu.term_program_version.empty?
+      io << "  " << "program".ljust(nw) << "  " << tp << "  (env TERM_PROGRAM)\n"
+    end
+
+    # Decoded device attributes — the terminal's own statement of its hardware
+    # class and feature set, when it was probed. The single most authoritative
+    # capability evidence after XTVERSION.
+    if f = features?
+      dec = f.da_decoded
+      io << "  " << "device".ljust(nw) << "  " << dec.join(", ") << "  (DA1)\n" unless dec.empty?
+      if d2 = f.da2_decoded
+        io << "  " << "device2".ljust(nw) << "  " << d2 << "  (DA2)\n"
+      end
+    end
+
     io << "  " << "size".ljust(nw) << "  " << @screen.width << " x " << @screen.height << " (cols x rows)" << '\n'
   end
 

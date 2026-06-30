@@ -96,8 +96,14 @@ class Tput
   @[JSON::Field(ignore: true)]
   getter? force_unicode : Bool
 
-  @name : String
-  # @aliases : Array[String]
+  # Resolved primary terminal name — from the loaded terminfo entry, else
+  # `$TERM`, else the `"xterm"` fallback — downcased. This is the terminal's
+  # textual identity as the system records it (what `$TERM` resolves to).
+  getter name : String
+
+  # Terminfo aliases for `#name` (downcased), e.g. `["xterm-256color"]`. Empty
+  # when no terminfo entry is loaded.
+  getter aliases : Array(String) = [] of String
 
   getter _title : String = ""
 
