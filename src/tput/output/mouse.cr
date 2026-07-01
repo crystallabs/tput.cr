@@ -76,9 +76,9 @@ class Tput
       # * *normal* — convenience for `vt200` + `all_motion`.
       # * *hilite_tracking* — alias of *vt200_hilite*.
       #
-      # GPM (Linux console) is intentionally not handled here: it is not a
-      # terminal-sequence mode and is managed one layer up (e.g. Crysterm's
-      # `gpm` integration), converting into the same `Tput::Mouse::Event`.
+      # GPM (Linux console) is not handled here: it's not a terminal-sequence
+      # mode and is managed one layer up (e.g. Crysterm's `gpm` integration),
+      # converting into the same `Tput::Mouse::Event`.
       def set_mouse(
         x10 : Bool? = nil,
         vt200 : Bool? = nil,
@@ -141,8 +141,7 @@ class Tput
       #            and unambiguous press/release)
       #
       # 1006 is what makes `Tput::Input#listen` receive the modern `\e[<…M/m`
-      # reports it prefers to parse. Pass *focus* `true` to additionally enable
-      # FocusIn/FocusOut reporting (mode 1004).
+      # reports. Pass *focus* `true` to also enable FocusIn/FocusOut (mode 1004).
       def enable_mouse(focus : Bool = false)
         set_mouse vt200: true, cell_motion: true, all_motion: true, sgr: true,
           send_focus: (focus ? true : nil)
@@ -166,7 +165,6 @@ class Tput
       # Shared framing for the DEC locator ops that take coordinate/parameter
       # args: `CSI P… ' <final>` (DECEFR `'w`, DECSLE `'{`, DECELR `'z`). The
       # `'` (0x27) intermediate byte mirrors `Rectangles#rectangle_op`'s `$`.
-      # Byte-identical to the inlined form.
       private def locator_op(final : Char, *arguments)
         _print { |io| io << "\e["; arguments.join(io, ';'); io << '\'' << final }
       end

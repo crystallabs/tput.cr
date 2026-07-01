@@ -1,11 +1,11 @@
 require "superconf"
 
-# tput's tunables, registered into the shared `Superconf` registry. Because the
-# registry is a process-wide singleton, these appear alongside the host
-# application's own options in one combined, configurable, dumpable list.
+# tput's tunables, registered into the shared `Superconf` registry (a
+# process-wide singleton), so they appear alongside the host application's own
+# options in one combined list.
 #
-# `Tput` reads these as the defaults for the corresponding constructor arguments
-# / accessors; explicit arguments to `Tput.new` still override them.
+# `Tput` uses these as defaults for the corresponding constructor args/accessors;
+# explicit `Tput.new` arguments still override them.
 module Superconf
   option "tput.read_timeout", 400.milliseconds,
     description: "Timeout waiting for terminal query replies (probing and key reads)",

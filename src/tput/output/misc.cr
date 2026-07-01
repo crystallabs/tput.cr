@@ -15,8 +15,7 @@ class Tput
       end
 
       # Inserts escape (ESC), indicating start of a new sequence.
-      #
-      # It cancels the stream of any other sequences.
+      # Cancels the stream of any other sequences.
       #
       # Aliases: esc
       def escape
@@ -32,8 +31,7 @@ class Tput
         # D O:
         # #if (has('pad')) return put.pad
 
-        # Why are we not ignoring this and making it be a
-        # sequence \x00?
+        # Why not ignore this and make it a sequence \x00?
         _print "\x80"
       end
 

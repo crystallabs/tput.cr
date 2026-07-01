@@ -29,8 +29,8 @@ class Tput
 
       # Copies text to clipboard. Does nothing if terminal emulator is not iTerm2.
       #
-      # This specificness could be circumvented by executing an external clipboard
-      # program when this capability is missing.
+      # Fall back to an external clipboard program when this capability is
+      # missing:
       #
       # Example:
       #      unless copy_to_clipboard text
@@ -47,8 +47,8 @@ class Tput
       # OSC 52: sets the terminal clipboard *selection* to *text*
       # (base64-encoded as the protocol requires). *selection* is `"c"` for the
       # clipboard, `"p"` for primary, etc. Unlike OS-level clipboard tools this
-      # works through SSH and tmux. Read it back with `#get_clipboard`. Harmless
-      # on terminals that don't support OSC 52 (they ignore it).
+      # works through SSH and tmux. Read back with `#get_clipboard`. Harmless
+      # on terminals without OSC 52 support (they ignore it).
       def set_clipboard(text : String, selection : String = "c") : Nil
         _tprint "\e]52;#{selection};#{Base64.strict_encode text}\x07"
       end
@@ -69,9 +69,9 @@ class Tput
 
       # OSC 8: begins a hyperlink to *uri*. Text emitted until `#end_hyperlink`
       # (or the next `#begin_hyperlink`) is clickable. *id* groups links that
-      # should highlight as one when the pointer hovers any part — use the same
-      # *id* for a link split across cells/lines. Widely supported (VTE, kitty,
-      # iTerm2, WezTerm, foot, …) and ignored elsewhere.
+      # should highlight as one when hovered — use the same *id* for a link
+      # split across cells/lines. Widely supported (VTE, kitty, iTerm2,
+      # WezTerm, foot, …) and ignored elsewhere.
       def begin_hyperlink(uri : String, id : String? = nil) : Nil
         _tprint "\e]8;#{id ? "id=#{id}" : ""};#{uri}\e\\"
       end
@@ -85,20 +85,18 @@ class Tput
       # OSC 8: emits *text* as a hyperlink to *uri* (begin + text + end).
       def hyperlink(text : String, uri : String, id : String? = nil) : Nil
         begin_hyperlink uri, id
-        # The *display* text is ordinary content and must be printed normally —
-        # NOT routed through `_tprint`. Only the OSC 8 begin/end markers are
-        # escape sequences that need the multiplexer's DCS passthrough; wrapping
-        # the text in it too (under tmux/screen) would hand the characters to the
-        # *outer* terminal instead of rendering them in the pane, so the link's
-        # label would vanish from the multiplexed screen.
+        # The *display* text must be printed normally, NOT routed through
+        # `_tprint` — only the OSC 8 markers need the multiplexer's DCS
+        # passthrough. Wrapping the text too (under tmux/screen) would hand
+        # the characters to the *outer* terminal, making the label vanish.
         _print text
         end_hyperlink
       end
 
       # OSC 7: reports *path* to the terminal as the current working directory
       # (as a `file://` URI), so terminals that track cwd — "open new tab/split
-      # here", window/tab titles — follow along. *host* is the URI host (empty =
-      # local). Routed through tmux's DCS passthrough; ignored where unsupported.
+      # here", window/tab titles — follow along. *host* is the URI host (empty
+      # = local). Ignored where unsupported.
       def report_cwd(path : String, host : String = "") : Nil
         _tprint "\e]7;file://#{host}#{path}\x07"
       end
@@ -112,12 +110,11 @@ class Tput
       end
 
       # Begins a synchronized update (DEC private mode 2026): the terminal holds
-      # off presenting output until `#end_synchronized_update`, then repaints the
-      # whole frame at once — removing the flicker/tearing of a multi-write
-      # redraw. Harmless on terminals that don't support it (they ignore it, and
-      # also auto-release after a short timeout so a missing end can't freeze the
-      # screen). Prefer the `#synchronized_update` block, which always pairs the
-      # end marker.
+      # off presenting output until `#end_synchronized_update`, then repaints
+      # the whole frame at once, removing flicker/tearing from a multi-write
+      # redraw. Harmless where unsupported (ignored, and auto-released after a
+      # short timeout so a missing end can't freeze the screen). Prefer the
+      # `#synchronized_update` block, which always pairs the end marker.
       def begin_synchronized_update : Nil
         _tprint "\e[?2026h"
       end
@@ -139,11 +136,11 @@ class Tput
         end
       end
 
-      # Enables Unicode grapheme clustering (DEC private mode 2027): the terminal
-      # advances the cursor by *grapheme cluster* (emoji ZWJ sequences, a base +
-      # combining marks, regional-indicator flags) rather than by codepoint —
-      # matching this library's `full_unicode` cell model, so wide/clustered
-      # glyphs stay aligned. Harmless on terminals that don't support it.
+      # Enables Unicode grapheme clustering (DEC private mode 2027): the
+      # terminal advances the cursor by *grapheme cluster* (emoji ZWJ
+      # sequences, base + combining marks, regional-indicator flags) rather
+      # than by codepoint, matching this library's `full_unicode` cell model.
+      # Harmless where unsupported.
       def enable_grapheme_clustering : Nil
         _tprint "\e[?2027h"
       end
@@ -153,11 +150,11 @@ class Tput
         _tprint "\e[?2027l"
       end
 
-      # Enables color-scheme (light/dark) change notifications (DEC private mode
-      # 2031). The terminal then reports theme changes in-band as
+      # Enables color-scheme (light/dark) change notifications (DEC private
+      # mode 2031). The terminal reports theme changes in-band as
       # `CSI ? 997 ; 1 n` (dark) / `CSI ? 997 ; 2 n` (light), surfaced as the
-      # `color_scheme` of `Tput::Input#listen` events. Query the current scheme
-      # with `#request_color_scheme`. Harmless on terminals that don't support it.
+      # `color_scheme` of `Tput::Input#listen` events. Query the current
+      # scheme with `#request_color_scheme`. Harmless where unsupported.
       def enable_color_scheme_notifications : Nil
         _tprint "\e[?2031h"
       end
@@ -246,13 +243,13 @@ class Tput
       #   This is distinct from `Output::Cursor#cursor_shape`, which styles the
       #   blinking text caret.
       #
-      # *Pt* is an X11 cursor-font glyph name — pass a `MouseCursorShape` (whose
-      # `#cursor_name` supplies it) or the raw name string. The change is
-      # per-window and best-effort: xterm honors OSC 22, but most other emulators
-      # (and Wayland-native terminals) ignore it, and an Xcursor theme may remap
-      # the glyph. It persists only until `#reset_mouse_cursor_shape`, the pointer
-      # leaves the window, or the program exits — so a caller that sets it should
-      # arrange to reset it (e.g. on mouse-out).
+      # *Pt* is an X11 cursor-font glyph name — pass a `MouseCursorShape`
+      # (whose `#cursor_name` supplies it) or the raw name string. Per-window
+      # and best-effort: xterm honors OSC 22, but most other emulators (and
+      # Wayland-native terminals) ignore it, and an Xcursor theme may remap
+      # the glyph. Persists until `#reset_mouse_cursor_shape`, the pointer
+      # leaves the window, or the program exits — callers should arrange to
+      # reset it (e.g. on mouse-out).
       def mouse_cursor_shape(shape : MouseCursorShape)
         mouse_cursor_shape shape.cursor_name
       end
@@ -264,9 +261,9 @@ class Tput
       end
 
       # OSC 22 ; ST
-      #   Restore the GUI mouse-pointer to the terminal's default shape, undoing a
-      #   previous `#mouse_cursor_shape`. xterm treats an empty *Pt* as "reset to
-      #   default"; terminals without OSC 22 ignore it.
+      #   Restore the GUI mouse-pointer to the terminal's default shape, undoing
+      #   a previous `#mouse_cursor_shape`. xterm treats an empty *Pt* as "reset
+      #   to default"; terminals without OSC 22 ignore it.
       def reset_mouse_cursor_shape
         _tprint "\e]22;\x07"
         true

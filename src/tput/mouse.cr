@@ -1,14 +1,13 @@
 class Tput
   # Normalized mouse handling.
   #
-  # This module defines the terminal-agnostic `Mouse::Event` produced when
-  # parsing xterm-style mouse reporting sequences (see `Tput::Input#listen`).
-  # The same `Event` type is intended to be the common currency for *any* mouse
-  # source: applications layered on top of Tput (e.g. Crysterm) convert their
-  # other sources — such as the Linux console `gpm` daemon — into this same
-  # struct, so that all mouse input can flow through a single mechanism.
+  # Defines the terminal-agnostic `Mouse::Event` produced when parsing
+  # xterm-style mouse reporting sequences (see `Tput::Input#listen`). Meant as
+  # the common currency for any mouse source: applications layered on top of
+  # Tput (e.g. Crysterm) convert other sources (e.g. the Linux console `gpm`
+  # daemon) into this same struct.
   #
-  # The following on-the-wire encodings are understood (see `Tput::Input`):
+  # On-the-wire encodings understood (see `Tput::Input`):
   #
   #   * X10 / "normal" (`\e[M Cb Cx Cy`), where each byte is its value plus 32.
   #     This is the legacy encoding and cannot represent coordinates past
@@ -32,9 +31,9 @@ class Tput
       Move
       WheelUp
       WheelDown
-      # Terminal focus gained/lost (DEC private mode 1004). These are not mouse
-      # *positions*; they are reported through the same channel by xterm and so
-      # share the `Event` type. They carry no button or coordinates.
+      # Terminal focus gained/lost (DEC private mode 1004). Not mouse positions,
+      # but reported through the same channel by xterm, so they share the
+      # `Event` type. Carry no button or coordinates.
       Focus
       Blur
     end
@@ -66,9 +65,8 @@ class Tput
       # Page number, only set by the DEC-locator encoding; `nil` otherwise.
       property page : Int32?
 
-      # Where the event originated. `:xterm` for sequences parsed from the input
-      # stream; other producers (e.g. `:gpm`) set their own tag. Purely
-      # informational, useful for debugging.
+      # Where the event originated: `:xterm` for sequences parsed from the input
+      # stream, other producers (e.g. `:gpm`) set their own tag. Informational only.
       property source : Symbol
 
       def initialize(
@@ -161,11 +159,11 @@ class Tput
     # bytes following `\e[M`, each still carrying the +32 bias.
     #
     # Corrects the buggy-VTE coordinate overflow: VTE can only send unsigned
-    # chars, so a coordinate whose `+32`-biased byte exceeds 255 wraps *modulo
-    # 256*, landing below the normal `0x20` floor. A raw byte under `0x20` is
-    # therefore such an overflow and is unwrapped by adding a full `256` cycle,
-    # recovering the original biased byte. (Adding `0xff` = 255, as before, lands
-    # one short and decodes every wrapped coordinate one cell too low.)
+    # chars, so a coordinate whose `+32`-biased byte exceeds 255 wraps modulo
+    # 256, landing below the normal `0x20` floor. A raw byte under `0x20` is
+    # unwrapped by adding a full 256 cycle to recover the original biased byte.
+    # (Adding 0xff, as before, lands one short and decodes every wrapped
+    # coordinate one cell too low.)
     def self.parse_x10(cb : Int32, cx : Int32, cy : Int32) : Event
       cx += 256 if cx < 0x20
       cy += 256 if cy < 0x20
@@ -187,12 +185,10 @@ class Tput
     # are decimal and unbounded.
     def self.parse_urxvt(cb : Int32, cx : Int32, cy : Int32) : Event
       # Work around a urxvt bug that reports 128/129 instead of 96/97 for a
-      # wheel up/down during motion. Map them back to the proper +32-biased
-      # wheel values (96 = up, 97 = down) so that, after the bias is stripped
-      # below, `decode_button` still sees the wheel bit *and* the correct
-      # direction. (The previous `cb = 67` both lost the direction and, once
-      # the bias was removed, cleared the wheel bit — mis-decoding the event as
-      # a plain motion.)
+      # wheel up/down during motion. Map back to the proper +32-biased wheel
+      # values (96 = up, 97 = down) so `decode_button` still sees the wheel bit
+      # and correct direction after the bias is stripped. (The previous `cb = 67`
+      # lost the direction and cleared the wheel bit, mis-decoding as motion.)
       cb = 96 if cb == 128
       cb = 97 if cb == 129
       action, button, shift, meta, ctrl = decode_button(cb - 32)
@@ -205,9 +201,8 @@ class Tput
     # Each button has a press/release pair of codes (even = press, odd =
     # release): 2/3 = left, 4/5 = middle, 6/7 = right.
     def self.parse_dec(cb : Int32, cx : Int32, cy : Int32, cp : Int32) : Event
-      # Earlier code recognized only the left release (3), mis-decoding the
-      # middle/right releases as presses and dropping the button identity on
-      # every release.
+      # Earlier code recognized only the left release (3), mis-decoding
+      # middle/right releases as presses and dropping button identity.
       button = case cb
                when 2, 3 then Button::Left
                when 4, 5 then Button::Middle

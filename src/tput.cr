@@ -97,8 +97,7 @@ class Tput
   getter? force_unicode : Bool
 
   # Resolved primary terminal name — from the loaded terminfo entry, else
-  # `$TERM`, else the `"xterm"` fallback — downcased. This is the terminal's
-  # textual identity as the system records it (what `$TERM` resolves to).
+  # `$TERM`, else the `"xterm"` fallback — downcased.
   getter name : String
 
   # Terminfo aliases for `#name` (downcased), e.g. `["xterm-256color"]`. Empty
@@ -120,12 +119,11 @@ class Tput
   @_buf = IO::Memory.new
 
   # Memoizes `#_attr` output. Attribute specs (`"bold"`, `"red fg"`,
-  # `"green fg, bold"`) are a small recurring set and parse to a deterministic
-  # escape sequence (terminal-state inputs like color count and emulator name
-  # don't change during a run), so the parse is done once per (spec, on/off).
+  # `"green fg, bold"`) are a small recurring set parsing to a deterministic
+  # escape sequence, so the parse is done once per (spec, on/off).
   #
-  # Bounded by `#attr_cache_limit` via FIFO eviction so that dynamic/unbounded
-  # inputs (e.g. a distinct truecolor per cell) can't grow it without limit.
+  # Bounded by `#attr_cache_limit` via FIFO eviction so dynamic/unbounded
+  # inputs (e.g. a distinct truecolor per cell) can't grow it unbounded.
   @[JSON::Field(ignore: true)]
   @_attr_cache = Hash(Tuple(String, Bool), String).new
 
@@ -144,8 +142,8 @@ class Tput
 
   # The enhanced keyboard protocol currently enabled (tracked by
   # `#enable_keyboard_protocol`/`#disable_keyboard_protocol`), or `nil` when only
-  # the always-available `Legacy` baseline is active. Used by `#pause` to restore
-  # it on resume. See `Tput::Keyboard`.
+  # the always-available `Legacy` baseline is active. Used by `#pause`. See
+  # `Tput::Keyboard`.
   @[JSON::Field(ignore: true)]
   getter keyboard_protocol : KeyboardProtocol? = nil
 
@@ -181,16 +179,10 @@ class Tput
   @_rx : Int32? = nil
   @_ry : Int32? = nil
 
-  # Timeout when reading escape sequences. If an escape sequence (ESC)
-  # comes in on input, we have no way of telling whether this is an
-  # ESC key or the start of an escape sequence.
-  # So we read with a timeout. If there is no input by the time it
-  # times out, we consider it was a key press.
-  #
-  # All other apps like Vi
-  # etc. read the escape key in the terminal this way.
-  #
-  # The default timeout is 400 milliseconds, the same as in Qt.
+  # Timeout when reading escape sequences: an ESC on input could be a lone ESC
+  # key or the start of an escape sequence, so we wait this long for more
+  # input before treating it as a key press (same approach Vi and others use).
+  # Default is 400ms, matching Qt.
   @[JSON::Field(ignore: true)]
   getter read_timeout : Time::Span = Superconf.tput_read_timeout
 
@@ -246,8 +238,7 @@ class Tput
   end
 
   def name?(nam : String)
-    # Aliases are checked first because aliases[0] is what we consider *the*
-    # emulator name.
+    # Aliases checked first since aliases[0] is *the* emulator name.
     # XXX possibly turn the check into /(word)\b/, so that it matches e.g.
     # xterm and xterm-256color, but not xterminator.
     return true if @aliases.any? &.starts_with?(nam)
@@ -262,12 +253,8 @@ class Tput
     @shim.try { |s| yield(s) ? true : false }
   end
 
-  # Outputs a string capability to the designated `@output`, if
-  # the capability exists.
-  #
-  # For this method to work, the Tput instance needs to be
-  # initialized with Terminfo data. If Terminfo data is not
-  # present, nil will be returned.
+  # Outputs a string capability to `@output`, if it exists. Requires the
+  # instance to be initialized with Terminfo data; returns `nil` otherwise.
   #
   # ```
   # put &.smcup?
@@ -293,11 +280,11 @@ class Tput
   # Like `#put`, but resolves a *user-defined* (extended) string capability by
   # name and runs it with the given arguments.
   #
-  # The predefined Terminfo capabilities are exposed via the shim (and used
-  # through `#put`), but capabilities such as `Cr` (reset cursor color),
-  # `Cs` (set cursor color) or `Ms` (store data in the clipboard) live outside
-  # that set and are only present as terminfo *extensions*. This looks one up
-  # by name, formats it with *args*, and writes the result.
+  # Predefined Terminfo capabilities are exposed via the shim (used through
+  # `#put`), but capabilities such as `Cr` (reset cursor color), `Cs` (set
+  # cursor color), or `Ms` (store data in the clipboard) exist only as
+  # terminfo *extensions*. This looks one up by name, formats it with *args*,
+  # and writes the result.
   #
   # Returns `true` if the capability existed and was written, `nil`/`false`
   # otherwise (no Terminfo data, or the extension is not defined).
@@ -318,13 +305,13 @@ class Tput
 
   # Suspends the program's use of the terminal: saves the cursor, leaves the
   # alternate buffer, shows the cursor, disables mouse reporting, and returns
-  # the input to cooked mode — leaving the terminal usable by another program
-  # (a shell, `$EDITOR`, …). Returns — and stores in `@_resume` — a continuation
+  # input to cooked mode, leaving the terminal usable by another program (a
+  # shell, `$EDITOR`, …). Returns — and stores in `@_resume` — a continuation
   # that `#resume` (or `#sigtstp`'s `SIGCONT` handler) invokes to restore
   # everything.
   #
-  # The caller must not emit output between `#pause` and `#resume`; the dominant
-  # use (`#sigtstp`) suspends the whole process, so this is automatic there.
+  # The caller must not emit output between `#pause` and `#resume`; the
+  # dominant use (`#sigtstp`) suspends the whole process, so this is automatic.
   def pause(callback : Proc? = nil) : Proc(Nil)
     alt = is_alt
     mouse = mouse_enabled?
@@ -335,10 +322,8 @@ class Tput
     resize = in_band_resize_enabled?
 
     lsave_cursor :pause
-    # The teardown below uses the live predicates, which still equal the locals
-    # captured just above (nothing between has changed them); the locals are kept
-    # for the resume continuation. The comment about flushing before cooked mode
-    # lives on `#_teardown_terminal`.
+    # Teardown below uses the live predicates, unchanged since capture above;
+    # the locals are kept for the resume continuation.
     _teardown_terminal
 
     @_resume = -> {
@@ -361,19 +346,18 @@ class Tput
 
   # Restores the terminal to the state it was in before the program took it
   # over: shows the cursor, leaves the alternate buffer, disables mouse
-  # reporting, and returns the input to cooked mode. Intended for clean
-  # teardown on exit. (Listener/instance bookkeeping is the caller's concern.)
+  # reporting, returns input to cooked mode. For clean teardown on exit.
+  # (Listener/instance bookkeeping is the caller's concern.)
   def restore_terminal : Nil
     _teardown_terminal
   end
 
   # Emits the sequences that hand the terminal back to another program: disable
-  # mouse reporting, the enhanced keyboard protocol, bracketed paste and in-band
-  # resize, leave the alternate buffer, and show the cursor — then flush so those
-  # restore sequences actually reach the terminal before `#suspend_raw_input`
-  # returns input to cooked mode. Shared by `#pause` and `#restore_terminal`;
-  # each `if` guards on the live predicate so only currently-active features are
-  # turned off.
+  # mouse reporting, the enhanced keyboard protocol, bracketed paste and
+  # in-band resize, leave the alternate buffer, show the cursor — then flush so
+  # those reach the terminal before `#suspend_raw_input` returns input to
+  # cooked mode. Shared by `#pause` and `#restore_terminal`; each `if` guards
+  # on the live predicate so only active features are turned off.
   private def _teardown_terminal : Nil
     disable_mouse if mouse_enabled?
     disable_keyboard_protocol if @keyboard_protocol
@@ -385,12 +369,12 @@ class Tput
     suspend_raw_input
   end
 
-  # Captures the escape sequences emitted by the calls made inside the block
-  # and returns them as a `String`, instead of writing them to the terminal.
+  # Captures the escape sequences emitted by the block and returns them as a
+  # `String`, instead of writing them to the terminal.
   #
-  # This is the equivalent of Blessed's `Program#out(name, *args)` dispatcher.
-  # Crystal has no by-name dynamic dispatch (and `out` is a reserved word), so
-  # a block is used instead:
+  # Equivalent of Blessed's `Program#out(name, *args)` dispatcher. Crystal has
+  # no by-name dynamic dispatch (and `out` is a reserved word), so a block is
+  # used instead:
   #
   # ```
   # seq = tput.capture &.cursor_pos(1, 2) # => "\e[2;3H"
@@ -412,12 +396,9 @@ class Tput
     begin
       yield self
     ensure
-      # Always drain the internal buffer into the capture target *before*
-      # restoring the real output — not just on the happy path. If the block
-      # raises, any bytes it already emitted are sitting in `@_buf`; leaving
-      # them there means the next real `#flush` replays them to the actual
-      # terminal as stray escape sequences. Flushing here (while `@output` is
-      # still the throwaway `io`) drains and clears `@_buf` either way.
+      # Drain the internal buffer into the capture target before restoring the
+      # real output, even if the block raised — otherwise bytes left in
+      # `@_buf` would replay to the real terminal on the next `#flush`.
       flush
       @output = saved_output
       @ret = saved_ret

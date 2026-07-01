@@ -16,9 +16,8 @@ class Tput
   end
 
   # One unit of terminal input, as yielded by `Tput::Input#listen`. Exactly one
-  # *kind* is meaningful per event — a mouse report, a paste, an in-band resize,
-  # or a key transition — told apart with the predicates below; the remaining
-  # fields are `nil`.
+  # kind is meaningful per event — mouse report, paste, in-band resize, or key
+  # transition — told apart with the predicates below; remaining fields are `nil`.
   #
   #   * `char` / `key` / `sequence` — the key transition (and the raw bytes).
   #   * `mouse`       — a parsed mouse/focus report (`#mouse?`).
@@ -34,11 +33,9 @@ class Tput
     getter paste : String?
     getter resize : Resize?
     getter color_scheme : ColorScheme?
-    # The decoded text of an OSC 52 clipboard *read* reply (`request_clipboard`).
-    # Distinct from `paste`: a bracketed paste is the user pasting *into* the
-    # app, whereas this is the answer to a programmatic clipboard query, so a
-    # consumer can keep its system-clipboard mirror in sync without treating it
-    # as typed/pasted input.
+    # Decoded text of an OSC 52 clipboard *read* reply (`request_clipboard`).
+    # Distinct from `paste`: this is the answer to a programmatic clipboard
+    # query, not user-pasted input.
     getter clipboard : String?
 
     def initialize(@char, @key = nil, @sequence : Array(Char)? = nil, @mouse = nil,
@@ -46,11 +43,9 @@ class Tput
                    @clipboard = nil)
     end
 
-    # The raw input bytes for this event. A single-character event (the common
-    # typing path) carries no array — `#listen` passes `nil` and the lone byte
-    # is reconstructed here on demand, so plain typing allocates nothing unless
-    # a consumer actually reads the sequence. Multi-byte sequences (escape
-    # sequences, mouse/paste reports) carry their captured bytes verbatim.
+    # Raw input bytes for this event. A single-character event carries no array
+    # — `#listen` passes `nil` and the byte is reconstructed here on demand, so
+    # plain typing allocates nothing unless a consumer reads the sequence.
     def sequence : Array(Char)
       @sequence || [@char]
     end
@@ -152,9 +147,8 @@ class Tput
       end
     end
 
-    # Yields the input's `fd` and the held raw `@mode` when raw mode is currently
-    # in effect on a tty — a no-op otherwise. Shared by `#suspend_raw_input` /
-    # `#restore_raw_input`, which differ only in the `tcsetattr` they apply.
+    # Yields the input's `fd` and held raw `@mode` when raw mode is in effect on
+    # a tty, no-op otherwise. Shared by `#suspend_raw_input`/`#restore_raw_input`.
     private def with_held_raw_mode(&)
       input = @input
       mode = @mode
@@ -164,9 +158,7 @@ class Tput
     end
 
     # Temporarily returns the terminal to the saved (cooked) mode while a raw
-    # `#listen` is active — used by `#pause`/`#restore_terminal`. `@mode` holds
-    # the original mode captured by `preserving_tc_mode`; a no-op when raw mode
-    # isn't currently held or the input isn't a tty.
+    # `#listen` is active — used by `#pause`/`#restore_terminal`.
     private def suspend_raw_input
       with_held_raw_mode do |fd, mode|
         cooked = mode
@@ -182,10 +174,9 @@ class Tput
       end
     end
 
-    # Runs *block* with the input's read timeout set to `@read_timeout` for the
-    # duration (and cleared again afterwards) when *timeout* is requested and the
-    # input supports it. Shared by `#next_char`/`#next_byte`, whose only real
-    # difference is the read call (`read_char` vs `read_byte`) wrapped here.
+    # Runs *block* with the input's read timeout set to `@read_timeout` (cleared
+    # afterwards) when *timeout* is requested and supported. Shared by
+    # `#next_char`/`#next_byte`.
     private def with_read_timeout(timeout : Bool, &)
       input = @input
 
@@ -218,11 +209,9 @@ class Tput
       c
     end
 
-    # Reads one raw 8-bit byte (`0..255`), or `nil` on EOF/timeout. Mirrors
-    # `#next_char`'s optional read timeout but bypasses UTF-8 decoding — needed
-    # for the X10 mouse encoding, whose payload bytes are raw values that may
-    # exceed `0x7F` (a coordinate past column/row 95) and would be corrupted by
-    # `read_char`.
+    # Reads one raw 8-bit byte (`0..255`), or `nil` on EOF/timeout. Bypasses
+    # UTF-8 decoding — needed for X10 mouse encoding, whose payload bytes may
+    # exceed `0x7F` and would be corrupted by `read_char`.
     private def next_byte(timeout : Bool = false) : Int32?
       b = with_read_timeout(timeout) do
         begin
@@ -251,22 +240,17 @@ class Tput
 
             case key
             when Key::Mouse
-              # A mouse report introducer was detected; parse the rest now. The
-              # encoding is told apart by the char after `\e[` (see
-              # `#read_mouse`): `M` X10, `<` SGR/DEC-locator, `I`/`O` focus, a
-              # digit URxvt. On success the report is delivered as a
-              # `Mouse::Event` and is no longer treated as a key.
+              # Mouse report introducer detected; parse the rest. Encoding is
+              # told apart by the char after `\e[` (see `#read_mouse`): `M` X10,
+              # `<` SGR/DEC-locator, `I`/`O` focus, a digit URxvt.
               mouse = read_mouse(sequence) { next_char(true) { sequence } }
               key = nil
             when Key::Enhanced
-              # An enhanced keyboard sequence (kitty protocol / modifyOtherKeys).
-              # Re-parse the bytes already captured in `sequence` into a rich
-              # `KeyEvent`, then project it back onto the legacy channels so
-              # existing consumers keep working: a printable press still arrives
-              # as `char`, and a recognizable key still maps to a `Key`. A
-              # release/repeat leaves `key` clear (so it isn't mistaken for a
-              # press); `char` keeps its escape-introducer value in that case,
-              # matching how legacy escape-sequence keys already behave.
+              # Enhanced keyboard sequence (kitty protocol / modifyOtherKeys).
+              # Re-parse into a `KeyEvent`, then project back onto legacy
+              # channels: a printable press still arrives as `char`, a
+              # recognizable key still maps to `Key`. Release/repeat leaves
+              # `key` clear so it isn't mistaken for a press.
               key_event = parse_key_event sequence
               if ev = key_event
                 key = ev.to_legacy_key
@@ -277,16 +261,14 @@ class Tput
                 key = nil
               end
             when Key::PasteStart
-              # Bracketed paste (DEC 2004): read the body verbatim up to the
-              # `\e[201~` terminator and deliver it as `paste`, so it is never
-              # interpreted as key input.
+              # Bracketed paste (DEC 2004): read body verbatim to the `\e[201~`
+              # terminator, deliver as `paste` rather than key input.
               paste = read_paste { next_char(true) { sequence } }
               key = nil
             when Key::PasteEnd
               key = nil # stray end-marker with no matching start; ignore
             when Key::Resize
-              # In-band resize report (DEC 2048): parse the new size from the
-              # captured sequence.
+              # In-band resize report (DEC 2048).
               resize = parse_resize sequence
               key = nil
             when Key::ColorScheme
@@ -294,25 +276,19 @@ class Tput
               color_scheme = parse_color_scheme sequence
               key = nil
             when Key::Osc
-              # OSC reply (`\e]…`). The OSC 52 clipboard *read* reply is surfaced
-              # on its own `clipboard` channel — distinct from a bracketed paste —
-              # so a programmatic clipboard query can be told apart from the user
-              # pasting into the app.
+              # OSC reply (`\e]…`). OSC 52 clipboard read reply surfaces on its
+              # own `clipboard` channel, distinct from a bracketed paste.
               clipboard = read_osc_clipboard { next_char(true) { sequence } }
               key = nil
             end
           end
 
-          # An escape sequence that was consumed but produced nothing to deliver
-          # must NOT surface as a phantom Escape key. Two shapes:
-          #   * a parsed-away/malformed mouse/paste/resize/scheme report, or a
-          #     non-clipboard OSC reply — `key` was cleared to `nil`; or
-          #   * an *unrecognized* sequence (e.g. a stray `\e[?…c` DA1/DSR reply
-          #     arriving mid-`listen`) that `read_control` collapsed to
-          #     `Key::Escape` — distinguishable from a real bare Escape because it
-          #     consumed bytes (`sequence.size > 1`; a bare Escape consumes none).
-          # A real bare Escape (`key == Key::Escape`, `sequence == ['\e']`) and
-          # any printable key (`char != '\e'`) are kept.
+          # An escape sequence consumed but producing nothing to deliver must NOT
+          # surface as a phantom Escape key. Two shapes: a parsed-away/malformed
+          # report (`key` cleared to `nil`), or an unrecognized sequence that
+          # `read_control` collapsed to `Key::Escape` but which consumed bytes
+          # (`sequence.size > 1`, vs. a bare Escape which consumes none). A real
+          # bare Escape and any printable key are kept.
           if char == '\e' && mouse.nil? && key_event.nil? &&
              paste.nil? && resize.nil? && color_scheme.nil? && clipboard.nil? &&
              (key.nil? || (key == Key::Escape && sequence.size > 1))
@@ -320,10 +296,9 @@ class Tput
             next
           end
 
-          # A single-char event is the common typing path: `char == sequence[0]`,
-          # so hand the event no array and let it reconstruct `[char]` lazily
-          # (most consumers never read `sequence`). Multi-byte sequences are
-          # dup'd, since the live buffer is cleared and reused below.
+          # Single-char event: hand it no array, let it reconstruct `[char]`
+          # lazily. Multi-byte sequences are dup'd since the live buffer is
+          # cleared and reused below.
           seq = sequence.size == 1 ? nil : sequence.dup
           yield InputEvent.new char, key, seq, mouse, key_event, paste, resize, color_scheme, clipboard
           sequence.clear
@@ -332,9 +307,8 @@ class Tput
     end
 
     # Reads the body of a bracketed paste (`\e[200~ … \e[201~`) verbatim, up to
-    # but not including the `\e[201~` terminator, which is consumed. The body may
-    # contain any bytes (newlines, escape sequences, control chars); it is *not*
-    # interpreted. Yields for each input char.
+    # but not including the terminator (consumed). Body is not interpreted.
+    # Yields for each input char.
     private def read_paste(&) : String
       term = "\e[201~"
       body = String::Builder.new
@@ -342,8 +316,8 @@ class Tput
       loop do
         c = yield
         unless c
-          # Stream ended mid-paste: a partially-matched terminator prefix was
-          # actually paste content, so flush it before returning.
+          # Stream ended mid-paste: the partial terminator match was actually
+          # paste content, flush it.
           body << term[0, matched] if matched > 0
           break
         end
@@ -351,9 +325,9 @@ class Tput
           matched += 1
           break if matched == term.size # full terminator consumed
         else
-          # Mismatch: the partial match was literal paste content. Flush it,
-          # then re-test the current char as a possible fresh start. (The
-          # terminator has no repeated prefix, so a single re-test suffices.)
+          # Mismatch: partial match was literal content. Flush it, then re-test
+          # the current char as a possible fresh start (terminator has no
+          # repeated prefix, so one re-test suffices).
           body << term[0, matched] if matched > 0
           matched = 0
           if c == term[0]
@@ -376,8 +350,8 @@ class Tput
     end
 
     # Parses the `;`-separated decimal parameters of a captured CSI *sequence*
-    # (`\e[ … <final>`), ignoring any private marker / intermediates. Shared by
-    # the in-band reports (`#parse_resize`, `#parse_color_scheme`).
+    # (`\e[ … <final>`), ignoring any private marker/intermediates. Shared by
+    # `#parse_resize`/`#parse_color_scheme`.
     private def csi_param_ints(sequence : Array(Char)) : Array(Int32)
       nums = [] of Int32
       cur = 0
@@ -406,9 +380,8 @@ class Tput
       end
     end
 
-    # Reads an OSC payload up to its terminator (BEL or ST) and, if it is an OSC
-    # 52 clipboard reply (`52;<sel>;<base64>`), returns the decoded text;
-    # otherwise `nil`. Yields for each input char.
+    # Reads an OSC payload up to its terminator (BEL or ST); if it's an OSC 52
+    # clipboard reply (`52;<sel>;<base64>`), returns the decoded text, else `nil`.
     private def read_osc_clipboard(&) : String?
       body = String::Builder.new
       loop do
@@ -435,8 +408,8 @@ class Tput
     end
 
     # Enables bracketed paste (DEC private mode 2004). Pasted text then arrives
-    # as the `paste` argument of `#listen` instead of as individual key presses.
-    # Harmless on terminals that don't support it (they ignore the request).
+    # as the `paste` argument of `#listen` instead of individual key presses.
+    # Harmless on unsupporting terminals.
     def enable_bracketed_paste : Nil
       decset 2004
       @bracketed_paste_enabled = true
@@ -450,7 +423,7 @@ class Tput
 
     # Enables in-band resize notifications (DEC private mode 2048). Resize
     # reports then arrive as the `resize` argument of `#listen` (in addition to
-    # any `SIGWINCH`). Harmless on terminals that don't support it.
+    # any `SIGWINCH`). Harmless on unsupporting terminals.
     def enable_in_band_resize : Nil
       decset 2048
       @in_band_resize_enabled = true
@@ -462,26 +435,24 @@ class Tput
       @in_band_resize_enabled = false
     end
 
-    # Re-parses an enhanced keyboard sequence — already fully captured in
-    # *sequence* (`ESC [ … final`) by the lazy key reader — into a `KeyEvent`.
+    # Re-parses an enhanced keyboard sequence — already captured in *sequence*
+    # (`ESC [ … final`) — into a `KeyEvent`.
     #
-    # The parameter bytes between `[` and the final byte are split into
-    # semicolon-separated groups, each of which may carry colon-separated
-    # sub-parameters (kitty uses these for `key:shifted:base` and
-    # `modifiers:event-type`); empty fields become `nil` (kitty "default").
-    # `KeyEvent.from_csi` then interprets the groups according to the final byte.
+    # Parameter bytes between `[` and the final byte are split into
+    # semicolon-separated groups, each carrying optional colon-separated
+    # sub-parameters (kitty's `key:shifted:base`, `modifiers:event-type`);
+    # empty fields become `nil`. `KeyEvent.from_csi` interprets the groups
+    # according to the final byte.
     private def parse_key_event(sequence : Array(Char)) : KeyEvent?
       return nil if sequence.size < 3
       final = sequence.last
 
       # `KeyEvent.from_csi` only consults the first three sub-parameters of
-      # group 0 (`number : shifted : base`), the first two of group 1
-      # (`mods : event`), and the whole of group 2 (associated text). Capture
-      # those directly into locals instead of building a nested
-      # `Array(Array(Int32?))` per event — under the kitty *report-all-keys*
-      # flag this path runs on every keystroke, plain typing included. Group 2
-      # (`g2`) is allocated lazily, only when associated text is actually
-      # present (rare).
+      # group 0 (`number:shifted:base`), first two of group 1 (`mods:event`),
+      # and all of group 2 (associated text). Captured directly into locals
+      # instead of a nested `Array(Array(Int32?))` per event, since under
+      # kitty's report-all-keys flag this runs on every keystroke. `g2` is
+      # allocated lazily, only when associated text is present (rare).
       g0_0 = g0_1 = g0_2 = nil
       g1_0 = g1_1 = nil
       g2 : Array(Int32?)? = nil
@@ -528,25 +499,23 @@ class Tput
       KeyEvent.from_csi final, g0_0, g0_1, g0_2, g1_0, g1_1, g2
     end
 
-    # Reads and parses the payload of a mouse report whose introducer has
-    # already been consumed into *sequence*. The character right after `\e[`
-    # (`sequence[2]`) selects the encoding:
+    # Reads and parses the payload of a mouse report whose introducer is
+    # already consumed into *sequence*. `sequence[2]` (the char after `\e[`)
+    # selects the encoding:
     #
     #   * `M`      — X10 / normal (three raw bytes follow).
     #   * `I`/`O`  — focus-in / focus-out (no payload).
-    #   * `<`      — SGR (1006) (the parameter list follows).
-    #   * a digit  — URxvt (1015) or DEC-locator (`… & w`); the whole report is
-    #                already in *sequence* (the key parser captured it).
+    #   * `<`      — SGR (1006) (parameter list follows).
+    #   * a digit  — URxvt (1015) or DEC-locator (`… & w`); whole report already
+    #                captured in *sequence*.
     #
-    # Returns the parsed `Mouse::Event`, or `nil` if the stream ended or the
-    # report was malformed.
+    # Returns the parsed `Mouse::Event`, or `nil` if the stream ended or malformed.
     private def read_mouse(sequence, &) : Mouse::Event?
       case sequence[2]? || '\0'
       when 'M'
-        # X10 / normal encoding: exactly three raw 8-bit bytes follow. They are
-        # read as bytes (not via the UTF-8 `read_char` path) so a coordinate
-        # past column/row 95 (byte >= 0x80) survives intact, and recorded in
-        # *sequence* verbatim (codepoints 0..255).
+        # X10 / normal encoding: three raw 8-bit bytes follow, read via
+        # `next_byte` (not UTF-8 `read_char`) so a coordinate past column/row 95
+        # (byte >= 0x80) survives intact.
         cb = next_byte true
         cx = next_byte true
         cy = next_byte true
@@ -557,8 +526,8 @@ class Tput
       when 'O' then Mouse::Event.blur
       when '<' then read_sgr { yield }
       when '0'..'9'
-        # A numeric-CSI mouse report, already fully captured in *sequence*: a
-        # DEC-locator report ends in `& w`, a URxvt (1015) report in `M`/`m`.
+        # Numeric-CSI mouse report, already captured in *sequence*: DEC-locator
+        # ends in `& w`, URxvt (1015) ends in `M`/`m`.
         if sequence[-1]? == 'w'
           read_dec sequence
         else
@@ -571,13 +540,12 @@ class Tput
     # Reads an SGR (`Cb ; Cx ; Cy M|m`) parameter list following the `\e[<`
     # introducer. Yields for each char.
     #
-    # Only three parameters are meaningful (`Cb ; Cx ; Cy`), so they are
-    # collected into fixed locals — no per-report `Array` — on the hottest input
-    # path (a mouse drag is a burst of these). *idx* counts parameters seen so a
-    # final byte can verify there were enough.
+    # Only three parameters matter, collected into fixed locals (no per-report
+    # `Array`) since a mouse drag is a burst of these. *idx* counts parameters
+    # seen so the final byte can verify there were enough.
     #
-    # (DEC-locator reports are *not* `<`-introduced — they are `CSI Cb ; Cx ; Cy
-    # ; Cp & w`, reach the numeric-CSI path, and are parsed by `#read_dec`.)
+    # (DEC-locator reports are not `<`-introduced — they're `CSI Cb;Cx;Cy;Cp & w`,
+    # reach the numeric-CSI path, and are parsed by `#read_dec`.)
     private def read_sgr(&) : Mouse::Event?
       p0 = p1 = p2 = 0
       idx = 0
@@ -604,12 +572,10 @@ class Tput
 
     # Scans the `;`-separated decimal parameters of a numeric-CSI mouse report
     # already captured in *sequence* (from index 2) into a fixed four-slot
-    # buffer. Scanning stops at the first byte in *terminators* — the report's
-    # intermediate/final (`&` for DEC-locator, `M`/`m` for URxvt) — or at any
-    # other non-digit, non-`;` byte. Returns the buffer paired with the number of
-    # parameters seen, so the caller can verify it got enough. The buffer is a
-    # `StaticArray` returned by value, keeping this allocation-free on the hot
-    # mouse-drag path (where these reports arrive in bursts).
+    # buffer. Stops at the first byte in *terminators* (`&` for DEC-locator,
+    # `M`/`m` for URxvt) or any other non-digit, non-`;` byte. Returns the
+    # buffer paired with the parameter count. `StaticArray` returned by value
+    # keeps this allocation-free on the hot mouse-drag path.
     private def scan_csi_mouse_params(sequence, terminators : String) : Tuple(StaticArray(Int32, 4), Int32)
       params = StaticArray(Int32, 4).new(0)
       idx = 0
@@ -633,9 +599,7 @@ class Tput
     end
 
     # Parses a DEC-locator report (`\e[ Cb ; Cx ; Cy ; Cp & w`) already captured
-    # in *sequence* (the numeric-CSI key parser consumed the whole report through
-    # its `w` final). Terminates on the `&` intermediate and requires all four
-    # parameters.
+    # in *sequence*. Terminates on the `&` intermediate and requires all four parameters.
     private def read_dec(sequence) : Mouse::Event?
       params, idx = scan_csi_mouse_params sequence, "&"
       return nil unless idx >= 4 # Cb ; Cx ; Cy ; Cp (the `&` closes Cp -> idx 4)
@@ -643,8 +607,7 @@ class Tput
     end
 
     # Parses a URxvt report (`\e[ Cb ; Cx ; Cy M`) already captured in
-    # *sequence* (the key parser consumed the whole parameter list). Terminates
-    # on the `M`/`m` final and requires three parameters.
+    # *sequence*. Terminates on the `M`/`m` final and requires three parameters.
     private def read_urxvt(sequence) : Mouse::Event?
       params, idx = scan_csi_mouse_params sequence, "Mm"
       return nil unless idx >= 3 # Cb ; Cx ; Cy

@@ -47,10 +47,8 @@ class Tput
       #     Ps = 2  -> rectangle (exact).
       #
       # The `*` (0x2A) intermediate byte is mandatory: without it the terminal
-      # parses `CSI Ps x` as DECREQTPARM (Request Terminal Parameters), a wholly
-      # different function that triggers an unsolicited parameter report instead
-      # of selecting the change extent. Like every sibling rectangle command here
-      # (`$r`, `$t`, `$v`, `$x`, `$z`, `${`), DECSACE needs its intermediate.
+      # parses `CSI Ps x` as DECREQTPARM (Request Terminal Parameters), triggering
+      # an unsolicited parameter report instead of selecting the change extent.
       def select_change_extent(param = 0)
         _print "\e[#{param}*x"
       end
@@ -70,7 +68,7 @@ class Tput
 
       # Shared framing for the DEC rectangle ops that take coordinate/parameter
       # args: `CSI Pt;Pl;Pb;Pr[;…] $ <final>` (DECCARA `$r`, DECRARA `$t`,
-      # DECCRA `$v`, DECFRA `$x`). Byte-identical to the inlined form.
+      # DECCRA `$v`, DECFRA `$x`).
       private def rectangle_op(final : Char, *arguments)
         _print { |io| io << "\e["; arguments.join(io, ';'); io << '$' << final }
       end
@@ -79,7 +77,6 @@ class Tput
       # coordinates with the standard 1-based (`+1`) conversion and screen-sized
       # defaults: `CSI Pt;Pl;Pb;Pr $ <final>` (DECERA `$z`, DECSERA `${`).
       # Distinct from `rectangle_op` above, which joins raw splat arguments.
-      # Byte-identical to the inlined form.
       private def erase_rectangle_op(final : String, top, left, bottom, right)
         _print { |io| io << "\e[" << (top + 1) << ';' << (left + 1) << ';' << (bottom + 1) << ';' << (right + 1) << final }
       end

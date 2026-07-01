@@ -9,9 +9,9 @@ class Tput
   # Runtime terminal probing.
   #
   # Unlike `Features`/`Emulator`, which infer capabilities statically from
-  # `ENV` and terminfo, this module discovers them by *literally trying*: it
-  # writes a batch of query escape sequences to the terminal and reads the
-  # replies back. This is the same technique used by Microsoft's `edit`:
+  # `ENV` and terminfo, this module discovers them by writing a batch of query
+  # escape sequences to the terminal and reading the replies back (the same
+  # technique used by Microsoft's `edit`):
   #
   # * OSC 10 / OSC 11      -> default foreground / background color
   # * OSC 4 ; 0..15        -> the 16 indexed palette colors
@@ -63,8 +63,7 @@ class Tput
           probe_write build_probe_query
           result = probe_consume @input, timeout
 
-          # Clean up everything the probe drew, leaving the cursor exactly where
-          # it was before probing. See `build_probe_cleanup`.
+          # Clean up everything the probe drew. See `build_probe_cleanup`.
           probe_write build_probe_cleanup
         end
       end
@@ -111,7 +110,7 @@ class Tput
           when 'c'
             if params.starts_with? ">"
               # DA2 (secondary device attributes): `CSI > type ; version ; kbd c`.
-              # Distinguished from DA1 by the `>` private marker; not a terminator.
+              # Distinguished from DA1 by the `>` marker; not a terminator.
               f.da2_params = probe_ints params
               f.sources["da2_params"] = "probed via DA2 (CSI > c) reply"
             else
@@ -166,10 +165,10 @@ class Tput
     end
 
     # Builds the single batched query string. `DECSC` (`\e7`) saves the cursor
-    # up front — before any query is sent — so `probe!` can restore it exactly
-    # and erase anything a non-conforming terminal echoed back. For the width
-    # probe, `\r` parks the cursor at column 1 so the CPR column maps directly
-    # to the rendered width. DA1 goes last so its reply terminates the read.
+    # up front so `probe!` can restore it exactly and erase anything a
+    # non-conforming terminal echoed back. For the width probe, `\r` parks the
+    # cursor at column 1 so the CPR column maps directly to rendered width.
+    # DA1 goes last so its reply terminates the read.
     def build_probe_query : String
       String.build do |io|
         io << "\e7"                # DECSC: save cursor before anything is sent
@@ -204,18 +203,16 @@ class Tput
     # Builds the post-probe cleanup string, run after all replies are consumed.
     #
     # The width probe printed `…` at *column 1* (`build_probe_query` does `\r…`),
-    # so the leftover sits to the left of wherever the cursor was when probing
-    # started. A bare `\e8\e[J` (restore-then-erase) erases only from the saved
-    # *column* rightward, so it would leave the `…` (and any fragments a
-    # non-conforming terminal echoed from `\r` onward) on screen whenever probing
-    # did not begin at column 1.
+    # so the leftover sits left of wherever the cursor was when probing started.
+    # A bare `\e8\e[J` erases only from the saved *column* rightward, leaving
+    # the `…` (and any echoed fragments) on screen when probing didn't begin at
+    # column 1.
     #
-    # So: `\e8` restores to the cursor saved by DECSC (`\e7`) at the head of the
-    # query — bringing us back to the saved *line* even if echoed output wrapped
-    # the cursor downward; `\r` parks at column 1 of that line; `\e[J` erases from
-    # there to the end of the display, wiping the `…` and any echoed fragments
-    # (`$qm`, `$q q`, …), including ones that wrapped onto following lines; and a
-    # final `\e8` puts the cursor back exactly where it was before probing.
+    # So: `\e8` restores to the DECSC-saved cursor line (even if echoed output
+    # wrapped it downward); `\r` parks at column 1 of that line; `\e[J` erases
+    # to the end of the display, wiping the `…` and any echoed fragments
+    # (including ones wrapped onto following lines); a final `\e8` restores the
+    # exact pre-probe cursor position.
     def build_probe_cleanup : String
       "\e8\r\e[J\e8"
     end
@@ -279,9 +276,8 @@ class Tput
     # lone `ESC` not followed by `\` is kept as literal payload.
     #
     # Bytes are accumulated raw and decoded as UTF-8 only at the end: a payload
-    # like a window title (`get_text_params`) or terminal name (XTVERSION) may
-    # carry multi-byte characters, and decoding each byte on its own as a
-    # codepoint would turn them into Latin-1 mojibake.
+    # like a window title or terminal name (XTVERSION) may carry multi-byte
+    # characters, and decoding byte-by-byte would produce Latin-1 mojibake.
     private def probe_read_string_terminated(io : IO, timeout : Time::Span) : String
       data = IO::Memory.new
       loop do
@@ -360,13 +356,12 @@ class Tput
         end
       when "12"
         # The terminal answered with its current cursor color, so OSC 12 is
-        # supported (and thus settable). We don't need the value itself.
+        # supported (and thus settable); the value itself isn't needed.
         f.confirm_cursor_color! "probed via OSC 12 reply"
       when "4"
         # A single OSC 4 reply can carry *several* `index;rgb:…` pairs: xterm
-        # answers a batched query (`OSC 4 ; 0 ; ? ; 1 ; ? ; …`) with one reply
-        # "of the same form", so all 16 colors arrive together. Walk every pair
-        # rather than just the first. (`rgb:…` has no `;`, so the split aligns.)
+        # answers a batched query with one reply of the same form, so all 16
+        # colors arrive together. Walk every pair, not just the first.
         i = 1
         while i + 1 < parts.size
           idx = parts[i].to_i?

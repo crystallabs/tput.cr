@@ -2,23 +2,23 @@ class Tput
   # Terminal query/response.
   #
   # Where `Probe` round-trips a *batch* of detection queries at startup, this
-  # module exposes the individual, on-demand queries: write a request escape
-  # sequence and synchronously read back the terminal's reply, parsed into a
-  # typed result. It reuses `Probe`'s low-level reply readers
+  # module exposes individual, on-demand queries: write a request escape
+  # sequence and synchronously read the terminal's reply, parsed into a typed
+  # result. Reuses `Probe`'s low-level reply readers
   # (`probe_read_byte`/`probe_read_csi`/`probe_read_osc`, `probe_ints`,
   # `parse_rgb`).
   #
-  # These are the counterpart of Blessed's `Program#response` family
-  # (`getCursor`, `dsr`/`deviceStatus`, `da`/`sendDeviceAttributes`,
-  # `getCursorColor`, `getTextParams`, `getWindowSize`, `requestParameters`,
-  # `requestLocatorPosition`). Blessed dispatches replies asynchronously through
-  # its input EventEmitter; tput.cr has no such emitter, so — like `probe!` —
-  # each query reads its reply synchronously, with a timeout.
+  # Counterpart of Blessed's `Program#response` family (`getCursor`,
+  # `dsr`/`deviceStatus`, `da`/`sendDeviceAttributes`, `getCursorColor`,
+  # `getTextParams`, `getWindowSize`, `requestParameters`,
+  # `requestLocatorPosition`). Blessed dispatches replies asynchronously
+  # through its input EventEmitter; tput.cr has no such emitter, so — like
+  # `probe!` — each query reads its reply synchronously, with a timeout.
   #
-  # NOTE: because the read is synchronous and pulls straight from `@input`, a
-  # query must not run concurrently with an active `Input#listen` loop (the two
-  # would race for the same bytes). Issue these outside the main input loop
-  # (e.g. during setup), the same constraint that applies to `probe!`.
+  # NOTE: since the read is synchronous and pulls straight from `@input`, a
+  # query must not run concurrently with an active `Input#listen` loop (they'd
+  # race for the same bytes). Issue outside the main input loop, same
+  # constraint as `probe!`.
   module Response
     include Crystallabs::Helpers::Alias_Methods
 
@@ -94,8 +94,8 @@ class Tput
     end
 
     # Requests the *cell* size in pixels via XTWINOPS 16 (`CSI 16 t`) and returns
-    # `{height, width}` in pixels, or `nil` on no answer. This is the most direct
-    # source for a terminal's true cell aspect ratio. Zero-valued replies (see
+    # `{height, width}` in pixels, or `nil` on no answer. Most direct source for
+    # a terminal's true cell aspect ratio. Zero-valued replies (see
     # `#get_text_area_size_pixels`) are treated as no answer.
     def get_cell_size_pixels(timeout : Time::Span = RESPONSE_TIMEOUT) : {Int32, Int32}?
       query("\e[16t", timeout) { |io| read_pixel_size_response io, timeout, 6 }
@@ -110,8 +110,7 @@ class Tput
     alias_previous decreqtparm
 
     # Requests the current locator position (DECRQLP, `CSI Ps ' |`) and returns
-    # the reported parameters (`Pe ; Prow ; Pcol ; Ppage`), or `nil` on no
-    # answer.
+    # the reported parameters (`Pe ; Prow ; Pcol ; Ppage`), or `nil`.
     def request_locator_position(param = "", timeout : Time::Span = RESPONSE_TIMEOUT) : Array(Int32)?
       query("\e[#{param}'|", timeout) { |io| read_locator_position_response io, timeout }
     end
@@ -139,11 +138,11 @@ class Tput
 
     # XTGETTCAP (`DCS + q <names> ST`): queries the terminal directly for one or
     # more terminfo/termcap capabilities *by name* (e.g. `"TN"` terminal name,
-    # `"Co"` max colors, `"RGB"`), returning a `{name => value}` hash of the ones
-    # the terminal recognized (an empty hash if it recognized none, `nil` if it
-    # did not answer). Values are decoded from the hex the protocol uses. Lets a
-    # program read capabilities straight from the terminal when terminfo is
-    # absent or stale (kitty, foot, WezTerm, recent xterm, …).
+    # `"Co"` max colors, `"RGB"`), returning a `{name => value}` hash of the
+    # ones recognized (empty if none, `nil` if no answer). Values are hex-decoded
+    # per the protocol. Lets a program read capabilities straight from the
+    # terminal when terminfo is absent or stale (kitty, foot, WezTerm, recent
+    # xterm, …).
     def request_termcap(*names : String, timeout : Time::Span = RESPONSE_TIMEOUT) : Hash(String, String)?
       hex = names.map(&.to_slice.hexstring).join(';')
       query("\eP+q#{hex}\e\\", timeout) { |io| read_xtgettcap_response io, timeout, names.size }
@@ -152,8 +151,8 @@ class Tput
     alias_previous xtgettcap
 
     # OSC 52: reads the terminal clipboard *selection* (`"c"`, `"p"`, …) and
-    # returns its text, or `nil` if the terminal does not answer (many terminals
-    # allow clipboard *writes* but disable reads for security).
+    # returns its text, or `nil` if no answer (many terminals allow clipboard
+    # *writes* but disable reads for security).
     def get_clipboard(selection : String = "c", timeout : Time::Span = RESPONSE_TIMEOUT) : String?
       query("\e]52;#{selection};?\a", timeout) { |io| read_clipboard_response io, timeout }
     end
@@ -198,7 +197,7 @@ class Tput
     # --- Reply parsers --------------------------------------------------------
     #
     # Each reads and parses one reply from *io*, decoupled from `@input` so it
-    # can be exercised against an `IO::Memory` of canned bytes (as the specs do).
+    # can be tested against an `IO::Memory` of canned bytes.
 
     # Parses a CPR reply (`CSI row ; col R`) into a 0-based `Point`.
     def read_cursor_response(io : IO, timeout : Time::Span) : Point?
@@ -220,10 +219,10 @@ class Tput
     # Reads the next XTWINOPS report whose leading op code is one of *codes* and
     # returns its `{height, width}`. Every XTWINOPS reply shares the `t` final —
     # 8 = text-area size in chars, 4 = text-area size in px, 6 = cell size in px,
-    # 3 = window position, … — so the op code is what actually distinguishes
-    # them. Filtering on it (and skipping non-matching `t`-final reports rather
-    # than returning their parameters) keeps a stale position/pixel report from
-    # being misread as the requested size. Returns `nil` on timeout/EOF.
+    # 3 = window position, … — so the op code is what distinguishes them.
+    # Filtering on it (skipping non-matching reports instead of returning their
+    # params) keeps a stale report from being misread as the requested size.
+    # Returns `nil` on timeout/EOF.
     private def read_xtwinops_size(io : IO, timeout : Time::Span, *codes : Int32) : {Int32, Int32}?
       loop do
         ints = read_csi_ints(io, timeout, "t") || return nil
@@ -239,15 +238,12 @@ class Tput
     # Parses an XTWINOPS pixel-size reply, accepting only the report whose op
     # code is in *codes* — op 4 (`CSI 4 ; h ; w t`) answers `CSI 14 t`
     # (text-area pixels), op 6 (`CSI 6 ; h ; w t`) answers `CSI 16 t` (cell
-    # size). The two are *not* interchangeable (text area ≫ a single cell), so
-    # each caller filters on its own op code; otherwise a stale report of the
-    # other kind would be returned as the requested size (the same op-code
-    # disambiguation `#read_window_size_response` applies for op 8). With no
-    # *codes* given, both are accepted (the generic wire-shape parser).
+    # size). The two aren't interchangeable, so each caller filters on its own
+    # op code (same disambiguation as `#read_window_size_response` for op 8).
+    # With no *codes* given, both are accepted.
     #
-    # Rejects zero dimensions: a terminal with no real pixel grid (notably under
-    # tmux/screen) may answer with `0`s, which is not a usable size and would
-    # yield a nonsense aspect ratio.
+    # Rejects zero dimensions: a terminal with no real pixel grid (notably
+    # tmux/screen) may answer with `0`s, an unusable size.
     def read_pixel_size_response(io : IO, timeout : Time::Span) : {Int32, Int32}?
       read_pixel_size_response io, timeout, 4, 6
     end
@@ -304,8 +300,8 @@ class Tput
     # Parses an XTGETTCAP reply (`DCS 1 + r <name>=<value>;… ST` on success,
     # `DCS 0 + r … ST` when nothing was recognized). Names and values arrive
     # hex-encoded. Returns the decoded `{name => value}` pairs, merging across
-    # multiple DCS replies until *expected* names are seen (xterm sends one reply
-    # per capability; kitty/foot batch them into one).
+    # multiple DCS replies until *expected* names are seen (xterm sends one
+    # reply per capability; kitty/foot batch them into one).
     def read_xtgettcap_response(io : IO, timeout : Time::Span, expected : Int32 = 1) : Hash(String, String)?
       result = nil
       answered = 0
@@ -314,14 +310,12 @@ class Tput
         # Expect `<status>+r<body>`, status '1' (valid) or '0' (invalid).
         next unless payload.size >= 3 && payload[1] == '+' && payload[2] == 'r'
         result ||= {} of String => String
-        # xterm answers a multi-name query with one DCS reply *per* capability —
-        # a valid `1+r name=value` for a recognized name, or `0+r name` for one
-        # it doesn't know — while kitty/foot batch every recognized name into a
-        # single `1+r …` reply. Collect values from the valid replies, but count
-        # names answered across *both* statuses: an unrecognized capability
-        # (`0+r`) must still count, or the read would block until the timeout
-        # waiting for a reply that already arrived. The early-out keeps a single
-        # batched reply returning immediately, so the common case never blocks.
+        # xterm answers a multi-name query with one DCS reply *per* capability
+        # (`1+r name=value` recognized, `0+r name` not); kitty/foot batch every
+        # recognized name into one `1+r …` reply. Collect values from valid
+        # replies, but count names answered across *both* statuses — an
+        # unrecognized capability must still count or the read would block
+        # until timeout despite the reply having already arrived.
         pairs = payload[3..].split(';')
         if payload[0] == '1'
           pairs.each do |pair|
@@ -356,9 +350,9 @@ class Tput
       end
     end
 
-    # Parses a DECRQM reply (`CSI ? mode ; Ps $ y`). Returns `true` if *mode* is
-    # recognized (`Ps` 1–4), `false` if not (`Ps` 0), `nil` on a mismatched or
-    # absent reply.
+    # Parses a DECRQM reply (`CSI ? mode ; Ps $ y`). Returns `true` if *mode*
+    # is recognized (`Ps` 1–4), `false` if not (`Ps` 0), `nil` on a mismatched
+    # or absent reply.
     def read_decrqm_response(io : IO, timeout : Time::Span, mode : Int32) : Bool?
       reply = read_csi_reply(io, timeout, "y") || return nil
       probe_decrqm_recognized? reply[0], mode
@@ -368,8 +362,8 @@ class Tput
 
     # Writes *request* to the terminal (bypassing the output buffer, flushed)
     # and synchronously reads its reply via the block, with raw input. Returns
-    # `nil` without writing anything if the terminal can't be queried (e.g. not
-    # a tty, as in tests / when piped).
+    # `nil` without writing anything if the terminal can't be queried (not a
+    # tty, e.g. tests / piped).
     private def query(request : String, timeout : Time::Span, & : IO -> T) : T? forall T
       return nil unless probe_capable?
 
@@ -430,9 +424,9 @@ class Tput
     # Reads the next DCS reply (`ESC P … ST`) from *io* and returns its payload,
     # skipping unrelated bytes and non-DCS sequences. Returns `nil` on
     # timeout/EOF. Unlike `read_csi_reply`/`read_osc_reply`, callers (XTVERSION,
-    # XTGETTCAP) loop over this themselves, since their stop condition differs:
-    # XTVERSION wants the first `>|` payload, while XTGETTCAP merges several
-    # replies until every requested name is answered.
+    # XTGETTCAP) loop over this themselves since their stop condition differs:
+    # XTVERSION wants the first `>|` payload; XTGETTCAP merges replies until
+    # every requested name is answered.
     private def read_dcs_reply(io : IO, timeout : Time::Span) : String?
       read_reply(io, timeout, 'P') { probe_read_dcs io, timeout }
     end

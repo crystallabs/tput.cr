@@ -176,11 +176,10 @@ class Tput
       # explicit enable before `smacs`/`rmacs` line-drawing works (terminfo
       # `ena_acs`).
       #
-      # There is intentionally no hardcoded fallback: `ena_acs` is inherently
-      # terminal-specific, so — like ncurses — this emits the sequence only when
-      # the terminal actually declares the capability. Terminals that switch the
-      # charset directly (xterm and friends — see `#enter_alt_charset_mode`)
-      # don't define it, so this is a no-op there.
+      # No hardcoded fallback: like ncurses, this emits the sequence only when
+      # the terminal declares the capability. Terminals that switch charset
+      # directly (xterm and friends, see `#enter_alt_charset_mode`) don't define
+      # it, so this is a no-op there.
       def enable_acs
         put(&.enacs?)
       end

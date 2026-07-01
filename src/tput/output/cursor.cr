@@ -5,14 +5,12 @@ class Tput
       include Crystallabs::Helpers::Boolean
       include Macros
 
-      # CUU/CUD/CUF/CUB share one emit shape and differ only in their
-      # capabilities and final CSI byte: when the terminal isn't verified
-      # standard-ANSI, prefer the parametric cap (`<parm_cap>?(param)`), else
-      # repeat the single-step cap (`<step_cap>`) `param` times; the literal
-      # `CSI <param> <final>` is both the ANSI fast path and the universal
-      # fallback. (`Int#times` returns nil, so the repeat branch yields an
-      # explicit `true` — otherwise the chain falls through and ALSO prints the
-      # CSI fallback, a double emission.)
+      # CUU/CUD/CUF/CUB share one emit shape, differing only in capability and
+      # final CSI byte: if not verified standard-ANSI, prefer the parametric cap
+      # (`<parm_cap>?(param)`), else repeat the single-step cap (`<step_cap>`)
+      # `param` times; `CSI <param> <final>` is both the ANSI fast path and the
+      # fallback. (`Int#times` returns nil, so the repeat branch yields explicit
+      # `true` — otherwise the chain falls through and double-emits the CSI.)
       private macro _emit_parm_move(param, parm_cap, step_cap, final)
         (!features.ansi_cursor? && (put(&.{{parm_cap}}?({{param}})) ||
           (has?(&.{{step_cap}}?) && ({{param}}.times { put(&.{{step_cap}}) }; true)))) ||
@@ -27,8 +25,7 @@ class Tput
       def cursor_next_line(param = 1)
         _, param = _adjust_xy_rel 0, param
         @cursor.y += param
-        # CNL moves to the first column of the target line, so the tracked
-        # column must be reset too (otherwise later relative moves go stale).
+        # CNL moves to the first column of the target line; reset tracked column too.
         @cursor.x = 0
         _print { |io| io << "\e[" << param << 'E' }
       end
@@ -42,8 +39,7 @@ class Tput
         _, param = _adjust_xy_rel 0, -param
         param *= -1
         @cursor.y -= param
-        # CPL, like CNL, moves to the first column of the target line; keep the
-        # tracked column in sync.
+        # CPL, like CNL, moves to the first column of the target line.
         @cursor.x = 0
         _print { |io| io << "\e[" << param << 'F' }
       end
@@ -62,11 +58,9 @@ class Tput
       def cursor_char_absolute(param = 0)
         @cursor.x = param
         _ncoords
-        # Emit the *clamped* column (`@cursor.x`), not the raw `param`: `_ncoords`
-        # may pull an out-of-range `param` back onto the screen, so emitting the
-        # original value (and feeding it to `hpa`'s tparm) would desync the wire
-        # output from `@cursor` and produce a bogus column for large values.
-        # Mirrors the CUP/HVP setters, which already emit the adjusted coordinate.
+        # Emit the clamped `@cursor.x`, not raw `param`: `_ncoords` may pull an
+        # out-of-range value back onto the screen, and emitting the original would
+        # desync the wire output from `@cursor`. Mirrors CUP/HVP setters.
         # Fast path: `hpa` verified standard ANSI (== this fallback), skip tparm.
         (!features.ansi_hpa? && put(&.hpa?(@cursor.x))) ||
           _print { |io| io << "\e[" << @cursor.x + 1 << 'G' }
@@ -86,13 +80,11 @@ class Tput
 
       def cursor_line_absolute(param = 0)
         # TODO switch to adjust_xy
-        # `param` is 0-based (the sequence emits `param + 1`), so the default
-        # must be 0 — the first row — matching `cursor_char_absolute`.
+        # `param` is 0-based (sequence emits `param + 1`), so default is row 0,
+        # matching `cursor_char_absolute`.
         @cursor.y = param
         _ncoords
-        # Emit the *clamped* row (`@cursor.y`), not the raw `param` — see the note
-        # in `#cursor_char_absolute`: `_ncoords` may clamp an out-of-range `param`,
-        # so emitting the original would desync the wire output from `@cursor`.
+        # Emit clamped `@cursor.y`, not raw `param` — see `#cursor_char_absolute`.
         # Fast path: `vpa` verified standard ANSI (== this fallback), skip tparm.
         (!features.ansi_vpa? && put(&.vpa?(@cursor.y))) ||
           _print { |io| io << "\e[" << @cursor.y + 1 << 'd' }
@@ -110,8 +102,8 @@ class Tput
       # :ditto:
       def cursor_position(row : Int = 0, column : Int = 0)
         @cursor.x, @cursor.y = _adjust_xy_abs column, row
-        # Fast path: when the terminal's `cup` is verified standard ANSI, build
-        # the sequence directly and skip the per-call `tparm` FFI (~6x faster).
+        # Fast path: if `cup` is verified standard ANSI, build the sequence
+        # directly and skip the per-call `tparm` FFI (~6x faster).
         (!features.ansi_cursor? && put(&.cup?(@cursor.y, @cursor.x))) ||
           _print { |io| io << "\e[" << @cursor.y + 1 << ';' << @cursor.x + 1 << 'H' }
       end
@@ -186,20 +178,18 @@ class Tput
 
       # Sets the *hardware* cursor shape.
       #
-      # Emits the right escape sequence only when the terminal is known (or has
-      # been probed) to support hardware cursor styling — see
-      # `Features#cursor_style?`. iTerm2 uses its proprietary OSC 50; every other
-      # supported terminal uses the standard DECSCUSR (`CSI Ps SP q`). Returns
-      # `true` if a sequence was emitted, `false` if the terminal can't style its
-      # cursor (the caller, e.g. `Screen#apply_cursor`, then falls back to an
+      # Only emits when `Features#cursor_style?` confirms the terminal supports
+      # hardware cursor styling. iTerm2 uses proprietary OSC 50; others use
+      # standard DECSCUSR (`CSI Ps SP q`). Returns `true` if emitted, `false` if
+      # unsupported (caller, e.g. `Screen#apply_cursor`, falls back to an
       # artificial cursor).
       def cursor_shape(shape, blink = false)
         return false unless features.cursor_style?
 
         if emulator.iterm2?
-          # iTerm2's `BlinkingCursorEnabled` is a boolean flag (1 = on, 0 = off),
-          # NOT the DECSCUSR 1/2 encoding below — reusing the latter here sent
-          # `=2` for a steady cursor, which iTerm2 reads as "blinking enabled".
+          # iTerm2's `BlinkingCursorEnabled` is boolean (1/0), NOT the DECSCUSR
+          # 1/2 encoding below — reusing that sent `=2` for steady, which iTerm2
+          # reads as "blinking enabled".
           enabled = blink ? 1 : 0
           case shape
           when CursorShape::Block
@@ -210,9 +200,8 @@ class Tput
             _tprint "\e]50;CursorShape=1;BlinkingCursorEnabled=#{enabled}\x07"
           end
         else
-          # Standard DECSCUSR. Used for xterm/screen/rxvt and any terminal whose
-          # support was confirmed by probing. 1 = blinking, 2 = steady; the
-          # underline/line shapes add 2/4 to reach the 6 DECSCUSR values.
+          # Standard DECSCUSR. 1 = blinking, 2 = steady; underline/line shapes
+          # add 2/4 to reach the 6 DECSCUSR values.
           blink = blink ? 1 : 2
           case shape
           when CursorShape::Block
@@ -227,8 +216,7 @@ class Tput
       end
 
       # Sets cursor color. XTerm, rxvt, and screen specific.
-      #
-      # Accepted values are the color names listed in `/etc/X11/rgb.txt`.
+      # Accepted values are color names listed in `/etc/X11/rgb.txt`.
       def cursor_color(color : Color)
         cursor_color color.to_s.downcase
       end
@@ -279,13 +267,11 @@ class Tput
         put(&.rc?) || _print "\e8" if _restore_saved_cursor
       end
 
-      # Restores `@cursor` from `@saved_cursor` (the position captured by
-      # `#save_cursor`/`#save_cursor_a`) and reports whether a saved position
-      # existed. Clamps the restored point back onto the screen: it was in bounds
-      # when captured, but the screen may have shrunk since (terminal resize), and
-      # the terminal's own DECRC/SCORC clamps to the current size — so without this
-      # `@cursor` would be left out of bounds and desync from where the terminal
-      # actually places the cursor, breaking every later relative move.
+      # Restores `@cursor` from `@saved_cursor` (set by `#save_cursor`/
+      # `#save_cursor_a`) and reports whether a saved position existed. Clamps
+      # the restored point onto the current screen, since it may have shrunk
+      # since capture — the terminal's own DECRC/SCORC clamps too, so without
+      # this `@cursor` would desync from the terminal's actual position.
       private def _restore_saved_cursor : Bool
         if sp = @saved_cursor
           @cursor.x = sp.x
@@ -301,11 +287,9 @@ class Tput
 
       # Save Cursor Locally
       def lsave_cursor(key = :local)
-        # `@cursor` is a mutable `Point` (a reference type), so the saved state
-        # must hold a *copy* — exactly as `#save_cursor` does with `@cursor.dup`.
-        # Storing the live `@cursor` aliased the saved position to the cursor
-        # itself, so every later move mutated the "saved" point in place and
-        # `#lrestore_cursor` would restore the *current* position, not the saved one.
+        # `@cursor` is a mutable reference type, so save a *copy* (as `#save_cursor`
+        # does with `@cursor.dup`) — storing the live object would alias the saved
+        # position to the cursor, so later moves would corrupt the saved state.
         @_saved[key] = CursorState.new @cursor.dup, @cursor_hidden
       end
 
@@ -331,8 +315,8 @@ class Tput
 
       alias_previous cuu, up
 
-      # CSI Ps A
-      # Cursor Up Ps Times (default = 1) (CUU).
+      # CSI Ps B
+      # Cursor Down Ps Times (default = 1) (CUD).
       def cursor_down(param = 1)
         _, param = _adjust_xy_rel 0, param
         @cursor.y += param
@@ -352,8 +336,8 @@ class Tput
 
       alias_previous cuf, forward, right, cursor_right, parm_right_cursor
 
-      # CSI Ps A
-      # Cursor Up Ps Times (default = 1) (CUU).
+      # CSI Ps D
+      # Cursor Backward Ps Times (default = 1) (CUB).
       def cursor_backward(param = 1)
         param, _ = _adjust_xy_rel -param
         param *= -1
@@ -373,9 +357,7 @@ class Tput
       def show_cursor
         @cursor_hidden = false
         # Disabled originally:
-        # NOTE: In xterm terminfo:
-        # cnorm stops blinking cursor
-        # cvvis starts blinking cursor
+        # In xterm terminfo: cnorm stops blinking cursor, cvvis starts it.
         # return _write("\e[?12l\e[?25h"); // cursor_normal
         # return _write("\e[?12;25h"); // cursor_visible
         put(&.cnorm?) || set_mode "?25"
@@ -403,11 +385,9 @@ class Tput
       #   Save cursor (ANSI.SYS).
       def save_cursor_a
         @saved_cursor = @cursor.dup
-        # Emit the literal ANSI.SYS `CSI s` (SCOSC). Do NOT route through the
-        # terminfo `sc` cap: that is DECSC (`\e7`), a *different* operation that
-        # also saves attributes/charset and interacts with the scroll region.
-        # The `_a` variant exists precisely to provide the SCOSC form; `#save_cursor`
-        # is the DECSC one.
+        # Emit literal ANSI.SYS `CSI s` (SCOSC), not the terminfo `sc` cap — that's
+        # DECSC (`\e7`), a different op that also saves attributes/charset and
+        # interacts with the scroll region. `#save_cursor` is the DECSC one.
         _print "\e[s"
       end
 
@@ -417,9 +397,8 @@ class Tput
       #   Restore cursor (ANSI.SYS).
       def restore_cursor_a
         _restore_saved_cursor
-        # Counterpart of `#save_cursor_a`: emit the literal ANSI.SYS `CSI u`
-        # (SCORC), not the terminfo `rc` cap (DECRC, `\e8`) which restores the
-        # state saved by DECSC rather than SCOSC.
+        # Counterpart of `#save_cursor_a`: emit literal ANSI.SYS `CSI u` (SCORC),
+        # not the terminfo `rc` cap (DECRC) which restores DECSC-saved state.
         _print "\e[u"
       end
 
@@ -428,18 +407,16 @@ class Tput
       # CSI Ps I
       #   Cursor Forward Tabulation Ps tab stops (default = 1) (CHT).
       def cursor_forward_tab(param = 1)
-        # CHT moves to the *next* tab stop, not a flat `+param*8`. With the
-        # standard 8-column stops the param-th forward stop from column x is
+        # CHT moves to the *next* tab stop, not a flat `+param*8`. With standard
+        # 8-column stops, the param-th forward stop from column x is
         # `(x // 8 + param) * 8` — e.g. from column 3, one tab lands on 8, not 11.
-        # The old `+param*8` over-advanced `@cursor.x` from any column that wasn't
-        # already a multiple of 8, desyncing the tracked cursor from where the
-        # terminal's CHT actually leaves it (the ICH/DECRC desync class). The two
-        # agree at tab-aligned columns, so existing aligned-start specs are intact.
+        # The old `+param*8` over-advanced `@cursor.x` from non-multiple-of-8
+        # columns, desyncing it from the terminal's actual CHT position. The two
+        # agree at tab-aligned columns, so aligned-start specs are unaffected.
         @cursor.x = (@cursor.x // 8 + param) * 8
         _ncoords
-        # The terminfo `tab` cap is a single, non-parametric tab; it only matches
-        # one tab stop, so use it solely for `param == 1` and emit the parametric
-        # CHT sequence otherwise (there is no parametric terminfo cap for it).
+        # terminfo `tab` is a single, non-parametric tab stop; use it only for
+        # `param == 1` and emit the parametric CHT sequence otherwise.
         (param == 1 && put(&.tab?)) || _print { |io| io << "\e[" << param << "I" }
       end
 
@@ -447,16 +424,14 @@ class Tput
 
       # CSI Ps Z  Cursor Backward Tabulation Ps tab stops (default = 1) (CBT).
       def cursor_backward_tab(param = 1)
-        # CBT moves to the *previous* tab stop, the mirror of CHT above. The
-        # previous 8-column stop of x>0 is `((x - 1) // 8) * 8`, and each further
-        # step subtracts another 8: `(((x - 1) // 8) - (param - 1)) * 8`. From
-        # column 10 one back-tab lands on 8, not `10-8=2`. A negative result (or
-        # x==0, which has no earlier stop) is pulled back to column 0 by `_ncoords`.
-        # Equals the old `-param*8` at tab-aligned columns, so aligned specs hold.
+        # CBT moves to the *previous* tab stop, mirroring CHT above. The previous
+        # 8-column stop of x>0 is `((x - 1) // 8) * 8`, and each further step
+        # subtracts another 8: `(((x - 1) // 8) - (param - 1)) * 8`. From column 10
+        # one back-tab lands on 8, not `10-8=2`. Negative results (or x==0) are
+        # pulled to column 0 by `_ncoords`. Equals old `-param*8` at aligned columns.
         @cursor.x = @cursor.x > 0 ? (((@cursor.x - 1) // 8) - (param - 1)) * 8 : 0
         _ncoords
-        # As with `tab` above, the terminfo `cbt` cap is single, non-parametric;
-        # use it only for `param == 1`, else emit the parametric CBT sequence.
+        # terminfo `cbt` is single, non-parametric; use it only for `param == 1`.
         (param == 1 && put(&.cbt?)) || _print { |io| io << "\e[" << param << 'Z' }
       end
 
@@ -465,11 +440,10 @@ class Tput
       def restore_reported_cursor
         @_rx.try do |rx|
           @_ry.try do |ry|
-            # Go through the high-level `cup` (which updates @cursor) rather than
-            # the raw `put(&.cup?...)` primitive: the reported position (stored
-            # 0-based, see `#save_reported_cursor`) must become the tracked
-            # cursor too, otherwise @cursor is left stale and later relative
-            # moves desync. Emits the same bytes the primitive would.
+            # Use high-level `cup` (updates @cursor), not the raw `put(&.cup?...)`
+            # primitive — the reported position (0-based, see
+            # `#save_reported_cursor`) must update the tracked cursor too, or
+            # later relative moves desync. Emits the same bytes either way.
             cup ry, rx
             # D O:
             # put "nel"
@@ -481,15 +455,13 @@ class Tput
       #   [column] (default = [row,1]) (HPA).
       # TODO switch to adjust_xy
       def char_pos_absolute(param = 0)
-        # `param` is 0-based (the sequence emits `param + 1`), so the default
-        # must be 0 — the first column — matching `cursor_char_absolute`.
+        # `param` is 0-based (sequence emits `param + 1`), so default is column 0,
+        # matching `cursor_char_absolute`.
         @cursor.x = param
         _ncoords
-        # Emit the *clamped* column (`@cursor.x`), not the raw `param` — see the
-        # note in `#cursor_char_absolute`: `_ncoords` may clamp an out-of-range
-        # `param`, so emitting the original would desync the wire from `@cursor`.
-        # When terminfo is present its `hpa` emits the `CSI Ps G` form; only the
-        # no-terminfo fallback uses `CSI Ps \``. The fast path mirrors terminfo.
+        # Emit clamped `@cursor.x`, not raw `param` — see `#cursor_char_absolute`.
+        # terminfo's `hpa` emits the `CSI Ps G` form; only the no-terminfo
+        # fallback uses `CSI Ps \``. The fast path mirrors terminfo.
         if features.ansi_hpa?
           _print { |io| io << "\e[" << @cursor.x + 1 << 'G' }
         else
@@ -504,14 +476,13 @@ class Tput
       # reuse CSI Ps C ?
       # TODO switch to adjust_xy
       def h_position_relative(param = 1)
-        # Keep @cursor.x in sync (mirrors `v_position_relative` and Blessed's
-        # `cuf()`-method delegation); leaving it stale here desynced later
-        # relative moves. Emitted bytes are unchanged.
+        # Keep @cursor.x in sync (mirrors `v_position_relative`); leaving it
+        # stale would desync later relative moves.
         @cursor.x += param
         _ncoords
 
-        # Mirror the terminfo `cuf` branch (emits `CSI Ps C`); only the
-        # no-terminfo fallback uses the `CSI Ps a` (HPR) form.
+        # Mirror terminfo `cuf` branch (emits `CSI Ps C`); no-terminfo fallback
+        # uses `CSI Ps a` (HPR) form.
         if features.ansi_cursor?
           _print { |io| io << "\e[" << param << 'C' }
         else
@@ -532,8 +503,8 @@ class Tput
         @cursor.y += param
         _ncoords
 
-        # Mirror the terminfo `cud` branch (emits `CSI Ps B`); only the
-        # no-terminfo fallback uses the `CSI Ps e` (VPR) form.
+        # Mirror terminfo `cud` branch (emits `CSI Ps B`); no-terminfo fallback
+        # uses `CSI Ps e` (VPR) form.
         if features.ansi_cursor?
           _print { |io| io << "\e[" << param << 'B' }
         else
@@ -551,22 +522,18 @@ class Tput
       #   Horizontal and Vertical Position [row;column] (default =
       #   [1,1]) (HVP).
       def hv_position(row = 0, col = 0)
-        # Adjust through `_adjust_xy_abs` (like the CUP twin `#cursor_position`)
-        # rather than assigning the raw args and only clamping the tracked cursor
-        # afterwards with `_ncoords`. The old code emitted the *unadjusted*
-        # `row`/`col` while storing the clamped position, so:
-        #   * negative args — which mean "from the bottom/right edge", exactly as
-        #     in `#cursor_position` — produced a malformed CSI with a negative
-        #     parameter (e.g. `hv_position(-1, -1)` -> "\e[0;0f"/"\e[-?…"), and
-        #   * out-of-range args desynced the emitted sequence from `@cursor`.
-        # Now the wire output and `@cursor` always agree, and edge-relative
-        # (negative) coordinates work as they do for `#cursor_position`.
+        # Adjust through `_adjust_xy_abs` (like CUP twin `#cursor_position`)
+        # rather than clamping only the tracked cursor afterwards: the old code
+        # emitted unadjusted `row`/`col` while storing the clamped position, so
+        # negative args (meaning "from bottom/right edge") produced a malformed
+        # CSI, and out-of-range args desynced output from `@cursor`. Now both
+        # agree, and edge-relative coordinates work as in `#cursor_position`.
         @cursor.x, @cursor.y = _adjust_xy_abs col, row
         # D O:
         # Does not exist (?):
         # put(&.hvp", row, col);
-        # Mirror the terminfo `cup` branch (emits `CSI r;c H`); only the
-        # no-terminfo fallback uses the `CSI r;c f` (HVP) form.
+        # Mirror terminfo `cup` branch (emits `CSI r;c H`); no-terminfo fallback
+        # uses `CSI r;c f` (HVP) form.
         if features.ansi_cursor?
           _print { |io| io << "\e[" << @cursor.y + 1 << ';' << @cursor.x + 1 << 'H' }
         else

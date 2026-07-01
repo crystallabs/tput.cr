@@ -999,14 +999,14 @@ class Tput
     end
 
     enum CursorShape
-      # No predefined shape: the cursor is drawn from its own `style` (a custom
-      # glyph and/or colors). Used by the artificial cursor; the hardware cursor
-      # has no equivalent and ignores this value.
+      # No predefined shape: the cursor is drawn from its own `style` (custom
+      # glyph/colors). Used by the artificial cursor; the hardware cursor ignores
+      # this value.
       #
-      # This member is also why `CursorShape` is a plain enum rather than
-      # `@[Flags]`: a flags enum auto-generates `None = 0`, which collided with
-      # `Block = 0` (making `Block == None` and the `block?` predicate always
-      # true). The shapes are mutually exclusive, so a plain enum is correct.
+      # This is also why `CursorShape` is a plain enum, not `@[Flags]`: a flags
+      # enum auto-generates `None = 0`, which would collide with `Block = 0`
+      # (`Block == None`, `block?` always true). The shapes are mutually
+      # exclusive, so a plain enum is correct.
       None = 0
 
       Block = 1
@@ -1058,25 +1058,22 @@ class Tput
     # on-the-wire name handed to the terminal.
     #
     # Naming — where a shape exists in both Qt's `Qt::CursorShape` and the X11
-    # cursor font (`X11/cursorfont.h`), the **Qt name is the primary member and
-    # the X11 cursor-font name is an alias** (e.g. `ArrowCursor`/`LeftPtr`,
-    # `PointingHandCursor`/`Hand2`, `IBeamCursor`/`Xterm`). The other cursor-font
-    # glyphs are present under their cursorfont names, and the Qt-only shapes
-    # (diagonal resizes, drag, open/closed hand, forbidden, busy, blank,
-    # splitters) under their Qt names.
+    # cursor font (`X11/cursorfont.h`), the Qt name is the primary member and the
+    # X11 cursor-font name is an alias (e.g. `ArrowCursor`/`LeftPtr`,
+    # `PointingHandCursor`/`Hand2`, `IBeamCursor`/`Xterm`). Other cursor-font
+    # glyphs use their cursorfont names; Qt-only shapes (diagonal resizes, drag,
+    # open/closed hand, forbidden, busy, blank, splitters) use their Qt names.
     #
     # On-the-wire mapping (`#cursor_name`):
-    #   * Members backed by a cursor-font glyph emit that glyph name — understood
-    #     wherever OSC 22 works.
-    #   * Qt-only shapes with no cursor-font glyph emit an Xcursor *theme* name
-    #     (e.g. `left_ptr_watch`, `dnd-move`); these resolve only on terminals
-    #     whose OSC 22 falls back to the Xcursor library (recent xterm).
+    #   * Members backed by a cursor-font glyph emit that glyph name.
+    #   * Qt-only shapes with no cursor-font glyph emit an Xcursor theme name
+    #     (e.g. `left_ptr_watch`, `dnd-move`), resolved only on terminals whose
+    #     OSC 22 falls back to the Xcursor library (recent xterm).
     #
-    # The change applies only while the pointer is over the terminal window and
-    # is best-effort: xterm honors it, most other emulators (and Wayland-native
-    # terminals) ignore it; an Xcursor theme may remap the glyph. OSC 22 has no
-    # custom-bitmap option, so Qt's `BitmapCursor`/`CustomCursor` (which name a
-    # caller-supplied pixmap rather than a shape) have no equivalent here.
+    # Best-effort and applies only while the pointer is over the terminal
+    # window: xterm honors it, most other emulators (and Wayland-native
+    # terminals) ignore it. OSC 22 has no custom-bitmap option, so Qt's
+    # `BitmapCursor`/`CustomCursor` have no equivalent here.
     enum MouseCursorShape
       XCursor
       Arrow
@@ -1196,7 +1193,7 @@ class Tput
         when SizeAllCursor      then "fleur"
         when PointingHandCursor then "hand2"
         when WhatsThisCursor    then "question_arrow"
-          # Qt-only shapes -> Xcursor theme names (narrower terminal support).
+          # Qt-only shapes -> Xcursor theme names.
         when SizeBDiagCursor  then "size_bdiag"
         when SizeFDiagCursor  then "size_fdiag"
         when SplitVCursor     then "split_v"
@@ -1209,12 +1206,12 @@ class Tput
         when DragCopyCursor   then "copy"
         when DragMoveCursor   then "dnd-move"
         when DragLinkCursor   then "dnd-link"
-          # X11 names the cursor font spells irregularly.
+          # X11 spells these irregularly.
         when XCursor      then "X_cursor"
         when LeftButton   then "leftbutton"
         when MiddleButton then "middlebutton"
         when RightButton  then "rightbutton"
-          # Remaining members: the underscored member name IS the cursor-font name.
+          # Remaining members: the underscored member name is the cursor-font name.
         else to_s.underscore
         end
       end

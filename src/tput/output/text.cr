@@ -6,10 +6,9 @@ class Tput
       include Crystallabs::Helpers::Logging
       include Macros
 
-      # ICH/DCH/ECH share one emit shape: prefer the parametric edit cap as a
-      # fast path only when the terminal isn't verified standard-ANSI, otherwise
-      # the literal `CSI <param> <final>` is both the ANSI fast path and the
-      # universal fallback. They differ only in their cap and final CSI byte.
+      # ICH/DCH/ECH share one emit shape: try the parametric edit cap unless the
+      # terminal is verified standard-ANSI, else emit the literal `CSI <param>
+      # <final>` directly. They differ only in their cap and final CSI byte.
       private macro _emit_char_edit(param, cap, final)
         (!features.ansi_edit? && put(&.{{cap}}?({{param}}))) || _print { |io| io << "\e[" << {{param}} << {{final}} }
       end
@@ -28,9 +27,7 @@ class Tput
 
       def echo(text, attr = nil)
         if attr
-          # Write the opening attribute, the text, and the closing attribute
-          # straight to the output IO instead of concatenating them into a
-          # temporary `String` first (this is on the styled-text hot path).
+          # Write attrs + text straight to the output IO, no temp String (hot path).
           _print { |io| io << _attr(attr, true) << text << _attr(attr, false) }
         else
           _print text
@@ -38,13 +35,10 @@ class Tput
       end
 
       def text(text, attr)
-        # Plain concatenation. A `String.build` variant was tried (to "allocate
-        # once") but benchmarked ~44% slower for the common short-string case:
-        # the builder's default 64-byte buffer plus its final exact-size
-        # truncation copy costs more than two small concatenations. The hot,
-        # IO-materializing path is `#echo`, which writes the attrs straight to
-        # the output IO (no intermediate String at all); prefer it where a
-        # String result isn't actually needed. See bench/perf.cr (text_styled).
+        # Plain concatenation. A `String.build` variant benchmarked ~44% slower
+        # for the common short-string case (buffer alloc + truncation copy cost
+        # more than two concats; see bench/perf.cr text_styled). Prefer `#echo`
+        # when a String result isn't actually needed — it writes straight to IO.
         _attr(attr, true) + text + _attr(attr, false)
       end
 
@@ -57,14 +51,12 @@ class Tput
         if x > 0
           @cursor.x -= 1
         end
-        # Move the cursor one column left via the terminfo `cub1` (cursor_left)
-        # OUTPUT capability — NOT `kbs`. `kbs` is `key_backspace`: the byte the
-        # Backspace *key* sends, an INPUT capability. On terminals where it
-        # differs from cub1 (e.g. macOS xterm and the linux console, where
-        # kbs is DEL / `\177`) writing it does NOT move the terminal cursor, so
-        # emitting it while decrementing `@cursor.x` above desynced the tracked
-        # cursor from the real one (the same desync class as the ICH/DECRC/SU
-        # fixes). cub1 is `\b` on xterm, matching the literal fallback; blessed's
+        # Use the terminfo `cub1` (cursor_left) OUTPUT capability — NOT `kbs`,
+        # which is `key_backspace`, an INPUT capability (the byte the Backspace
+        # key sends). On terminals where it differs from cub1 (e.g. macOS xterm
+        # and the linux console, where kbs is DEL/`\177`), emitting it wouldn't
+        # move the cursor and would desync `@cursor.x` from the real cursor.
+        # cub1 is `\b` on xterm, matching the literal fallback; blessed's
         # `backspace` likewise emits a plain `\x08`, never `kbs`.
         put(&.cub1?) || _print "\b" # "\x08"
       end
@@ -78,13 +70,11 @@ class Tput
       #
       # Aliases: ht, tab, htab
       private def horizontal_tab
-        # HT advances to the *next* tab stop, not a flat `+8`. With the standard
-        # 8-column stops the next stop from column x is `(x // 8 + 1) * 8` — e.g.
-        # from column 3 a tab lands on 8, not 11. The old `+= 8` over-advanced
-        # `@cursor.x` from any column that wasn't already a multiple of 8,
-        # desyncing the tracked cursor from where the terminal's HT actually
-        # leaves it (the same desync class as the CHT/ICH fixes). The two agree at
-        # tab-aligned columns, so existing aligned-start specs are intact. This is
+        # HT advances to the *next* tab stop, not a flat `+8`: with standard
+        # 8-column stops the next stop from column x is `(x // 8 + 1) * 8` (e.g.
+        # column 3 -> 8, not 11). The old `+= 8` over-advanced `@cursor.x` from
+        # any non-multiple-of-8 column, desyncing it from the terminal's real HT
+        # behavior. Agrees with the old behavior at tab-aligned columns. This is
         # the single-tab form of `#cursor_forward_tab` (CHT, param == 1).
         @cursor.x = (@cursor.x // 8 + 1) * 8
         _ncoords
@@ -138,9 +128,8 @@ class Tput
         end
 
         @cursor.x = 0
-        # NOTE: This is a line feed (LF), so always emit a literal "\n".
-        # The terminfo `nel` capability is NOT used here: it encodes NEL
-        # (next-line, e.g. "\eE" on xterm), which is a distinct operation.
+        # Always emit a literal "\n" (LF). The terminfo `nel` cap is NOT used:
+        # it encodes NEL ("\eE" on xterm), a distinct operation.
         _advance_line "\n"
       end
 
@@ -177,8 +166,7 @@ class Tput
         # scroll region?
         _x, y = _adjust_xy_rel 0, 1
         @cursor.y += y
-        # TODO the IFs: when y == 1 we proceed; otherwise we are already on the
-        # last line and either the sequence is ignored or scrolling should happen.
+        # TODO when y != 1 we're already on the last line; ignore or scroll?
         _print seq
       end
 
@@ -267,27 +255,19 @@ class Tput
       #
       # NOTE: sun-color may not allow multiple params for SGR.
       #
-      # Allow printing to IO instead of returning strings. I suppose
-      # the places where this is called from should make it quite
-      # suitable to do so.
-      #
-      # XXX see if these attributes can somehow be combined with
-      # Crystal's functionality in Colorize.
-      # Also make this accept enum values rather than parsing a
-      # string.
+      # XXX could print to IO instead of returning strings.
+      # XXX see if these attributes can be combined with Crystal's Colorize.
+      # Also make this accept enum values rather than parsing a string.
       def _attr(param : Array | String, val = true)
-        # Cache the String case (by far the common one); the parse is pure and
-        # its result deterministic for the life of the instance. The Array case
-        # is rare and not worth keying, so it computes directly. A limit of 0
-        # disables the cache (always recompute).
+        # Cache the String case (by far the common one); the Array case is rare
+        # and not worth keying. A limit of 0 disables the cache.
         if param.is_a?(String) && @attr_cache_limit > 0
           cached = @_attr_cache[{param, val}]?
           return cached if cached
           result = _compute_attr(param, val)
-          # FIFO eviction: `Hash` keeps insertion order, so `shift?` drops the
-          # oldest entry. The working set of attribute specs is tiny, so this
-          # effectively never fires for normal use — it only bounds memory
-          # against dynamic/unbounded inputs (e.g. a distinct truecolor per cell).
+          # FIFO eviction (Hash keeps insertion order). The working set is tiny
+          # so this rarely fires; it just bounds memory against unbounded input
+          # (e.g. a distinct truecolor per cell).
           @_attr_cache.shift? if @_attr_cache.size >= @attr_cache_limit
           @_attr_cache[{param, val}] = result
           return result
@@ -305,18 +285,15 @@ class Tput
         case param
         when Array
           parts = param
-          # Guard the empty list: `parts[0]` would raise IndexError. An empty
-          # spec carries no attribute, so treat it like a blank/"normal" one
-          # (consistent with the `parts[0].blank?` -> "normal" handling below).
+          # Guard the empty list: `parts[0]` would raise IndexError. Treat an
+          # empty spec like blank/"normal" (matches the String case below).
           param = (parts.empty? || parts[0].blank?) ? "normal" : parts[0]
           multi = parts.size > 1
         when String
           param = param.blank? ? "normal" : param
-          # Only the multi-component form needs splitting. The overwhelmingly
-          # common single spec — including every truecolor "#rrggbb fg" — has no
-          # `,`/`;` separator, so skip the regex scan and the 1-element Array it
-          # would allocate. Byte-identical: a separator-less string splits to
-          # exactly `[param]` (size 1), which already fell straight through here.
+          # Only the multi-component form needs splitting. A separator-less
+          # string (the common case, including truecolor "#rrggbb fg") would
+          # split to `[param]` anyway, so skip the regex scan for it.
           if param.includes?(',') || param.includes?(';')
             parts = param.split /\s*[,;]\s*/
             multi = parts.size > 1
@@ -337,10 +314,9 @@ class Tput
             end
 
             next unless part
-            # A component whose SGR body is empty (e.g. "normal"/"default", which
-            # yield a bare "\e[m") must be dropped — emitting it would inject a
-            # stray empty parameter like "\e[;31m". In the JS original "" is
-            # falsy and skipped here; Crystal's "" is truthy, so skip explicitly.
+            # Drop a component whose SGR body is empty (e.g. "normal"/"default" ->
+            # bare "\e[m") — emitting it would inject a stray empty parameter like
+            # "\e[;31m". Crystal's "" is truthy (unlike JS), so skip explicitly.
             next if part.empty?
             next if used[part]?
             used[part] = true
@@ -484,9 +460,8 @@ class Tput
           if m
             color = m[1].to_i
 
-            # Any negative color is the "default" sentinel, not just -1. Other
-            # negatives (e.g. -2) must NOT fall through to the `color < 16`
-            # branch below, which would emit a bogus SGR like `\e[{color+30}m`.
+            # Any negative color is the "default" sentinel, not just -1; must not
+            # fall through to `color < 16` below (would emit a bogus SGR).
             if !val || color < 0
               return _attr "default #{m[2]}"
             end
@@ -536,12 +511,10 @@ class Tput
       def insert_chars(param = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        # ICH inserts blank characters *at* the cursor and shifts the existing
-        # content to its right; the active position (the cursor) stays put. Do
-        # NOT advance `@cursor.x` here (that was copy-pasted from REP, which does
-        # move) — doing so desynced the tracked cursor from the terminal's real
-        # cursor on every insert. `delete_chars`/`erase_character` correctly leave
-        # the cursor alone too.
+        # ICH inserts blank characters *at* the cursor and shifts existing content
+        # right; the cursor itself stays put. Do NOT advance `@cursor.x` here
+        # (copy-pasted from REP, which does move) — it desyncs the tracked cursor.
+        # `delete_chars`/`erase_character` correctly leave the cursor alone too.
         _emit_char_edit param, ich, '@'
       end
 
@@ -553,15 +526,13 @@ class Tput
       def insert_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        # IL moves the active position to the first column of the line (the line
-        # home position), unlike the character ops ICH/DCH/ECH which leave the
-        # cursor put. Reset the tracked column to match the terminal's real
-        # cursor — leaving `@cursor.x` stale desynced every later relative move
-        # (the same desync class as the ICH/SU/DECRC fixes). The row is unchanged.
+        # IL moves the active position to the line's first column, unlike the
+        # character ops ICH/DCH/ECH which leave the cursor put. Reset the tracked
+        # column to match; leaving it stale desyncs every later relative move.
         @cursor.x = 0
-        # `param == 1` uses the static `il1` cap (no tparm), so it keeps its
-        # terminfo route and exact byte output; only the parameterized
-        # `param > 1` case (which would invoke tparm) takes the ansi_edit fast path.
+        # `param == 1` uses the static `il1` cap (no tparm) for exact terminfo
+        # byte output; only `param > 1` (would invoke tparm) takes the ansi_edit
+        # fast path.
         (param == 1 ? (put(&.il1?) || put(&.il?(param))) : (!features.ansi_edit? && put(&.il?(param)))) ||
           _print { |io| io << "\e[" << param << 'L' }
       end
@@ -574,12 +545,11 @@ class Tput
       def delete_line(param : Int = 1)
         param > 0 || raise ArgumentError.new "param > 0"
 
-        # Like IL, DL moves the active position to the first column of the line;
-        # keep the tracked column in sync with the terminal's real cursor (see
-        # `#insert_line`). The row is unchanged.
+        # Like IL, DL moves the active position to the line's first column; keep
+        # the tracked column in sync (see `#insert_line`).
         @cursor.x = 0
         # `param == 1` uses the static `dl1` cap (no tparm); only `param > 1`
-        # (parameterized, would invoke tparm) takes the ansi_edit fast path.
+        # (would invoke tparm) takes the ansi_edit fast path.
         (param == 1 ? (put(&.dl1?) || put(&.dl?(param))) : (!features.ansi_edit? && put(&.dl?(param)))) ||
           _print { |io| io << "\e[" << param << 'M' }
       end
@@ -633,7 +603,6 @@ class Tput
       def erase_in_line(param = LineDirection::Right)
         # NOTE xterm terminfo does not seem to have parametric 'el'?
         #   clr_eol                   / el         = \e[K
-        # How did this work originally then?
 
         # put(&.el?(param.value)) ||
         case param
@@ -642,10 +611,7 @@ class Tput
         when LineDirection::Left
           put(&.clr_bol?) || _print "\e[1K"
         when LineDirection::All
-          _print "\e[2K" # <- if no el?, why would this succeed?
-          # Should we do instead manual erase to left and right?:
-          # _print "\e[1K"
-          # _print "\e[K"
+          _print "\e[2K"
         end
       end
 
@@ -708,8 +674,7 @@ class Tput
 
       # Suffixes each comma/semicolon-separated component of *color* with
       # *suffix* (e.g. `"red,blue"`, `" fg"` -> `"red fg, blue fg"`), built in a
-      # single pass instead of `split.join(...) + suffix` (which allocated an
-      # intermediate joined string plus the concatenation temporary).
+      # single pass instead of `split.join(...) + suffix`.
       private def _color_spec(color : String, suffix : String) : String
         String.build do |io|
           first = true
@@ -727,12 +692,10 @@ class Tput
 
         @cursor.x += param
         _ncoords
-        # REP repeats the character already emitted, so the sequence carries only
-        # the count. Do NOT use the terminfo `rep` cap here: it is a different
-        # operation (`repeat_char`, format `%p1%c…%p2…`) that takes the *character*
-        # as its first parameter — feeding it the count alone emits that count as
-        # a literal control char plus a malformed sequence. There is no terminfo
-        # capability for REP, so emit it directly.
+        # REP repeats the character already emitted; the sequence carries only the
+        # count. Do NOT use the terminfo `rep` cap: it's `repeat_char`, a different
+        # operation taking the *character* as its first parameter — feeding it the
+        # count alone emits a malformed sequence. No terminfo cap exists for REP.
         _print { |io| io << "\e[" << param << "b" }
       end
 
@@ -745,10 +708,10 @@ class Tput
       #   Ps = 2  -> Clear Stops on Line.
       #   http:#vt100.net/annarbor/aaa-ug/section6.html
       def tab_clear(param = 0)
-        # The terminfo `tbc` cap is `clear_all_tabs` — the fixed, non-parametric
-        # `CSI 3 g` ("clear all") form. Use it only for `param == 3`; otherwise
-        # (notably the default `param == 0`, "clear the current column") emit the
-        # parametric `CSI Ps g` directly, or `tbc` would wrongly clear all stops.
+        # `tbc` is `clear_all_tabs`, the fixed `CSI 3 g` form — use it only for
+        # `param == 3`. Otherwise (notably the default `param == 0`, "clear
+        # current column") emit `CSI Ps g` directly, or `tbc` would wrongly clear
+        # all stops.
         (param == 3 && put(&.tbc?)) || _print { |io| io << "\e[" << param << "g" }
       end
 

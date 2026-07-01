@@ -3,9 +3,7 @@ require "crystallabs-helpers"
 
 class Tput
   # The most capable *in-band graphics protocol* a terminal advertises, ordered
-  # least→most capable. A pure terminal characteristic (derived from terminal
-  # identity), so consumers can map it onto their own rendering backends without
-  # repeating the detection. See `Emulator#best_graphics`.
+  # least→most capable. Derived from terminal identity; see `Emulator#best_graphics`.
   enum GraphicsProtocol
     None  # no pixel graphics in-band; fall back to cell/glyph rendering
     Sixel # DCS sixel raster graphics
@@ -15,10 +13,9 @@ class Tput
 
   # Class for terminal emulator program detection.
   #
-  # The detection is always just a best-effort because it relies on testing environment
-  # variables, and these are passed from processes to children. (I.e. if a person opens
-  # an xterm, then an lxterminal in it, xterm-specific environment variables will propagate
-  # to lxterm, confusing the detection.
+  # Best-effort only: detection relies on environment variables, which are
+  # inherited by child processes. E.g. opening an xterm inside an lxterminal
+  # propagates xterm-specific env vars into lxterm, confusing the detection.
   class Emulator
     include JSON::Serializable
     include Crystallabs::Helpers::Logging
@@ -74,20 +71,18 @@ class Tput
 
     # The raw `$TERM_PROGRAM` value the emulator advertised (`""` if unset). Many
     # emulators (Apple Terminal, iTerm2, WezTerm, VS Code, …) self-identify here;
-    # it is a primary identity signal, paired with `#term_program_version`.
+    # paired with `#term_program_version`.
     getter term_program : String
 
-    # The raw `$TERM_PROGRAM_VERSION` value (`""` if unset) — the emulator's own
-    # reported version, when it sets one alongside `$TERM_PROGRAM`.
+    # The raw `$TERM_PROGRAM_VERSION` value (`""` if unset).
     getter term_program_version : String
 
     @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
 
-    # For each emulator flag (by name), a human-readable description of *how* it
-    # was determined (which environment variable, terminfo/TERM name, etc.).
-    # Surfaced via `Tput#dump`.
+    # For each emulator flag (by name), a description of how it was determined
+    # (env var, terminfo/TERM name, etc.). Surfaced via `Tput#dump`.
     @[JSON::Field(ignore: true)]
     getter sources = Hash(String, String).new
 
@@ -111,11 +106,11 @@ class Tput
       @terminator = to_b ENV["TERMINATOR_UUID"]?
       @sources["terminator"] = %(env TERMINATOR_UUID set)
 
-      # NOTE: lxterminal does not provide an env variable to check for.
+      # lxterminal exposes no env var to detect it.
       @lxterm = false
       @sources["lxterm"] = "not detectable (lxterminal exposes no env var)"
 
-      # gnome-terminal and sakura use a later version of VTE which provides VTE_VERSION as well as supports SGR events.
+      # gnome-terminal/sakura use a VTE version that sets VTE_VERSION and supports SGR events.
       @vte = to_b(ENV["VTE_VERSION"]?) || @xfce || @terminator || @lxterm
       @sources["vte"] = %(env VTE_VERSION set, or implied by xfce/terminator/lxterm)
 
@@ -127,7 +122,6 @@ class Tput
 
       @tmux = to_b(ENV["TMUX"]?)
       @sources["tmux"] = %(env TMUX set)
-      # XXX Detect TMUX version?
 
       @screen = ENV["TERM"]?.try(&.starts_with?("screen")) || @tput.name?("screen")
       @sources["screen"] = %(env TERM starts with "screen", or terminal name matches "screen")
@@ -155,12 +149,10 @@ class Tput
 
     # --- Graphics capability (best-effort, from terminal identity) ------------
     #
-    # These translate the env/name detection above into "can this terminal
-    # render graphics via protocol X". They are terminal *characteristics*; a
-    # consumer maps them onto its own rendering backends (see `#best_graphics`).
+    # Translates the env/name detection above into "can this terminal render
+    # graphics via protocol X" (see `#best_graphics`).
 
-    # Whether the terminal speaks the kitty graphics protocol (kitty itself, or
-    # other emulators that implement it).
+    # Whether the terminal speaks the kitty graphics protocol.
     def kitty_graphics? : Bool
       kitty? || ghostty? || konsole? || wezterm?
     end
@@ -171,18 +163,17 @@ class Tput
     end
 
     # Whether the terminal renders sixel graphics. True for known sixel
-    # emulators, or when a DA1 probe reply (if the terminal was probed) lists
-    # sixel support (device attribute `4`). Plain xterm needs `-ti vt340` and
-    # isn't detectable from the environment, so probe it if you need certainty.
+    # emulators, or when a DA1 probe reply lists sixel support (device
+    # attribute `4`). Plain xterm needs `-ti vt340` and isn't detectable from
+    # env alone, so probe it for certainty.
     def sixel? : Bool
       return true if foot? || mlterm? || wezterm? || konsole?
       da = (@tput.features.da_params rescue nil)
       !!da.try(&.includes?(4))
     end
 
-    # The most capable in-band graphics protocol this terminal advertises (a
-    # pure terminal fact). `GraphicsProtocol::None` means "no pixel graphics;
-    # use cell/glyph rendering".
+    # The most capable in-band graphics protocol this terminal advertises.
+    # `GraphicsProtocol::None` means "no pixel graphics; use cell/glyph rendering".
     def best_graphics : GraphicsProtocol
       return GraphicsProtocol::Kitty if kitty_graphics?
       return GraphicsProtocol::Iterm if iterm_images?
@@ -192,15 +183,13 @@ class Tput
 
     # --- Synthesized identity -------------------------------------------------
     #
-    # The detection above is a bag of independent booleans; these collapse it
-    # into the single answer a consumer actually wants — "which terminal is
-    # this". Most-specific product wins, so a kitty that (via env leakage) also
-    # looks vaguely xterm-ish still resolves to kitty.
+    # Collapses the independent booleans above into a single "which terminal is
+    # this" answer. Most-specific product wins, so a kitty that also looks
+    # vaguely xterm-ish (via env leakage) still resolves to kitty.
 
-    # Best-guess canonical product name, or `nil` if nothing matched (a bare,
-    # unidentifiable terminal). Concrete products are preferred over the generic
-    # families (vte/xterm), and multiplexers are reported separately via
-    # `#multiplexer` rather than masking the underlying terminal here.
+    # Best-guess canonical product name, or `nil` if nothing matched. Concrete
+    # products are preferred over generic families (vte/xterm); multiplexers
+    # are reported separately via `#multiplexer`.
     def identity : String?
       return "kitty" if kitty?
       return "Ghostty" if ghostty?
@@ -219,8 +208,8 @@ class Tput
     end
 
     # The terminal multiplexer the program is running *inside* (`tmux`/`screen`),
-    # or `nil`. Kept separate from `#identity` because a multiplexer wraps, but
-    # does not replace, the real terminal underneath it.
+    # or `nil`. Separate from `#identity` since a multiplexer wraps, but doesn't
+    # replace, the real terminal underneath.
     def multiplexer : String?
       return "tmux" if tmux?
       return "screen" if screen?
@@ -228,10 +217,9 @@ class Tput
     end
 
     # Best-effort version string for the identified terminal, or `nil`. Prefers
-    # the terminal's own XTVERSION self-report (authoritative, populated by
-    # `Tput#probe!`), falling back to the `$TERM_PROGRAM_VERSION` env hint. The
-    # XTVERSION reply usually arrives wrapped as `name(1.2.3)` or `name 1.2.3`;
-    # the bare version is extracted when present.
+    # the terminal's own XTVERSION self-report (populated by `Tput#probe!`),
+    # falling back to `$TERM_PROGRAM_VERSION`. XTVERSION usually arrives as
+    # `name(1.2.3)` or `name 1.2.3`; the bare version is extracted when present.
     def version : String?
       if v = @tput.features?.try(&.terminal_version)
         if m = v.match(/\(([^)]+)\)/)
@@ -246,21 +234,19 @@ class Tput
     end
 
     # Whether `#identity`/`#version` rest on the terminal's own self-report
-    # (XTVERSION, via `Tput#probe!`) rather than env/TERM heuristics. The honest
-    # signal a tool uses to say "confirmed" vs "best guess".
+    # (XTVERSION, via `Tput#probe!`) rather than env/TERM heuristics.
     def self_reported? : Bool
       !@tput.features?.try(&.terminal_version).nil?
     end
 
     # --- Probe-based hardening ------------------------------------------------
     #
-    # The env/TERM detection above is best-effort: env vars propagate to child
-    # processes and survive across tmux/ssh, so they can name the *wrong*
-    # terminal. `Tput#probe!` asks the terminal itself (XTVERSION,
-    # `CSI > 0 q` → `features.terminal_version`), and the terminal's own answer
-    # is authoritative. This reconciles the two: a confident XTVERSION match
-    # sets the corresponding product-identity flag and clears the others (a
-    # terminal is exactly one product). No-op when the terminal didn't answer.
+    # Env/TERM detection is best-effort: env vars propagate to child processes
+    # and survive tmux/ssh, so they can name the *wrong* terminal. `Tput#probe!`
+    # asks the terminal itself (XTVERSION, `CSI > 0 q` → `features.terminal_version`),
+    # which is authoritative. A confident match sets the corresponding
+    # product-identity flag and clears the others (a terminal is exactly one
+    # product). No-op when the terminal didn't answer.
 
     # Refines identity from the probed XTVERSION string. Called by `Tput#probe!`.
     def refine_from_probe! : Nil
@@ -287,7 +273,7 @@ class Tput
                  elsif d.starts_with?("xterm")
                    "xterm"
                  else
-                   return # unknown terminal: leave env detection untouched
+                   return # unknown terminal, leave env detection untouched
                  end
 
       @kitty = reidentify @kitty, "kitty", identity, v
@@ -305,9 +291,9 @@ class Tput
       Log.trace { my self }
     end
 
-    # Returns the new value for product flag *name* given the probed *identity*,
-    # recording the provenance: confirmed when it matches, cleared when XTVERSION
-    # contradicts a flag env had set.
+    # Returns the new value for product flag *name* given the probed *identity*;
+    # records provenance (confirmed on match, cleared when XTVERSION contradicts
+    # a flag env had set).
     private def reidentify(was : Bool, name : String, identity : String, version : String) : Bool
       on = name == identity
       if on

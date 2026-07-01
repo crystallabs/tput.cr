@@ -41,8 +41,7 @@ class Tput
     AltEnter
     ShiftTab
 
-    # Never used in code, just a hint for Crystal to not create collisions
-    # while assigning enum numbers to the following, unnumbered fields.
+    # Unused; forces autonumbering of following fields to avoid collisions.
     FixAutonumbering = 1000
 
     Home
@@ -144,63 +143,57 @@ class Tput
 
     Menu = 16777301
 
-    # Sentinel returned by `read_control` when a mouse-reporting introducer is
-    # detected: `\e[M` (X10), `\e[<` (SGR / DEC-locator), `\e[I`/`\e[O` (focus
-    # in/out), or a numeric `\e[…M` (URxvt). The payload is parsed by
-    # `Tput::Input#read_mouse` into a `Tput::Mouse::Event`.
+    # Mouse-reporting introducer detected: `\e[M` (X10), `\e[<` (SGR / DEC-locator),
+    # `\e[I`/`\e[O` (focus in/out), or numeric `\e[…M` (URxvt). Payload parsed by
+    # `Tput::Input#read_mouse` into `Tput::Mouse::Event`.
     Mouse = 16777302
 
-    # Sentinel returned when an *enhanced* keyboard sequence is detected: a
-    # kitty keyboard protocol event (`CSI … u`), an xterm `modifyOtherKeys`
-    # report (`CSI 27 ; … ~`), or a legacy-final key carrying a kitty event-type
-    # sub-parameter (`CSI 1 ; 5 : 3 A`). The full sequence is re-parsed by
-    # `Tput::Input#parse_key_event` into a `Tput::KeyEvent`.
+    # Enhanced keyboard sequence: kitty keyboard protocol event (`CSI … u`), xterm
+    # `modifyOtherKeys` report (`CSI 27 ; … ~`), or a legacy-final key with a kitty
+    # event-type sub-parameter (`CSI 1 ; 5 : 3 A`). Re-parsed by
+    # `Tput::Input#parse_key_event` into `Tput::KeyEvent`.
     Enhanced = 16777303
 
-    # Sentinels for bracketed paste (DEC private mode 2004): `\e[200~` begins a
-    # paste and `\e[201~` ends it. On `PasteStart`, `Tput::Input#listen` reads
-    # the body verbatim (via `#read_paste`) up to the `PasteEnd` marker and
-    # delivers it as the `paste` argument.
+    # Bracketed paste (DEC private mode 2004): `\e[200~` begins, `\e[201~` ends.
+    # On `PasteStart`, `Tput::Input#listen` reads the body via `#read_paste` up to
+    # `PasteEnd` and delivers it as the `paste` argument.
     PasteStart = 16777304
     PasteEnd   = 16777305
 
-    # Sentinel for an in-band terminal resize report (DEC private mode 2048),
+    # In-band terminal resize report (DEC private mode 2048),
     # `\e[48;rows;cols;ypixels;xpixels t`. Parsed by `Tput::Input#parse_resize`
-    # into a `Tput::Resize` and delivered as the `resize` argument of `#listen`.
+    # into `Tput::Resize`, delivered as `#listen`'s `resize` argument.
     Resize = 16777306
 
-    # Sentinel for an OSC reply (`\e]…`); `Tput::Input#listen` reads the payload
-    # and dispatches it (e.g. an OSC 52 clipboard reply → `paste`).
+    # OSC reply (`\e]…`); `Tput::Input#listen` reads and dispatches the payload
+    # (e.g. OSC 52 clipboard reply -> `paste`).
     Osc = 16777307
 
-    # Sentinel for a color-scheme report (DEC private mode 2031),
-    # `\e[?997;Ps n` (`Ps` 1 = dark, 2 = light). Parsed into a `Tput::ColorScheme`
-    # and delivered as the `color_scheme` argument of `#listen`.
+    # Color-scheme report (DEC private mode 2031), `\e[?997;Ps n`
+    # (`Ps` 1 = dark, 2 = light). Parsed into `Tput::ColorScheme`, delivered as
+    # `#listen`'s `color_scheme` argument.
     ColorScheme = 16777308
 
     Unknown = 33554431
 
-    # Reads a `Control` input from *char*.  If an escape sequence was detected,
+    # Reads a `Control` input from *char*. If an escape sequence was detected,
     # calls the given block for the next `Char?`.
     def self.read_control(char : Char, &) : Key?
       case o = char.ord
       when Key::Escape.value
         read_escape_sequence(char) { yield } || Key::Escape
       else
-        # Only the 7-bit C0 controls (and DEL) map to a legacy key by codepoint.
-        # Restrict the lookup to that range so a C1 control (U+0080/U+0081,
-        # arriving e.g. as UTF-8 `0xC2 0x80`) is not mistaken for the
-        # auto-numbered `AltEnter` (128) / `ShiftTab` (129) enum members.
+        # Restrict to 7-bit C0/DEL so a C1 control (U+0080/U+0081, arriving as
+        # UTF-8 `0xC2 0x80`) isn't mistaken for auto-numbered `AltEnter` (128) /
+        # `ShiftTab` (129).
         Key.from_value?(o) if o < 0x80
       end # || Key::Unknown
     end
 
-    # Reads further chars while determining the key that was pressed.
-    #
-    # Dispatches on the byte after `ESC`: `O` (SS3), `[` (CSI — which delegates
-    # numeric parameter lists to `#read_numeric_csi`), or a letter (Alt+letter).
-    # Modified function keys (e.g. Shift+F5) currently report the base F-key, as
-    # there are no distinct modified-F-key members.
+    # Dispatches on the byte after `ESC`: `O` (SS3), `[` (CSI, delegating numeric
+    # parameter lists to `#read_numeric_csi`), or a letter (Alt+letter). Modified
+    # function keys (e.g. Shift+F5) report the base F-key; no modified-F-key
+    # members exist.
     private def self.read_escape_sequence(char, &)
       case o = yield.try(&.ord) || -1
       when 13 then Key::AltEnter
@@ -212,9 +205,9 @@ class Tput
         when 66 then Key::Down
         when 67 then Key::Right
         when 68 then Key::Left
-          # SS3-encoded Home/End, sent by terminals in application cursor keys
-          # mode (DECCKM, which this library enables). Without these, `\eOH`/`\eOF`
-          # fall through to `nil` and the leading `\e` is read as a bare Escape.
+          # SS3-encoded Home/End from DECCKM application cursor keys mode (enabled
+          # by this library). Without these, `\eOH`/`\eOF` fall through to `nil`
+          # and the leading `\e` reads as a bare Escape.
         when 72 then Key::Home
         when 70 then Key::End
         when 69 then Key::Clear
@@ -256,16 +249,16 @@ class Tput
         when 63  then read_private_csi { yield } # `\e[?…` private report (color scheme 997)
         when 62  then read_gt_csi { yield }      # `\e[>…` secondary-DA-style reply (DA2)
         when 48..57
-          # A numeric CSI parameter list: a navigation/function key (`\e[3~`,
-          # `\e[1;5C`, …) or a URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
+          # Numeric CSI parameter list: navigation/function key (`\e[3~`,
+          # `\e[1;5C`, …) or URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
           read_numeric_csi(o - 48) { yield }
         else
           nil
         end
       when 97..122
-        # Alt+<letter>: ESC followed by `a`-`z`. The `AltA`..`AltZ` enum members
-        # are contiguous and alphabetical, matching bytes 97..122 (the same
-        # invariant `KeyEvent#u_key` relies on).
+        # Alt+<letter>: ESC followed by `a`-`z`. `AltA`..`AltZ` are contiguous and
+        # alphabetical, matching bytes 97..122 (same invariant `KeyEvent#u_key`
+        # relies on).
         Key.from_value? Key::AltA.value + (o - 97)
       else
         nil
@@ -276,20 +269,19 @@ class Tput
     # value is *first*, then classifies it as a key or a URxvt mouse report.
     # Yields for each subsequent input char.
     private def self.read_numeric_csi(first : Int32, &) : Key?
-      # `classify_csi` only ever consults the first two parameters, so capture
-      # just those (`p0`/`p1`) into locals instead of allocating an `Array` per
-      # key. A `:` sub-parameter is flattened the same as `;` (the precise
-      # grouping is recovered from the raw bytes by `Input#parse_key_event`);
-      # `colon` records that one was present so `classify_csi` can tell this is
-      # an enhanced event even on a legacy final byte (e.g. an event-type on
-      # `…A`).
+      # `classify_csi` only consults the first two parameters, so capture just
+      # those (`p0`/`p1`) instead of allocating an `Array` per key. A `:`
+      # sub-parameter is flattened like `;` (exact grouping recovered from raw
+      # bytes by `Input#parse_key_event`); `colon` records one was present so
+      # `classify_csi` can detect an enhanced event even on a legacy final byte
+      # (e.g. an event-type on `…A`).
       p0 : Int32? = nil
       p1 : Int32? = nil
       count = 0
       cur = first
       final = nil
       colon = false
-      locator = false # an `&` intermediate was seen -> DEC-locator report
+      locator = false # `&` intermediate seen -> DEC-locator report
       loop do
         o = yield.try(&.ord)
         break unless o
@@ -308,24 +300,23 @@ class Tput
         when 58 then colon = true # ':' kitty sub-parameter (enhanced marker)
         when 59                   # ';' parameter separator: nothing extra
         when 32..47
-          # A CSI *intermediate* byte (0x20-0x2F).
+          # CSI intermediate byte (0x20-0x2F).
           #
-          # `&` (0x26) is *always* the intermediate of a DEC-locator report
+          # `&` (0x26) always introduces a DEC-locator report
           # (`CSI Pe [; Cx ; Cy ; Cp] & w`) — rxvt's modified-nav finals use `$`
-          # and `^`, never `&` — so record it and keep scanning for the trailing
-          # `w` regardless of how many parameters preceded it. In particular the
-          # "locator unavailable/outside" report is the *single*-parameter
-          # `CSI Pe & w` (e.g. `\e[0&w`); treating its `&` as the final would
-          # leave the `w` unread and leak it as a phantom keystroke.
+          # and `^`, never `&` — so keep scanning for the trailing `w` regardless
+          # of parameter count. The "locator unavailable/outside" report is the
+          # single-parameter `CSI Pe & w` (e.g. `\e[0&w`); treating `&` as final
+          # would leave `w` unread and leak it as a phantom keystroke.
           #
           # Other intermediates are kept only in a multi-parameter sequence —
-          # e.g. the `$` of a *non-private* DECRPM reply `CSI Ps ; Pm $ y` (the
-          # answer to `#request_ansi_mode`/`decrqm`), where mistaking `$` for the
-          # final would leak `y` and mis-decode the reply as an rxvt ShiftXXX nav
-          # key. (The private form `\e[?…$y` is handled in `read_private_csi`.)
-          # A *single*-parameter `$` is instead rxvt's shift-modified navigation
-          # terminator (`\e[3$` = Shift+Delete), which legitimately ends the
-          # sequence — `count` is still 1 there — so fall through to the final.
+          # e.g. the `$` of a non-private DECRPM reply `CSI Ps ; Pm $ y` (answer
+          # to `#request_ansi_mode`/`decrqm`), where mistaking `$` for final would
+          # leak `y` and mis-decode as an rxvt ShiftXXX nav key. (Private form
+          # `\e[?…$y` is handled in `read_private_csi`.) A single-parameter `$` is
+          # rxvt's shift-modified navigation terminator (`\e[3$` = Shift+Delete),
+          # which legitimately ends the sequence (`count` still 1), so fall
+          # through to the final.
           if o == '&'.ord
             locator = true
           elsif count >= 2
@@ -340,11 +331,10 @@ class Tput
         end
       end
       return nil unless final
-      # A `& w`-terminated multi-parameter report is a DEC-locator event; hand it
-      # to `Input#read_mouse`, which re-parses the captured sequence via
-      # `Mouse.parse_dec`. (Real DEC-locator reports carry no `<` introducer, so
-      # this numeric path — not the SGR `\e[<` path — is how they actually
-      # arrive.)
+      # `& w`-terminated multi-parameter report is a DEC-locator event; hand to
+      # `Input#read_mouse`, which re-parses via `Mouse.parse_dec`. Real
+      # DEC-locator reports carry no `<` introducer, so this numeric path (not
+      # SGR `\e[<`) is how they arrive.
       return Key::Mouse if locator && final == 'w'.ord
       classify_csi p0, p1, final, colon
     end
@@ -352,7 +342,7 @@ class Tput
     # Reads a `\e[?… <final>` private report. Recognizes the color-scheme report
     # (`\e[?997;Ps n`, DEC mode 2031); other private reports are ignored.
     private def self.read_private_csi(&) : Key?
-      # Only the first parameter is consulted (the `997` color-scheme marker), so
+      # Only the first parameter (`997` color-scheme marker) is consulted, so
       # capture it into a local instead of allocating an `Array` per report.
       p0 : Int32? = nil
       cur = 0
@@ -364,10 +354,9 @@ class Tput
         when 48..57 then cur = cur * 10 + (o - 48)
         when 59     then p0 = cur if p0.nil?; cur = 0
         when 32..47
-          # A CSI *intermediate* byte (0x20-0x2F), e.g. the `$` in a DECRPM
-          # reply `\e[? Ps ; Pm $ y`. It is not the final byte, so keep
-          # scanning; otherwise the real final (`y`) is left unread and leaks
-          # out of `#listen` as a phantom keystroke.
+          # CSI intermediate byte (0x20-0x2F), e.g. the `$` in a DECRPM reply
+          # `\e[? Ps ; Pm $ y`. Not the final byte; keep scanning, or the real
+          # final (`y`) leaks out of `#listen` as a phantom keystroke.
         else p0 = cur if p0.nil?; final = o; break
         end
       end
@@ -376,13 +365,11 @@ class Tput
       nil
     end
 
-    # Reads and discards a `\e[>… <final>` report. The `>` prefix introduces the
-    # secondary device-attributes reply (`\e[> Pp ; Pv ; Pc c`) and similar
-    # `>`-parameterized terminal replies; none map to a key. Like
-    # `#read_private_csi` drains `\e[?…` reports, the *whole* sequence — through
-    # the final byte (`0x40`-`0x7E`) — must be consumed, otherwise a reply that
-    # arrives mid-`#listen` leaks its parameter list and final byte out as a
-    # burst of phantom keystrokes. Always returns `nil`.
+    # Reads and discards a `\e[>… <final>` report: the secondary device-attributes
+    # reply (`\e[> Pp ; Pv ; Pc c`) and similar `>`-parameterized replies, none of
+    # which map to a key. Must consume the whole sequence through the final byte
+    # (`0x40`-`0x7E`), or a reply arriving mid-`#listen` leaks its parameter list
+    # and final byte as phantom keystrokes. Always returns `nil`.
     private def self.read_gt_csi(&) : Key?
       loop do
         o = yield.try(&.ord)
@@ -414,10 +401,10 @@ class Tput
     # URxvt mouse report (handled by `Tput::Input`), surfaced here as
     # `Key::Mouse`. `$`/`^` finals are rxvt shift/ctrl-modified navigation keys.
     private def self.classify_csi(p0 : Int32?, p1 : Int32?, final : Int32, enhanced = false) : Key?
-      # Enhanced keyboard sequences: a `u` final (kitty / modifyOtherKeys-1), a
-      # legacy final carrying a kitty event-type sub-parameter, or the
-      # modifyOtherKeys format-0 marker (first parameter 27 on a `~` final). The
-      # whole sequence is re-parsed into a `KeyEvent` by `Input#parse_key_event`.
+      # Enhanced keyboard sequences: `u` final (kitty / modifyOtherKeys-1), a
+      # legacy final with a kitty event-type sub-parameter, or the
+      # modifyOtherKeys format-0 marker (first parameter 27 on a `~` final).
+      # Whole sequence re-parsed into a `KeyEvent` by `Input#parse_key_event`.
       return Key::Enhanced if final == 'u'.ord
       return Key::Enhanced if enhanced
       if final == '~'.ord
@@ -454,12 +441,12 @@ class Tput
     end
 
     # The four legacy navigation members (base / shift / alt / ctrl) for a
-    # `\e[ N ~` parameter, or `nil` for the function keys (which have no distinct
-    # modified members — see `#function_key`).
+    # `\e[ N ~` parameter, or `nil` for function keys (no distinct modified
+    # members — see `#function_key`).
     #
-    # Shared by the legacy `#csi_tilde_key` and the enhanced-keyboard projection
-    # `KeyEvent#tilde_key` (like `#function_key`), so both routes agree on the
-    # navigation-key mapping; each route then applies its own modifier scheme
+    # Shared by legacy `#csi_tilde_key` and enhanced-keyboard projection
+    # `KeyEvent#tilde_key` (like `#function_key`) so both routes agree on the
+    # navigation-key mapping; each applies its own modifier scheme
     # (`#csi_modified` vs `KeyEvent#nav`).
     def self.csi_tilde_keys(n : Int32?) : Tuple(Key, Key, Key, Key)?
       case n
@@ -473,12 +460,12 @@ class Tput
       end
     end
 
-    # Maps a `\e[ N ~` parameter for the function keys F1-F20 / Menu. These have
-    # no distinct *modified* enum members, so any held modifier is intentionally
-    # ignored (matching the legacy parser). `nil` for any non-function-key `n`.
+    # Maps a `\e[ N ~` parameter for function keys F1-F20 / Menu. No distinct
+    # *modified* enum members exist, so any held modifier is ignored (matching
+    # the legacy parser). `nil` for any non-function-key `n`.
     #
-    # Shared by the legacy `#csi_tilde_key` and the enhanced-keyboard projection
-    # `KeyEvent#tilde_key`, so both routes agree on the function-key numbering.
+    # Shared by legacy `#csi_tilde_key` and enhanced-keyboard projection
+    # `KeyEvent#tilde_key`, so both routes agree on function-key numbering.
     def self.function_key(n : Int32?) : Key?
       case n
       when 11 then Key::F1 # rxvt
@@ -516,9 +503,9 @@ class Tput
     # The four legacy cursor/Home/End members (base / shift / alt / ctrl) for a
     # `\e[ … <letter>` final, or `nil` for any other letter.
     #
-    # Shared by the legacy `#csi_letter_key` and the enhanced-keyboard projection
+    # Shared by legacy `#csi_letter_key` and enhanced-keyboard projection
     # `KeyEvent#to_legacy_key` (like `#csi_tilde_keys`), so both routes agree on
-    # the cursor-key mapping; each route then applies its own modifier scheme.
+    # the cursor-key mapping; each applies its own modifier scheme.
     def self.csi_letter_keys(final : Char) : Tuple(Key, Key, Key, Key)?
       case final
       when 'A' then {Key::Up, Key::ShiftUp, Key::AltUp, Key::CtrlUp}
@@ -532,10 +519,9 @@ class Tput
     end
 
     private def self.csi_modified(mod : Int32?, base : Key, shift : Key, alt : Key, ctrl : Key) : Key
-      # The on-the-wire modifier parameter is `1 + bitmask`; recover the bitmask
-      # as `Modifiers` (masking to the 8 defined bits) and let `#pick_nav` strip
-      # the lock bits and choose the variant — the same logic the enhanced
-      # projection (`KeyEvent#nav`) uses, so both routes agree.
+      # On-the-wire modifier parameter is `1 + bitmask`; recover it as `Modifiers`
+      # (masked to the 8 defined bits) and let `#pick_nav` strip lock bits and
+      # choose the variant, same logic as the enhanced projection (`KeyEvent#nav`).
       m = mod ? Modifiers.from_value((mod - 1) & 0xFF) : Modifiers::None
       m.pick_nav base, shift, alt, ctrl
     end

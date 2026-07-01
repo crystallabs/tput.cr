@@ -29,13 +29,10 @@ class Tput
 
       # CSI Ps S  Scroll up Ps lines (default = 1) (SU).
       def scroll_up(param = 1)
-        # SU scrolls the *content* of the scrolling region up; per ECMA-48 (and
-        # xterm), "the active presentation position is not changed". Do NOT touch
-        # `@cursor` here — unlike IND (`#index`), which really does move the
-        # cursor, SU leaves it put. Mutating `@cursor.y` desynced the tracked
-        # cursor from the terminal's real cursor, corrupting every later relative
-        # move (the same desync class as the ICH/DECRC fixes). The emitted bytes
-        # never depended on the cursor, so the wire output is unchanged.
+        # SU scrolls region content, not the cursor (ECMA-48/xterm: "active
+        # presentation position is not changed"). Unlike IND (`#index`), do NOT
+        # touch `@cursor` here — mutating it would desync the tracked cursor from
+        # the terminal's real one, corrupting later relative moves.
         (!features.ansi_scroll? && put(&.parm_index?(param))) || _print { |io| io << "\e[" << param << "S" }
       end
 
@@ -43,8 +40,7 @@ class Tput
 
       # CSI Ps T  Scroll down Ps lines (default = 1) (SD).
       def scroll_down(param = 1)
-        # SD scrolls the content down; like SU above, the active cursor position
-        # is unchanged (ECMA-48 / xterm), so `@cursor` must be left alone.
+        # Like SU above: cursor position unchanged (ECMA-48/xterm), leave `@cursor` alone.
         (!features.ansi_scroll? && put(&.parm_rindex?(param))) || _print { |io| io << "\e[" << param << "T" }
       end
 
@@ -57,12 +53,10 @@ class Tput
       #       dow) (DECSTBM).
       #     CSI ? Pm r
       #
-      # NOTE: This function uses absolute values, so negative numbers
-      # are not brought back to 0, but instead count from the bottom of the
-      # screen up.
+      # NOTE: Uses absolute values; negative numbers count from the bottom of
+      # the screen rather than clamping to 0.
       #
-      # NOTE: Similarly, there is no checking that the `top` value is
-      # smaller than `bottom`.
+      # NOTE: No check that `top` is smaller than `bottom`.
       def set_scroll_region(top : Int = 0, bottom : Int = (@screen.height - 1))
         _, top = _adjust_xy_abs 0, top
         _, bottom = _adjust_xy_abs 0, bottom

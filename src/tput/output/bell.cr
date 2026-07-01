@@ -33,10 +33,9 @@ class Tput
       #     Ps = 2 , 3  or 4  -> low.
       #     Ps = 0 , 5 , 6 , 7 , or 8  -> high.
       def margin_bell_volume=(param : Volume)
-        # DECSMBV differs from DECSWBV at Ps=0: for the margin bell Ps=0 is the
-        # *loudest* setting, while Ps=1 means "off". Translate the silent
-        # `Volume::Off` (value 0) to 1 so that asking for `Off` actually silences
-        # the margin bell, keeping the enum's intent consistent across both bells.
+        # DECSMBV differs from DECSWBV at Ps=0: for the margin bell, Ps=0 is
+        # loudest and Ps=1 means off. Translate `Volume::Off` (0) to 1 so `Off`
+        # actually silences the margin bell.
         value = param.off? ? 1 : param.value
         set_bell_volume value, 'u'
       end
@@ -44,9 +43,7 @@ class Tput
       alias_previous :decsmbv=
 
       # Shared framing for the DEC bell-volume ops: `CSI Ps SP <final>`
-      # (DECSWBV `SP t`, DECSMBV `SP u`). The single-byte SP (0x20) intermediate
-      # mirrors the `$`/`'` intermediates of the rectangle and locator helpers.
-      # Byte-identical to the inlined form.
+      # (DECSWBV `SP t`, DECSMBV `SP u`).
       private def set_bell_volume(value, final : Char)
         _print { |io| io << "\e[" << value << ' ' << final }
       end

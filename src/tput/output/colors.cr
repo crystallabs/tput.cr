@@ -37,10 +37,9 @@ class Tput
       # capability and falling back to *fallback* otherwise.
       #
       # `put_extended` writes the terminfo capability directly via `_write`,
-      # which bypasses the multiplexer DCS passthrough that the fallback applies
-      # through `_tprint`. Under tmux/GNU screen that would stop the change from
-      # reaching the outer terminal, so route through the (wrapping) fallback —
-      # the inner terminal's capability is irrelevant for passthrough anyway.
+      # bypassing the multiplexer DCS passthrough that the fallback applies via
+      # `_tprint`. Under tmux/GNU screen that would stop the change reaching the
+      # outer terminal, so route through the fallback there instead.
       private def set_dynamic_color(cap : String, param, fallback : String)
         unless emulator.tmux? || emulator.screen?
           return if put_extended(cap, param)

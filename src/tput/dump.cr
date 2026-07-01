@@ -29,8 +29,8 @@ class Tput
 
   # Dumps all detected emulator and feature information to *io* (STDOUT by
   # default) in an aligned, human-readable report. Each line shows the setting
-  # name, its value, and a description of how the value came to be (environment
-  # variable, constructor option, terminfo, probing, or a default).
+  # name, its value, and how the value was determined (env var, constructor
+  # option, terminfo, probing, or a default).
   #
   # ```
   # tput = Tput.new terminfo
@@ -57,9 +57,8 @@ class Tput
     nw = 8
     io << "IDENTITY\n"
 
-    # Lead with the synthesized answer: which terminal this most likely is, its
-    # version, and whether that rests on the terminal's own self-report or just
-    # env/TERM heuristics. This is what a reader is actually after.
+    # Lead with the synthesized answer: which terminal this most likely is,
+    # its version, and whether that rests on self-report or env/TERM heuristics.
     emu = emulator?
     if emu
       ident = emu.identity || "(unidentified)"
@@ -80,8 +79,8 @@ class Tput
     end
 
     # Decoded device attributes — the terminal's own statement of its hardware
-    # class and feature set, when it was probed. The single most authoritative
-    # capability evidence after XTVERSION.
+    # class and feature set, when probed. Most authoritative capability
+    # evidence after XTVERSION.
     if f = features?
       dec = f.da_decoded
       io << "  " << "device".ljust(nw) << "  " << dec.join(", ") << "  (DA1)\n" unless dec.empty?
@@ -104,9 +103,8 @@ class Tput
   end
 
   # Builds a `{name => Detection}` map, pairing each stringified value with its
-  # recorded provenance from *sources* (or `"unknown"` when none). Shared by the
-  # emulator and feature static-detection reports, whose values come from a
-  # literal `{name => value}` map.
+  # recorded provenance from *sources* (or `"unknown"`). Shared by the emulator
+  # and feature static-detection reports.
   # :nodoc:
   def self.build_detections(pairs, sources : Hash(String, String)) : Hash(String, Detection)
     h = Hash(String, Detection).new
@@ -185,8 +183,8 @@ class Tput
       h["default_foreground"] = det "default_foreground", default_foreground.try(&.to_s)
       h["default_background"] = det "default_background", default_background.try(&.to_s)
 
-      # Report only how many palette entries the terminal reported, not the
-      # colors themselves — the 16 hex values are noise for an identity dump.
+      # Report only the count of reported palette entries — the 16 hex values
+      # would be noise for an identity dump.
       known = palette.count { |c| c }
       h["palette"] = det "palette", (known.zero? ? nil : "#{known}/16 detected (… colors not listed …)")
 
@@ -195,9 +193,8 @@ class Tput
       h["terminal_version"] = det "terminal_version", terminal_version
       h["kitty_keyboard"] = det "kitty_keyboard", kitty_keyboard_flags.try(&.to_s)
       h["modify_other_keys"] = det "modify_other_keys", modify_other_keys.try(&.to_s)
-      # Boolean probe result: `true` after a positive DECRQM reply. Once a probe
-      # has run, a missing reply is a definitive `false` (mode unsupported); only
-      # before probing is it genuinely unknown ("(not probed)").
+      # `true` after a positive DECRQM reply; once probed, a missing reply is
+      # definitive `false` (unsupported), not unknown.
       h["in_band_resize"] = det "in_band_resize", (in_band_resize? ? "true" : (probed? ? "false" : nil))
       h
     end
@@ -208,8 +205,7 @@ class Tput
     end
 
     private def det(name : String, value : String?) : Tput::Detection
-      # Once a probe has run, an absent value means the terminal didn't answer,
-      # not that probing never happened.
+      # Once probed, an absent value means no reply, not that probing never ran.
       placeholder = probed? ? "(no reply)" : "(not probed)"
       Tput::Detection.new (value || placeholder), (sources[name]? || "unknown")
     end

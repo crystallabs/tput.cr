@@ -32,15 +32,14 @@ class Tput
   # Enhanced keyboard protocol negotiation and enabling.
   #
   # `Tput#probe!` detects which protocols the terminal supports; this module
-  # picks the best one (honoring user exclusions) and turns it on/off. The
-  # selection mirrors the image-backend `resolve` pattern: a ranked candidate
-  # list, minus the user-excluded protocols, picking the first the terminal
-  # actually supports, falling back to the always-available `Legacy` baseline.
+  # picks the best one (honoring user exclusions) and turns it on/off. Mirrors
+  # the image-backend `resolve` pattern: a ranked candidate list, minus
+  # user-excluded protocols, picking the first the terminal actually supports,
+  # falling back to the always-available `Legacy` baseline.
   #
-  # Parsing of the resulting sequences is unconditional and lives in
-  # `Tput::Input#parse_key_event` / `Tput::KeyEvent`: a terminal that doesn't
-  # support (or that the user excluded) an enhanced protocol simply never emits
-  # the richer sequences, so the parser never sees them.
+  # Parsing lives in `Tput::Input#parse_key_event` / `Tput::KeyEvent`: a
+  # terminal that doesn't support (or that the user excluded) an enhanced
+  # protocol simply never emits the richer sequences.
   module Keyboard
     # Ranked candidate protocols, best → worst, always ending in `Legacy`.
     def keyboard_candidates : Array(KeyboardProtocol)
@@ -91,11 +90,11 @@ class Tput
     # (`Legacy` means nothing extra was turned on).
     #
     # Pass *events* `true` to also request modifier-aware and
-    # press/repeat/release reporting — the flags needed to observe lone modifier
-    # keys and key releases (e.g. a "tap Alt" gesture). With *events* `false`
-    # only escape-code disambiguation is requested, which never relocates
-    # ordinary typing. *events* is ignored by `ModifyOtherKeys`, which cannot
-    # report lone modifiers or releases regardless.
+    # press/repeat/release reporting — needed to observe lone modifier keys
+    # and key releases (e.g. a "tap Alt" gesture). With *events* `false` only
+    # escape-code disambiguation is requested, which never relocates ordinary
+    # typing. Ignored by `ModifyOtherKeys`, which cannot report lone modifiers
+    # or releases regardless.
     def enable_keyboard_protocol(events : Bool = false) : KeyboardProtocol
       protocol = best_keyboard_protocol
       case protocol
@@ -105,13 +104,13 @@ class Tput
           flags |= KittyKeyboard::ReportEventTypes | KittyKeyboard::ReportAllKeys |
                    KittyKeyboard::ReportAlternateKeys | # so shifted codepoints arrive
                    KittyKeyboard::ReportAssociatedText  # so the text a key *produces* arrives
-          # `ReportAllKeys` makes the terminal report every key — plain typing
-          # included — as an escape code, and it then stops sending the decoded
-          # text bytes. Without `ReportAssociatedText` the `u` events carry only
-          # the raw key codepoint, so `KeyEvent#char` can do no better than guess
-          # from the base/shifted codepoint — wrong for non-US layouts, AltGr,
-          # dead keys, and caps lock. Requesting the associated text is what lets
-          # `#char` reproduce what the user actually typed (see `KeyEvent#char`).
+          # `ReportAllKeys` makes the terminal report every key (plain typing
+          # included) as an escape code and stop sending decoded text bytes.
+          # Without `ReportAssociatedText` the `u` events carry only the raw
+          # key codepoint, so `KeyEvent#char` could only guess from the
+          # base/shifted codepoint — wrong for non-US layouts, AltGr, dead
+          # keys, caps lock. The associated text lets `#char` reproduce what
+          # the user actually typed.
         end
         enable_kitty_keyboard flags
       when .modify_other_keys?

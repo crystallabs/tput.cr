@@ -20,11 +20,10 @@ class Tput
     # Wrap escape sequences in DCS sequences and directly print to `@output`.
     #
     # A terminal multiplexer (tmux or GNU screen) only forwards an escape
-    # sequence to the outer terminal if it is wrapped in that multiplexer's DCS
-    # passthrough. This method applies the wrapping when the detected emulator is
-    # tmux or screen, then prints directly to `@output` (any existing buffer is
-    # first flushed). On a non-multiplexed terminal the behavior is identical to
-    # `#_write`.
+    # sequence to the outer terminal if wrapped in that multiplexer's DCS
+    # passthrough. Applies the wrapping when the detected emulator is tmux or
+    # screen, then prints directly to `@output` (flushing any existing buffer
+    # first). On a non-multiplexed terminal, behaves like `#_write`.
     #
     #     Example (tmux):   `DCS tmux; ESC Pt ST`  ->  `\ePtmux;\e … \e\\`
     #     Example (screen): `DCS ESC Pt ST`        ->  `\eP … \e\\`
@@ -40,14 +39,12 @@ class Tput
         # `\e\\` ST terminator that frame the passthrough.
         data = if emulator.tmux?
                  # The `\ePtmux;` introducer is followed by `;`, so the payload's
-                 # leading ESC is itself internal and gets doubled along with the
-                 # rest. (For the common single-leading-ESC payload this yields the
-                 # same `\ePtmux;\e\e…` as before.)
+                 # leading ESC is itself internal and gets doubled too.
                  "\ePtmux;" + data.gsub('\e', "\e\e") + "\e\\"
                else
                  # GNU screen's plain `\eP` introducer is immediately followed by
-                 # the payload's leading ESC, which stays single (matching the
-                 # historical verbatim wrapping); only *internal* ESCs are doubled.
+                 # the payload's leading ESC, which stays single; only *internal*
+                 # ESCs are doubled.
                  "\eP" + data.gsub(/(?<=.)\e/, "\e\e") + "\e\\"
                end
 
@@ -79,8 +76,6 @@ class Tput
     # Directly writes string to `@output` (usually STDOUT).
     #
     # Mostly not used directly, but through `#_write`.
-    #
-    # This is plain `def write`. We're just not using the exact name "write".
     def _owrite(*args)
       # No support for this yet:
       # return unless @output.writable?
@@ -97,9 +92,8 @@ class Tput
 
     def _with_io(& : IO -> Nil)
       # `@ret` (set by a caller diverting output, e.g. Crysterm's `divert`) takes
-      # precedence over `@output`, matching `_owrite`/`_oprint`. Without this the
-      # block form of `_print` — which every ansi_* fast path uses — would bypass
-      # a diverter and leak straight to `@output`. No-op when `@ret` is nil.
+      # precedence over `@output`, matching `_owrite`/`_oprint` — otherwise the
+      # block form of `_print` would bypass a diverter and leak to `@output`.
       yield(@ret || @output)
       true
     end
@@ -125,25 +119,20 @@ class Tput
 
     def _print(& : IO -> Nil)
       # Yield the block directly instead of forwarding it (`_buffer_print &block`
-      # / `_with_io &block`). Passing a block to a method that captures it as a
-      # typed `&block : IO -> Nil` parameter materializes it as a heap `Proc`
-      # closure (~16 B/call); since this block-form `_print` is on the per-frame
-      # render hot path (every cursor move emits via it), that allocation showed
-      # up at 16 B/op. Inlining the dispatch keeps the block a true yield (no
-      # closure), so the fast paths allocate nothing. The branch logic below is
-      # byte-for-byte the same as `_buffer_print(&block)` + `_with_io`.
+      # / `_with_io &block`). Passing a block to a method with a typed
+      # `&block : IO -> Nil` parameter materializes it as a heap `Proc` closure
+      # (~16 B/call); since this is on the per-frame render hot path (every
+      # cursor move emits via it), that showed up at 16 B/op. Inlining the
+      # dispatch keeps the block a true yield, so the fast paths allocate
+      # nothing. Branch logic below matches `_buffer_print(&block)` + `_with_io`.
       if use_buffer?
         if @_exiting
           flush
           yield(@ret || @output)
         else
-          # As in `_with_io`, a diverter (`@ret`) wins over the internal buffer so
-          # block-form fast-path output is captured rather than buffered/leaked.
           yield(@ret || @_buf)
         end
       else
-        # `@ret` (a diverter, e.g. Crysterm's `divert`) takes precedence over
-        # `@output`, matching `_owrite`/`_oprint`.
         yield(@ret || @output)
       end
       true
@@ -180,17 +169,16 @@ class Tput
     # Compiled terminfo capabilities can embed padding instructions of the form
     # `$<delay>` (e.g. `$<5>`, `$<10*>`, `$<5/>`). Unibilium performs parameter
     # substitution but, like ncurses' `tparm`, leaves these markers in the
-    # output; honoring them (the job of ncurses' `tputs`) is left to us. This
-    # strips the markers and, where the terminal lacks hardware flow control,
-    # sleeps for the requested delay before emitting the following bytes.
+    # output; honoring them (ncurses' `tputs` job) is left to us. Strips the
+    # markers and, where the terminal lacks hardware flow control, sleeps for
+    # the requested delay before emitting the following bytes.
     #
-    # If no padding instructions are present, the behavior is identical to
-    # `#_write`. See ncurses' `tinfo/lib_tputs.c`.
+    # With no padding instructions, behaves like `#_write`. See ncurses'
+    # `tinfo/lib_tputs.c`.
     def _pad_write(code : Bytes) : Bool
       # Fast path: no `$<` marker — write the bytes as-is, without allocating a
-      # `String`. This is the overwhelmingly common case (padding is rare on
-      # modern terminals) and is on the per-frame render path, so it must stay
-      # allocation-free.
+      # `String`. Padding is rare on modern terminals and this is on the
+      # per-frame render path, so it must stay allocation-free.
       unless padding_marker? code
         _write code
         return true
@@ -212,8 +200,8 @@ class Tput
         suffix = m[2]
 
         # `/` forces the delay even when flow control is present. `*` marks the
-        # delay as proportional to the number of affected lines; as in Blessed,
-        # we keep the base amount rather than scaling it.
+        # delay as proportional to the number of affected lines; we keep the
+        # base amount rather than scaling it (as in Blessed).
         mandatory = suffix.includes? '/'
         if (mandatory || !xon) && amount > 0
           sleep amount.milliseconds
@@ -255,10 +243,9 @@ class Tput
       # @_buf.write bytes
       #
       # As in `_owrite`/`_buffer_print`, a diverter (`@ret`) wins over the
-      # internal buffer so diverted output is captured rather than leaked into
-      # `@_buf` (which would later flush to the real `@output`). Without this,
-      # a `@ret` set while buffering is enabled — the default — was honored by
-      # the block-form fast path but silently bypassed by this byte path.
+      # internal buffer so diverted output isn't leaked into `@_buf`. Without
+      # this, a `@ret` set while buffering is enabled (the default) was honored
+      # by the block-form fast path but silently bypassed here.
       dest = @ret || @_buf
       args.each { |a| dest.write a }
       true
@@ -272,10 +259,7 @@ class Tput
       end
 
       # As in the block form below and `_oprint`, a diverter (`@ret`) wins over
-      # the internal buffer so diverted string output is captured rather than
-      # leaked into `@_buf`. Previously this args path always wrote to `@_buf`,
-      # so with buffering enabled (the default) a `@ret` set by a caller was
-      # honored by the block-form fast path yet silently bypassed here.
+      # the internal buffer so diverted output isn't leaked into `@_buf`.
       # https://github.com/crystal-lang/crystal/pull/10152
       args.join io: @ret || @_buf
       true
@@ -286,8 +270,7 @@ class Tput
         flush
         _with_io &block
       else
-        # As in `_with_io`, a diverter (`@ret`) wins over the internal buffer so
-        # block-form fast-path output is captured rather than buffered/leaked.
+        # As in `_with_io`, a diverter (`@ret`) wins over the internal buffer.
         yield(@ret || @_buf)
       end
       true
@@ -301,9 +284,9 @@ class Tput
     # Flushes internal buffer into `@output` and calls `@output.flush`
     def flush
       unless @_buf.empty?
-        # Write the buffered bytes straight through. `@output << @_buf` would
-        # route via `IO::Memory#to_s`, allocating a full String copy of the
-        # buffer on every flush; `to_slice` is a view over the same bytes.
+        # `@output << @_buf` would route via `IO::Memory#to_s`, allocating a
+        # full String copy on every flush; `to_slice` is a view over the same
+        # bytes.
         @output.write @_buf.to_slice
         @_buf.clear
         @output.flush

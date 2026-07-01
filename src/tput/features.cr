@@ -3,11 +3,8 @@ require "json"
 class Tput
   # Terminal features auto-detection.
   #
-  # Involved in a terminal are the terminal emulator in use (`Tput::Emulator`) and
-  # the term type initialized/running in it (`ENV["TERM"]` usually).
-  #
-  # After those two variables are known, the features autodetection is ran to
-  # figure out the final details of terminal's behavior.
+  # Detection depends on the terminal emulator (`Tput::Emulator`) and the term
+  # type (`ENV["TERM"]`), both of which must be known before feature detection runs.
   class Features
     include JSON::Serializable
     include Crystallabs::Helpers::Logging
@@ -30,12 +27,10 @@ class Tput
 
     # Whether the terminal's cursor-movement capabilities (`cup`, `cuu`, `cud`,
     # `cuf`, `cub`) are byte-for-byte standard ANSI/VT100. When true, `Tput`
-    # builds those sequences directly instead of paying a `tparm` FFI call per
-    # move — roughly 6x faster, and cursor moves dominate frame rendering. The
-    # value is verified at startup by actually running each capability through
-    # terminfo and comparing the result to the canonical ANSI sequence, so any
-    # deviation (exotic terminal, embedded padding, reordered params) safely
-    # falls back to the terminfo path.
+    # builds sequences directly instead of paying a `tparm` FFI call per move
+    # (~6x faster; cursor moves dominate frame rendering). Verified at startup
+    # by running each capability through terminfo and comparing to the
+    # canonical ANSI sequence; any deviation falls back to the terminfo path.
     getter? ansi_cursor : Bool
 
     # Like `ansi_cursor?`, but for the column-address capability `hpa`
@@ -59,25 +54,24 @@ class Tput
     # Number of colors supported by the terminal
     getter number_of_colors : Int32
 
-    # Does the terminal support 24-bit direct ("true") color? Set statically by
-    # `detect_truecolor`, and upgraded to `true` by `Tput#probe!` if a live
-    # DECRQSS readback confirms it (see `Tput::Probe`).
+    # Does the terminal support 24-bit direct ("true") color? Set by
+    # `detect_truecolor`, upgraded to `true` by `Tput#probe!` if a live DECRQSS
+    # readback confirms it (see `Tput::Probe`).
     property? truecolor : Bool
 
     # Color support flag (a yes/no)
     getter? color : Bool
 
     # Does the terminal support styling its *hardware* cursor — shape and blink
-    # via DECSCUSR (`CSI Ps SP q`), or iTerm2's proprietary OSC 50? Detected
-    # statically from the emulator/term name, and upgraded to a confirmed `true`
-    # by `Tput#probe!` when a DECRQSS readback of the cursor style succeeds (see
-    # `Tput::Probe`). When this is `false`, Crysterm falls back to drawing an
-    # artificial cursor for any non-default shape (see `Screen#apply_cursor`).
+    # via DECSCUSR (`CSI Ps SP q`), or iTerm2's proprietary OSC 50? Detected from
+    # the emulator/term name, upgraded to confirmed `true` by `Tput#probe!` when
+    # a DECRQSS readback succeeds. When `false`, Crysterm draws an artificial
+    # cursor instead (see `Screen#apply_cursor`).
     property? cursor_style : Bool
 
     # Does the terminal support recoloring its *hardware* cursor via OSC 12
-    # (`OSC 12 ; color ST`)? Detected statically; upgraded to a confirmed `true`
-    # by `Tput#probe!` when the terminal answers an OSC 12 color query.
+    # (`OSC 12 ; color ST`)? Upgraded to confirmed `true` by `Tput#probe!` when
+    # the terminal answers an OSC 12 color query.
     property? cursor_color : Bool
 
     getter acsc : ACSHash
@@ -86,10 +80,10 @@ class Tput
     getter acscr : ACSHash
 
     # Runtime-probed results, filled in by `Tput#probe!` (see `Tput::Probe`).
-    # They stay `nil`/empty until probing runs and the terminal replies.
+    # Stay `nil`/empty until probing runs and the terminal replies.
 
-    # Rendered width (in cells) of an ambiguous-width character, as actually
-    # measured via DSR/CPR. 1 = narrow, 2 = wide; `nil` if not probed.
+    # Rendered width (in cells) of an ambiguous-width character, measured via
+    # DSR/CPR. 1 = narrow, 2 = wide; `nil` if not probed.
     @[JSON::Field(ignore: true)]
     property ambiguous_width : Int32? = nil
 
@@ -102,7 +96,7 @@ class Tput
     property default_background : RGB? = nil
 
     # The 16 indexed palette colors reported via OSC 4 (`nil` per entry until
-    # probed / if the terminal didn't answer for that index).
+    # probed, or if the terminal didn't answer for that index).
     @[JSON::Field(ignore: true)]
     property palette : Array(RGB?) = Array(RGB?).new(16, nil)
 
@@ -110,35 +104,32 @@ class Tput
     @[JSON::Field(ignore: true)]
     property da_params : Array(Int32)? = nil
 
-    # The kitty keyboard protocol flags the terminal reported active in answer to
-    # a `CSI ? u` query, or `nil` if it did not answer (protocol unsupported). A
-    # non-`nil` value — even `0` — means the protocol *is* supported; the number
-    # is the currently-active enhancement flags. See `Tput::Keyboard`.
+    # Kitty keyboard protocol flags reported in answer to a `CSI ? u` query, or
+    # `nil` if unanswered (unsupported). A non-`nil` value — even `0` — means the
+    # protocol *is* supported; the number is the active enhancement flags. See
+    # `Tput::Keyboard`.
     @[JSON::Field(ignore: true)]
     property kitty_keyboard_flags : Int32? = nil
 
-    # The xterm `modifyOtherKeys` level the terminal reported in answer to a
-    # `CSI ? 4 m` query (0, 1, or 2), or `nil` if it did not answer (support not
-    # detectable). See `Tput::Keyboard`.
+    # The xterm `modifyOtherKeys` level reported in answer to a `CSI ? 4 m`
+    # query (0, 1, or 2), or `nil` if unanswered. See `Tput::Keyboard`.
     @[JSON::Field(ignore: true)]
     property modify_other_keys : Int32? = nil
 
     # Secondary device-attributes (DA2, `CSI > c`) parameters
-    # `[type, version, keyboard]`, or `nil` if not probed / unanswered. A more
-    # reliable terminal identity/version source than the env-var heuristics in
-    # `Emulator`.
+    # `[type, version, keyboard]`, or `nil` if not probed/unanswered. More
+    # reliable than the env-var heuristics in `Emulator`.
     @[JSON::Field(ignore: true)]
     property da2_params : Array(Int32)? = nil
 
     # Terminal name and version as reported by XTVERSION (`CSI > 0 q`), e.g.
-    # `"kitty(0.32.0)"`, or `nil` if not probed / unanswered.
+    # `"kitty(0.32.0)"`, or `nil` if not probed/unanswered.
     @[JSON::Field(ignore: true)]
     property terminal_version : String? = nil
 
     # Whether the terminal supports in-band resize notifications (DEC private
-    # mode 2048), as probed via DECRQM at startup. When true, a consumer can
-    # prefer in-band resize reports over `SIGWINCH`. `false` when unsupported or
-    # not probed.
+    # mode 2048), probed via DECRQM at startup. When true, a consumer can prefer
+    # in-band resize reports over `SIGWINCH`.
     @[JSON::Field(ignore: true)]
     property? in_band_resize : Bool = false
 
@@ -146,21 +137,21 @@ class Tput
     # :nodoc:
     getter tput : Tput
 
-    # For each detected field (by name), a human-readable description of *how*
-    # its value was determined — e.g. an environment variable, a `Tput`
-    # constructor option, a terminfo capability, or live probing. Populated by
-    # the `detect_*` methods and by `Tput#probe!`. Surfaced via `Tput#dump`.
+    # For each detected field (by name), a human-readable description of how its
+    # value was determined (env var, `Tput` constructor option, terminfo
+    # capability, or live probing). Populated by `detect_*` and `Tput#probe!`.
+    # Surfaced via `Tput#dump`.
     @[JSON::Field(ignore: true)]
     getter sources = Hash(String, String).new
 
-    # Provenance recorded for the probe-only fields before any probe has run.
-    # After `Tput#probe!` runs (see `mark_probed!`), any field still carrying
-    # this baseline means "the terminal was asked but did not report it".
+    # Provenance recorded for probe-only fields before any probe runs. After
+    # `Tput#probe!` runs (see `mark_probed!`), a field still carrying this
+    # baseline means "asked but not reported".
     BASELINE_PROBE_SOURCE = "not probed (call Tput#probe!)"
 
-    # Whether a live probe (`Tput#probe!`) has run. Distinguishes "the terminal
-    # was asked but did not report this" from "no probe has happened yet", so the
-    # dump can stop saying "(not probed)" once probing has actually occurred.
+    # Whether a live probe (`Tput#probe!`) has run. Distinguishes "asked but not
+    # reported" from "no probe has happened yet" so `Tput#dump` can stop saying
+    # "(not probed)" once probing occurs.
     @[JSON::Field(ignore: true)]
     property? probed : Bool = false
 
@@ -201,10 +192,9 @@ class Tput
       to_json io
     end
 
-    # Records that a live probe (`Tput#probe!`) has run. Any probe-only field the
-    # terminal never answered still carries its pre-probe `BASELINE_PROBE_SOURCE`,
-    # so rewrite those to say a probe actually ran and got no reply — instead of
-    # the now-misleading "not probed (call Tput#probe!)". Called by `Tput#probe!`.
+    # Records that a live probe has run, rewriting any field still carrying
+    # `BASELINE_PROBE_SOURCE` to say a probe ran and got no reply (rather than the
+    # now-misleading "not probed"). Called by `Tput#probe!`.
     def mark_probed! : Nil
       @probed = true
       @sources.each do |k, v|
@@ -213,8 +203,8 @@ class Tput
     end
 
     # Marks the terminal as 24-bit truecolor-capable (e.g. after a successful
-    # live probe), updating the derived color fields and recording *source* as
-    # the provenance for both `truecolor` and `number_of_colors`.
+    # live probe), updating derived color fields and recording *source* as
+    # provenance for both `truecolor` and `number_of_colors`.
     def confirm_truecolor!(source : String) : Nil
       @truecolor = true
       @number_of_colors = 0x1000000
@@ -261,33 +251,27 @@ class Tput
 
     # Detects whether terminal has broken ACS characters
     def detect_broken_acs
-      # For some reason TERM=linux has smacs/rmacs, but it maps to `^[[11m`
-      # and it does not switch to the DEC SCLD character set.
-      # xterm: \e(0, screen: \x0e, linux: \e[11m (doesn't work)
-      # `man console_codes` says:
-      # 11  select null mapping, set display control flag, reset tog‐
-      #     gle meta flag (ECMA-48 says "first alternate font").
-      # See ncurses:
+      # TERM=linux has smacs/rmacs, but they map to `^[[11m`, which doesn't
+      # switch to the DEC SCLD character set (xterm: \e(0, screen: \x0e).
+      # `man console_codes`: 11 selects null mapping / resets meta flag
+      # (ECMA-48: "first alternate font"). See ncurses:
       # ~/ncurses/ncurses/base/lib_set_term.c
       # ~/ncurses/ncurses/tinfo/lib_acs.c
       # ~/ncurses/ncurses/tinfo/tinfo_driver.c
       # ~/ncurses/ncurses/tinfo/lib_setup.c
 
-      # ncurses-compatible env variable.
       if to_b ENV["NCURSES_NO_UTF8_ACS"]?
         @sources["broken_acs"] = %(env NCURSES_NO_UTF8_ACS)
         return true
       end
 
-      # If the terminal supports unicode, we don't need ACS.
+      # Unicode terminals don't need ACS.
       if term_has_unicode?
         @sources["broken_acs"] = "terminfo extension U8 > 0 (unicode, ACS unused)"
         return true
       end
 
-      # The linux console is just broken for some reason.
-      # Apparently the Linux console does not support ACS,
-      # but it does support the PC ROM character set.
+      # Linux console supports the PC ROM charset but not ACS.
       if @tput.terminfo.try(&.name.==("linux")) || ENV["TERM"]?.try(&.==("linux"))
         @sources["broken_acs"] = %(TERM/terminfo name "linux" (broken ACS))
         return true
@@ -300,8 +284,8 @@ class Tput
         return true
       end
 
-      # XXX Possibly enable when termcap support gets added. Since we only support
-      # terminfo for now, this is not relevant.
+      # XXX Possibly enable when termcap support gets added; not relevant while
+      # only terminfo is supported.
       #  // screen termcap is bugged?
       #  if (@termcap
       #      && @tput.terminfo.name.indexOf('screen') === 0
@@ -321,9 +305,8 @@ class Tput
 
     # Detects whether terminal supports PC ROM charset
     def detect_pc_rom_charset
-      # If enter_pc_charset is the same as enter_alt_charset,
-      # the terminal does not support SCLD as ACS.
-      # See: ~/ncurses/ncurses/tinfo/lib_acs.c
+      # If enter_pc_charset == enter_alt_charset, the terminal doesn't support
+      # SCLD as ACS. See: ~/ncurses/ncurses/tinfo/lib_acs.c
 
       @tput.shim.try do |shim|
         shim.enter_pc_charset_mode?.try do |epm|
@@ -345,15 +328,12 @@ class Tput
     end
 
     # Detects a boolean feature that is *on* by default and turned *off* by the
-    # presence of an `NCURSES_NO_*` env variable, recording the env var or the
-    # default as provenance. Shared by the `magic_cookie` and `setbuf`
-    # detections.
+    # presence of an `NCURSES_NO_*` env variable. Shared by `magic_cookie` and
+    # `setbuf` detections.
     #
-    # The `NCURSES_NO_*` variables are *disable* switches (their very name says
-    # "no <feature>"), so — exactly like `detect_padding`/`NCURSES_NO_PADDING`,
-    # and matching ncurses/blessed — the feature defaults to true and the
-    # variable's mere presence turns it off. The value is irrelevant:
-    # `NCURSES_NO_SETBUF` set to anything (even `"0"`) means "no setbuf".
+    # `NCURSES_NO_*` variables are disable switches: the feature defaults to
+    # true and the variable's mere presence (any value, even `"0"`) turns it
+    # off, matching ncurses/blessed (see `detect_padding`/`NCURSES_NO_PADDING`).
     private def detect_ncurses_flag(feature : String, env : String) : Bool
       present = !ENV[env]?.nil?
       @sources[feature] = present ? "env #{env} (disabled)" : "default (true)"
@@ -361,8 +341,8 @@ class Tput
     end
 
     def detect_padding
-      # Padding is honored unless explicitly disabled via the ncurses-compatible
-      # NCURSES_NO_PADDING env variable. See `Tput::Output#_pad_write`.
+      # Honored unless disabled via the ncurses-compatible NCURSES_NO_PADDING
+      # env variable. See `Tput::Output#_pad_write`.
       v = ENV["NCURSES_NO_PADDING"]?.nil?
       @sources["padding"] = ENV["NCURSES_NO_PADDING"]? ? "env NCURSES_NO_PADDING (disabled)" : "default (enabled)"
       v
@@ -370,8 +350,8 @@ class Tput
 
     def detect_ansi_cursor
       # Run each capability through terminfo with sample values and compare to
-      # canonical ANSI. The samples are >1 and distinct so a missing `%i`
-      # (1-based) increment in `cup` or a swapped row/col would be caught.
+      # canonical ANSI. Samples are >1 and distinct so a missing `%i` (1-based)
+      # increment in `cup` or a swapped row/col would be caught.
       detect_ansi "ansi_cursor" do |s|
         seq_eq(s.cup?(5, 9), "\e[6;10H") && # cup?(row, col) -> CSI (row+1);(col+1) H
           seq_eq(s.cuu?(3), "\e[3A") &&
@@ -393,12 +373,11 @@ class Tput
 
     # `ich`/`il`/`dl`/`dch`/`ech` (line-editing) verified standard ANSI.
     #
-    # `rep` is deliberately excluded: terminfo's `rep` is a two-parameter
-    # capability that emits the character *and* the repeat (`%p1%c%p2%{1}%-%db`,
-    # e.g. xterm), so it is not byte-equal to the raw one-parameter `CSI Pn b`
-    # this group's fast path would build — it would never verify and would pin
-    # the whole group to the tparm path. `repeat_preceding_character` keeps its
-    # own `put(&.rep?)` route instead.
+    # `rep` is deliberately excluded: terminfo's `rep` is two-parameter, emitting
+    # the character *and* the repeat (`%p1%c%p2%{1}%-%db`, e.g. xterm), so it's
+    # not byte-equal to the one-parameter `CSI Pn b` this fast path would build —
+    # it would never verify, pinning the whole group to the tparm path.
+    # `repeat_preceding_character` keeps its own `put(&.rep?)` route instead.
     def detect_ansi_edit
       detect_ansi "ansi_edit" do |s|
         seq_eq(s.ich?(4), "\e[4@") &&
@@ -419,12 +398,10 @@ class Tput
     end
 
     # Verifies, once at startup, that the terminfo capabilities a group of
-    # cursor methods rely on produce byte-for-byte standard ANSI when run
-    # through `tparm` — letting those methods build the sequences directly and
-    # skip the per-call FFI. Returns `false` when there is no terminfo (the
-    # no-terminfo code paths already emit ANSI fallbacks directly, so there is
-    # no `tparm` call to avoid) and on any mismatch — including an embedded
-    # `$<...>` padding marker — or error, keeping the safe terminfo path.
+    # cursor methods rely on produce byte-for-byte standard ANSI via `tparm`,
+    # letting those methods build sequences directly and skip the per-call FFI.
+    # Returns `false` when there's no terminfo, or on any mismatch (including
+    # an embedded `$<...>` padding marker) or error, keeping the safe terminfo path.
     private def detect_ansi(name : String, & : Unibilium::Terminfo::Shim -> Bool) : Bool
       shim = @tput.shim
       unless shim
@@ -436,7 +413,7 @@ class Tput
       @sources[name] = ok ? "terminfo caps verified ANSI" : "terminfo caps non-ANSI (using tparm)"
       ok
     rescue
-      # A missing/raising capability -> stay on the safe terminfo path.
+      # Missing/raising capability -> stay on the safe terminfo path.
       @sources[name] = "detection error (using tparm)"
       false
     end
@@ -451,17 +428,12 @@ class Tput
 
     # Detects whether the terminal supports 24-bit direct ("true") color.
     #
-    # Truecolor is advertised through several independent channels, none of
-    # which is universal, so we check them in order of reliability:
-    #
-    # * `COLORTERM=truecolor` / `COLORTERM=24bit` — the out-of-band env hint set
-    #   by most modern emulators and multiplexers.
-    # * terminfo `RGB` — ncurses' direct-color capability (boolean, or numeric
-    #   `RGB#n` bits-per-channel, or a string variant; any form counts).
-    # * terminfo `Tc` — the older tmux/community extended-boolean convention.
-    # * terminfo `Max_colors >= 16_777_216` — the full 24-bit space declared
-    #   directly.
-    # * terminfo `setrgbf` / `setrgbb` — direct-color fg/bg setter strings.
+    # No single channel is universal, so check in order of reliability:
+    # * `COLORTERM=truecolor`/`24bit` — env hint from most modern emulators.
+    # * terminfo `RGB` — ncurses' direct-color capability (any form counts).
+    # * terminfo `Tc` — older tmux/community extended-boolean convention.
+    # * terminfo `Max_colors >= 16_777_216` — full 24-bit space declared directly.
+    # * terminfo `setrgbf`/`setrgbb` — direct-color fg/bg setter strings.
     def detect_truecolor
       if ct = ENV["COLORTERM"]?
         if ct == "truecolor" || ct == "24bit"
@@ -502,10 +474,9 @@ class Tput
 
     # Detects whether the terminal can style its hardware cursor (shape/blink).
     #
-    # There is no terminfo capability for DECSCUSR in the base set, so this is a
-    # best-effort guess from the emulator/term name. It is deliberately
-    # conservative (only terminals known to honor the sequence are flagged), and
-    # `Tput#probe!` confirms the rest at runtime via a DECRQSS readback.
+    # No terminfo capability for DECSCUSR exists in the base set, so this is a
+    # conservative best-effort guess from the emulator/term name; `Tput#probe!`
+    # confirms the rest at runtime via a DECRQSS readback.
     def detect_cursor_style
       if iterm2_env?
         @sources["cursor_style"] = %(emulator iTerm2 (OSC 50 cursor shape))
@@ -533,7 +504,7 @@ class Tput
     end
 
     # Marks the hardware cursor as styleable (shape/blink) after a successful
-    # live probe, recording *source* as the provenance.
+    # live probe, recording *source* as provenance.
     def confirm_cursor_style!(source : String) : Nil
       @cursor_style = true
       @sources["cursor_style"] = source
@@ -557,7 +528,7 @@ class Tput
       !@modify_other_keys.nil?
     end
 
-    # Records that the terminal speaks the kitty keyboard protocol, with *flags*
+    # Records that the terminal speaks the kitty keyboard protocol; *flags* are
     # the active enhancement bits it reported. Called by `Tput#probe!`.
     def confirm_kitty_keyboard!(flags : Int32, source : String) : Nil
       @kitty_keyboard_flags = flags
@@ -573,10 +544,9 @@ class Tput
     # --- Device-attribute decoding --------------------------------------------
     #
     # `da_params`/`da2_params` arrive from probing as raw integer lists. These
-    # translate the well-known codes into the conformance class and feature set
-    # they stand for, so a report can show "VT420; sixel graphics, ANSI color"
-    # instead of "64;1;4;22". Best-effort: codes outside the standard tables are
-    # passed through numerically rather than dropped.
+    # translate well-known codes into the conformance class/feature set they
+    # stand for, e.g. "VT420; sixel graphics, ANSI color" instead of "64;1;4;22".
+    # Codes outside the standard tables pass through numerically.
 
     # DA1 first-parameter conformance levels (`CSI ? Pp ; … c`).
     DA1_CLASS = {
@@ -596,18 +566,16 @@ class Tput
     }
 
     # DA2 first-parameter terminal-type codes (`CSI > Pp ; Pv ; Pc c`). Modern
-    # emulators reuse a base code (often 0 or 41) and encode their own build in
-    # `Pv` (see `#da2_decoded`).
+    # emulators reuse a base code (often 0 or 41) and encode their build in `Pv`
+    # (see `#da2_decoded`).
     DA2_TYPE = {
       0 => "VT100", 1 => "VT220", 2 => "VT240", 18 => "VT330", 19 => "VT340",
       24 => "VT320", 32 => "VT382", 41 => "VT420", 61 => "VT510", 64 => "VT520",
       65 => "VT525",
     }
 
-    # Human-readable decode of the probed DA1 reply: the conformance class
-    # followed by each recognized feature attribute. Empty when DA1 was not
-    # probed / not answered. The first parameter is read as the class and the
-    # rest as attributes, per the conventional modern-terminal layout.
+    # Human-readable decode of the probed DA1 reply: conformance class followed
+    # by each recognized feature attribute. Empty when not probed/answered.
     def da_decoded : Array(String)
       params = @da_params
       return [] of String if params.nil? || params.empty?
@@ -617,8 +585,8 @@ class Tput
       out
     end
 
-    # Human-readable decode of the probed DA2 reply: terminal type and the
-    # firmware/version field. `nil` when DA2 was not probed / not answered.
+    # Human-readable decode of the probed DA2 reply: terminal type and
+    # firmware/version field. `nil` when not probed/answered.
     def da2_decoded : String?
       params = @da2_params
       return nil if params.nil? || params.empty?
@@ -628,15 +596,14 @@ class Tput
     end
 
     # iTerm2 detection by env, replicated here because `Features` is constructed
-    # before `Emulator` (see `Tput#initialize`), so `@tput.emulator` is not yet
-    # available. Mirrors `Emulator#iterm2?`.
+    # before `Emulator` (see `Tput#initialize`). Mirrors `Emulator#iterm2?`.
     private def iterm2_env? : Bool
       (ENV["TERM_PROGRAM"]? == "iTerm.app") || to_b(ENV["ITERM_SESSION_ID"]?)
     end
 
     # Detects number of colors supported by the terminal (2 - 16M)
     def detect_number_of_colors
-      # Truecolor (detected separately) means the full 16M-color space.
+      # Truecolor means the full 16M-color space.
       if @truecolor
         @sources["number_of_colors"] = "24-bit truecolor (#{@sources["truecolor"]?})"
         return 0x1000000 # 16_777_216
@@ -678,12 +645,10 @@ class Tput
       @sources["acsc"] = @tput.shim ? "terminfo acs_chars capability" : "default — no terminfo (hardcoded mode)"
 
       # `acs_chars` is a flat list of (canonical, terminal-specific) character
-      # pairs. The *first* char of each pair is the canonical VT100 ACS code, and
-      # that canonical code is what determines the glyph. Walk the string strictly
-      # pair-by-pair: searching for each char with `index` instead lands on a
-      # pair's second (terminal-specific) member whenever the mapping isn't the
-      # identity, then pairs it with the wrong neighbour — yielding wrong glyphs
-      # and spurious keys.
+      # pairs; the first char of each pair is the canonical VT100 ACS code that
+      # determines the glyph. Walk strictly pair-by-pair: searching with `index`
+      # instead can land on a pair's second member when the mapping isn't the
+      # identity, pairing it with the wrong neighbour.
       i = 0
       while i + 1 < acs_chars.size
         ch = acs_chars[i]

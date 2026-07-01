@@ -18,18 +18,15 @@ class Tput
     CapsLock
     NumLock
 
-    # Picks among the four legacy nav-key variants (base / shift / alt / ctrl)
-    # for this modifier set, after dropping the ambient lock bits.
-    #
-    # The kitty keyboard protocol folds the active CapsLock/NumLock state into
-    # this same modifier field; NumLock in particular is commonly on, and
-    # without stripping it every modified navigation key (Ctrl+Up, Shift+Home,
-    # …) would fail the exact-match below and degrade to its unmodified base.
-    # Only a *single* shift/alt/ctrl selects a distinct member; any other
-    # combination (or super/meta) falls back to *base*.
+    # Picks among the four legacy nav-key variants (base/shift/alt/ctrl) after
+    # dropping the ambient lock bits. The kitty protocol folds CapsLock/NumLock
+    # into this field; without stripping them, a commonly-on NumLock would make
+    # modified nav keys (Ctrl+Up, Shift+Home) fail the exact match below and
+    # degrade to base. Only a single shift/alt/ctrl selects a distinct member;
+    # any other combination (or super/meta) falls back to base.
     #
     # Shared by the legacy CSI parser (`Key.csi_modified`) and the
-    # enhanced-keyboard projection (`KeyEvent#nav`), so both routes agree.
+    # enhanced-keyboard projection (`KeyEvent#nav`).
     def pick_nav(base : Key, shift : Key, alt : Key, ctrl : Key) : Key
       effective = self & ~(CapsLock | NumLock)
       return shift if effective == Shift
@@ -43,11 +40,10 @@ class Tput
   # `Tput::Mouse::Event`.
   #
   # The legacy parser (`Tput::Key.read_control`) collapses every keystroke into
-  # a flat `Key` enum value, which cannot carry a modifier bitmask, a key
+  # a flat `Key` enum value, which can't carry a modifier bitmask, a key
   # *release*, auto-repeat, or a lone modifier press. When the terminal speaks
-  # an enhanced keyboard protocol (the kitty keyboard protocol, or xterm
-  # `modifyOtherKeys`) `Tput::Input#listen` parses those richer sequences into a
-  # `KeyEvent` and yields it alongside the legacy `Key`.
+  # an enhanced keyboard protocol (kitty, or xterm `modifyOtherKeys`),
+  # `Tput::Input#listen` parses those into a `KeyEvent` alongside the legacy `Key`.
   #
   # The encodings understood (all re-parsed from the raw sequence by
   # `Input#parse_key_event`):
@@ -58,19 +54,18 @@ class Tput
   #     carrying an event-type sub-parameter, e.g. `CSI 1 ; 5 : 3 A` (Ctrl+Up
   #     release).
   struct KeyEvent
-    # Whether the event is a key press, an auto-repeat, or a release. Only the
-    # kitty protocol (with its *report event types* flag) distinguishes these;
-    # everything else is always a `Press`.
+    # Whether the event is a press, auto-repeat, or release. Only kitty (with
+    # *report event types*) distinguishes these; everything else is `Press`.
     enum Type
       Press   = 1
       Repeat  = 2
       Release = 3
     end
 
-    # The primary key number from the sequence. For a `u`-final (kitty /
+    # The primary key number from the sequence. For a `u`-final (kitty/
     # modifyOtherKeys-1) event this is the Unicode codepoint or kitty functional
-    # key code; for the legacy-final forms it is the legacy CSI parameter (and
-    # `final` identifies the key instead).
+    # key code; for legacy-final forms it's the legacy CSI parameter (`final`
+    # identifies the key instead).
     getter number : Int32
 
     # The CSI final byte of the originating sequence (`'u'`, `'~'`, or a cursor
@@ -83,13 +78,13 @@ class Tput
     # Press / repeat / release.
     getter type : Type
 
-    # kitty *alternate keys*: the shifted and base-layout codepoints, when the
-    # terminal reports them (the *report alternate keys* flag). `nil` otherwise.
+    # kitty *alternate keys*: shifted and base-layout codepoints, when reported
+    # (*report alternate keys* flag). `nil` otherwise.
     getter shifted : Int32?
     getter base : Int32?
 
-    # kitty *associated text*: the text the key would produce, when the terminal
-    # reports it (the *report associated text* flag). `nil` otherwise.
+    # kitty *associated text*: the text the key would produce, when reported
+    # (*report associated text* flag). `nil` otherwise.
     getter text : String?
 
     # kitty functional key codes for the standalone modifier keys. A `u`-final
@@ -106,8 +101,8 @@ class Tput
                    @shifted = nil, @base = nil, @text = nil)
     end
 
-    # The Unicode codepoint this event carries, for `u`-final events. Meaningless
-    # for the legacy-final forms (where `number` is a CSI parameter).
+    # The Unicode codepoint for `u`-final events. Meaningless for legacy-final
+    # forms (where `number` is a CSI parameter).
     def codepoint : Int32
       number
     end
@@ -130,28 +125,28 @@ class Tput
       end
     {% end %}
 
-    # Whether this event is a standalone modifier key (Left/Right Shift, Ctrl,
-    # Alt, Super, Hyper, Meta) — only ever reported under the kitty protocol's
-    # *report all keys* flag.
+    # Whether this event is a standalone modifier key press (Left/Right Shift,
+    # Ctrl, Alt, Super, Hyper, Meta) — only reported under kitty's *report all
+    # keys* flag.
     def modifier_key? : Bool
       final == 'u' && MODIFIER_KEYS.has_key?(number)
     end
 
     # Which standalone modifier key this is (`:left_alt`, `:right_ctrl`, …), or
-    # `nil` if the event is not a lone modifier. A `release?` of one of these is
-    # the "modifier tapped" gesture.
+    # `nil` if not a lone modifier. A `release?` of one of these is the
+    # "modifier tapped" gesture.
     def modifier_key : Symbol?
       MODIFIER_KEYS[number]? if final == 'u'
     end
 
     # The printable character this key would produce, for press/repeat events
-    # with no control-style modifier held — so plain typing keeps flowing through
-    # `Input#listen`'s `char` argument even when the terminal reports all keys as
-    # escape sequences. `nil` for releases, control combos, and non-text keys.
+    # with no control-style modifier held — so plain typing keeps flowing
+    # through `Input#listen`'s `char` argument even under an enhanced protocol.
+    # `nil` for releases, control combos, and non-text keys.
     #
     # Prefers the terminal-supplied associated *text* (handles layouts, caps
-    # lock, dead keys); otherwise the shifted codepoint when Shift is held and
-    # reported (so `Shift+a` is `A`, not `a`), else the base codepoint.
+    # lock, dead keys); else the shifted codepoint when Shift is held and
+    # reported (`Shift+a` → `A`), else the base codepoint.
     def char : Char?
       return nil unless press? || repeat?
       if t = text
@@ -162,29 +157,27 @@ class Tput
       # control combinations, represented through `to_legacy_key`/`mods`.
       return nil if ctrl? || alt? || super? || meta? || hyper?
       cp = (shift? ? shifted : nil) || number
-      # Functional keys (kitty codes for arrows, F-keys, modifiers, …) occupy the
-      # Unicode Private Use Area the protocol reserves for them, U+E000..U+F8FF;
-      # they are not text. Codepoints above that range (emoji and other
-      # supplementary-plane characters) are real text and must pass through.
+      # kitty functional key codes (arrows, F-keys, modifiers, …) occupy the
+      # Unicode Private Use Area U+E000..U+F8FF; not text. Codepoints above that
+      # range (emoji, supplementary-plane chars) are real text and pass through.
       return nil if cp < 0x20 || (0xE000 <= cp <= 0xF8FF)
       cp.chr rescue nil
     end
 
-    # Projects this event back onto the flat `Key` enum, so consumers that only
-    # understand legacy keys keep working. Returns `nil` when there is no legacy
-    # equivalent (a plain printable key — surfaced via `#char` instead — a lone
-    # modifier, or a modifier combination the enum can't express).
+    # Projects this event back onto the flat `Key` enum, for consumers that only
+    # understand legacy keys. Returns `nil` when there's no legacy equivalent (a
+    # plain printable key — use `#char` — a lone modifier, or an unexpressable
+    # combination).
     #
-    # Releases return `nil` deliberately: a consumer that predates the enhanced
-    # stream should not mistake a key *release* for a press. Auto-repeats do
-    # project (a held key still produces its key).
+    # Releases return `nil` deliberately, so a legacy consumer never mistakes a
+    # release for a press. Auto-repeats do project.
     def to_legacy_key : Key?
       return nil unless press? || repeat?
 
       case final
       when 'A', 'B', 'C', 'D', 'H', 'F'
-        # Cursor/Home/End keys; the base/shift/alt/ctrl table is shared with the
-        # legacy parser (`Key.csi_letter_keys`), `nav` applies this event's mods.
+        # Cursor/Home/End keys; base/shift/alt/ctrl table shared with the legacy
+        # parser (`Key.csi_letter_keys`), `nav` applies this event's mods.
         if keys = Key.csi_letter_keys final
           nav(*keys)
         end
@@ -202,11 +195,9 @@ class Tput
     end
 
     private def tilde_key : Key?
-      # The navigation keys carry distinct modified members (via `nav`); the
-      # function keys (`\e[15;1:1~` F5, …) do not — delegate them to the same
-      # `Key.function_key` table the legacy parser uses, so a kitty-reported
-      # F-key still projects onto the legacy `Key` channel. The navigation table
-      # itself is shared with the legacy parser (`Key.csi_tilde_keys`).
+      # Navigation keys carry distinct modified members (via `nav`, table shared
+      # with `Key.csi_tilde_keys`); function keys (`\e[15;1:1~` F5, …) don't —
+      # delegate to `Key.function_key` so a kitty-reported F-key still projects.
       if keys = Key.csi_tilde_keys number
         nav(*keys)
       else
@@ -214,9 +205,9 @@ class Tput
       end
     end
 
-    # Maps a `u`-final key number to a legacy `Key`, applying ctrl/alt the way
-    # the legacy parser does (`Ctrl+A`, `Alt+A`, …). Plain printable keys return
-    # `nil` (use `#char`); lone modifiers and unknown functional codes too.
+    # Maps a `u`-final key number to a legacy `Key`, applying ctrl/alt like the
+    # legacy parser (`Ctrl+A`, `Alt+A`, …). Plain printable keys, lone modifiers,
+    # and unknown functional codes return `nil` (use `#char`).
     private def u_key : Key?
       case number
       when 27               then Key::Escape
@@ -230,9 +221,9 @@ class Tput
     end
 
     # Maps a lowercase letter codepoint to its Ctrl-/Alt-modified legacy key
-    # (`CtrlA`..`CtrlZ` / `AltA`..`AltZ`), or `nil` when neither modifier is held
-    # (a plain letter — surfaced via `#char`). Shared by the `a`-`z` and `A`-`Z`
-    # branches of `#u_key`, which differ only in deriving this codepoint.
+    # (`CtrlA`..`CtrlZ`/`AltA`..`AltZ`), or `nil` when neither modifier is held
+    # (plain letter, use `#char`). Shared by the `a`-`z` and `A`-`Z` branches of
+    # `#u_key`.
     private def ctrl_alt_letter(lower : Int32) : Key?
       if ctrl?
         Key.from_value?(lower - 'a'.ord + 1) # CtrlA..CtrlZ
@@ -244,10 +235,9 @@ class Tput
     end
 
     # Builds a `KeyEvent` from the parsed CSI sub-parameters and the *final*
-    # byte. The arguments are the first three sub-parameters of group 0
-    # (`number : shifted : base`), the first two of group 1 (`mods : event`),
-    # and group 2 in full (`text` — the associated-text codepoints, `nil` when
-    # absent). See `Input#parse_key_event` for how these are extracted.
+    # byte: first three sub-params of group 0 (`number : shifted : base`),
+    # first two of group 1 (`mods : event`), group 2 in full (associated-text
+    # codepoints). See `Input#parse_key_event`.
     def self.from_csi(final : Char, g0_0 : Int32?, g0_1 : Int32?, g0_2 : Int32?,
                       g1_0 : Int32?, g1_1 : Int32?, g2 : Array(Int32?)?) : KeyEvent
       if final == '~' && g0_0 == 27
