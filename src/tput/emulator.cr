@@ -181,6 +181,85 @@ class Tput
       GraphicsProtocol::None
     end
 
+    # --- Cell/glyph capability (best-effort, from terminal identity) ----------
+    #
+    # The Unicode "Symbols for Legacy Computing" ranges — sextants (U+1FB00…,
+    # Unicode 13.0, 2020) and its "…Supplement" octants (U+1CD00…, Unicode 16.0,
+    # 2024) — drive the high-resolution sub-cell glyph families used for
+    # cell-grid image rendering. They are gated *separately*: a terminal can
+    # render sextants but not the newer octants (older versions of the
+    # self-rendering terminals did exactly this).
+    #
+    # Unlike graphics protocols these have *no* escape-sequence probe: a
+    # terminal that lacks the glyph substitutes `?`/tofu, which is the same cell
+    # width as a correct render and so indistinguishable at runtime. Support is
+    # therefore decided from terminal identity (`#identity`) and, where it
+    # matters, version (`#version`) via the tables below — the single place to
+    # encode new terminal/version knowledge as it is learned, with no code
+    # changes needed. See `#legacy_range_supported?` for the lookup policy.
+
+    # Per-terminal sextant (U+1FB00) support. Key is `#identity`; value is the
+    # minimum `#version` that supports it, or `nil` for "not supported at any
+    # version". Terminals absent from the table are trusted (optimistic default).
+    SEXTANT_SUPPORT = Hash(String, String?){
+      # macOS terminals: bundled fonts don't cover the range → `?`.
+      "iTerm2"         => nil,
+      "Apple Terminal" => nil,
+    }
+
+    # Per-terminal octant (U+1CD00) support; same format as `SEXTANT_SUPPORT`.
+    # Octants are Unicode 16.0 (2024), so even self-rendering terminals only
+    # gained them recently — encode those as `identity => "min.version"`.
+    OCTANT_SUPPORT = Hash(String, String?){
+      "iTerm2"         => nil,
+      "Apple Terminal" => nil,
+      # kitty draws octants natively since 0.40.0 (older builds show tofu).
+      "kitty" => "0.40.0",
+    }
+
+    # Whether the terminal reliably renders legacy-computing sextants (U+1FB00…).
+    def legacy_computing_sextant? : Bool
+      legacy_range_supported? SEXTANT_SUPPORT
+    end
+
+    # Whether the terminal reliably renders legacy-computing octants (U+1CD00…).
+    def legacy_computing_octant? : Bool
+      legacy_range_supported? OCTANT_SUPPORT
+    end
+
+    # Resolves a legacy-computing capability *table* against this terminal:
+    #
+    # * terminal not listed (incl. unidentified) → `true` (optimistic default);
+    # * listed with `nil` → `false` (known to lack the range at any version);
+    # * listed with a min version → `true` iff `#version` ≥ it. When the version
+    #   can't be determined it is assumed current (`true`), so a capable terminal
+    #   that doesn't self-report a version isn't penalised — only a *detected*
+    #   older version is refused.
+    private def legacy_range_supported?(table : Hash(String, String?)) : Bool
+      key = identity
+      return true unless key && table.has_key?(key)
+      min = table[key]
+      return false unless min
+      v = version
+      return true unless v
+      cmp_versions(v, min) >= 0
+    end
+
+    # Compares two dotted-numeric version strings (e.g. `"0.40.0"` vs `"0.39"`),
+    # returning -1/0/1. Integer groups are compared left to right; missing
+    # trailing groups count as 0, and any non-numeric suffix is ignored.
+    private def cmp_versions(a : String, b : String) : Int32
+      pa = a.scan(/\d+/).map &.[0].to_i
+      pb = b.scan(/\d+/).map &.[0].to_i
+      Math.max(pa.size, pb.size).times do |i|
+        x = pa[i]? || 0
+        y = pb[i]? || 0
+        return -1 if x < y
+        return 1 if x > y
+      end
+      0
+    end
+
     # --- Synthesized identity -------------------------------------------------
     #
     # Collapses the independent booleans above into a single "which terminal is
