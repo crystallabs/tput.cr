@@ -117,7 +117,11 @@ class Tput
         enable_modify_other_keys 2
       end
       @keyboard_events = events
-      @keyboard_protocol = protocol
+      # Store `nil` for `Legacy` (getter contract: "`nil` when only the
+      # always-available `Legacy` baseline is active"), but still return the
+      # protocol actually enabled.
+      @keyboard_protocol = protocol.legacy? ? nil : protocol
+      protocol
     end
 
     # Disables whatever enhanced protocol `#enable_keyboard_protocol` turned on,

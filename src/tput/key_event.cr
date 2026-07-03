@@ -183,6 +183,13 @@ class Tput
         end
       when '~' then tilde_key
       when 'u' then u_key
+        # Modified F1-F4 reported by an enhanced protocol (`CSI 1 ; mods : event
+        # P/Q/R/S`). No distinct modified-F-key members exist, so mods are
+        # dropped (matching the legacy parser's `Key.classify_csi`).
+      when 'P' then Key::F1
+      when 'Q' then Key::F2
+      when 'R' then Key::F3
+      when 'S' then Key::F4
       else          nil
       end
     end

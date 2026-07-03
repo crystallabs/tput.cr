@@ -587,7 +587,14 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Sel data
       def sel_data(a, b)
-        put_extended("Ms", a, b) || _tprint("\e]52;#{a};#{b}\x07")
+        # Route through the fallback under tmux/screen: `put_extended` bypasses
+        # the multiplexer DCS passthrough that `_tprint` applies, so the OSC 52
+        # clipboard write wouldn't reach the outer terminal. Same pattern as
+        # `Colors#set_dynamic_color`.
+        unless emulator.tmux? || emulator.screen?
+          return true if put_extended("Ms", a, b)
+        end
+        _tprint("\e]52;#{a};#{b}\x07")
       end
 
       # Erase in line.

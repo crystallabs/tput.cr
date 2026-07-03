@@ -184,13 +184,16 @@ class Tput
         input.read_timeout = @read_timeout
       end
 
-      result = yield
-
-      if timeout && input.responds_to? :"read_timeout="
-        input.read_timeout = nil
+      # Clear the timeout in an `ensure`, mirroring `Probe#probe_read_byte`: an
+      # IO error escaping the block would otherwise leave the read timeout set
+      # permanently, so every later blocking read would spuriously time out.
+      begin
+        yield
+      ensure
+        if timeout && input.responds_to? :"read_timeout="
+          input.read_timeout = nil
+        end
       end
-
-      result
     end
 
     def next_char(timeout : Bool = false, &)
@@ -288,10 +291,13 @@ class Tput
           # report (`key` cleared to `nil`), or an unrecognized sequence that
           # `read_control` collapsed to `Key::Escape` but which consumed bytes
           # (`sequence.size > 1`, vs. a bare Escape which consumes none). A real
-          # bare Escape and any printable key are kept.
+          # bare Escape and any printable key are kept. A terminal `\e\e` (double
+          # Escape, e.g. Alt+Esc) is exempted: it legitimately delivers one
+          # `Key::Escape` rather than being discarded.
+          double_escape = sequence.size == 2 && sequence[1] == '\e'
           if char == '\e' && mouse.nil? && key_event.nil? &&
              paste.nil? && resize.nil? && color_scheme.nil? && clipboard.nil? &&
-             (key.nil? || (key == Key::Escape && sequence.size > 1))
+             (key.nil? || (key == Key::Escape && sequence.size > 1 && !double_escape))
             sequence.clear
             next
           end

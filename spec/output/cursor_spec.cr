@@ -281,17 +281,30 @@ describe Tput::Output::Cursor do
 
   describe "reset_cursor_color" do
     it "works with terminfo" do
-      x.t.emulator.tmux = true # Terminfo (Cr) path is not DCS-wrapped
       x.t.reset_cursor_color
       x.o.should eq "\e]112\a"
-      x.t.emulator.tmux = false
     end
 
     it "works plain" do
-      x.p.emulator.tmux = true # Also test wrapping in DCS sequences
+      x.p.reset_cursor_color
+      x.o.should eq "\e]112\a"
+    end
+
+    it "wraps the fallback in DCS under tmux" do
+      x.p.emulator.tmux = true
       x.p.reset_cursor_color
       x.o.should eq "\ePtmux;\e\e]112\a\e\\"
       x.p.emulator.tmux = false
+    end
+
+    it "wraps the terminfo path in DCS under tmux as well" do
+      # The `Cr` capability is written via a plain write, which would bypass the
+      # multiplexer passthrough; under tmux it must take the wrapping fallback so
+      # the reset still reaches the outer terminal.
+      x.t.emulator.tmux = true
+      x.t.reset_cursor_color
+      x.o.should eq "\ePtmux;\e\e]112\a\e\\"
+      x.t.emulator.tmux = false
     end
   end
 
@@ -385,6 +398,15 @@ describe Tput::Output::Cursor do
     it "works plain" do
       x.p.dynamic_cursor_color "blue"
       x.o.should eq "\e]12;blue\a"
+    end
+
+    it "wraps the terminfo path in DCS under tmux as well" do
+      # The `Cs` capability is written via a plain write, bypassing the
+      # multiplexer passthrough; under tmux it must take the wrapping fallback.
+      x.t.emulator.tmux = true
+      x.t.dynamic_cursor_color "blue"
+      x.o.should eq "\ePtmux;\e\e]12;blue\a\e\\"
+      x.t.emulator.tmux = false
     end
   end
 end

@@ -195,9 +195,20 @@ class Tput
     # function keys (e.g. Shift+F5) report the base F-key; no modified-F-key
     # members exist.
     private def self.read_escape_sequence(char, &)
-      case o = yield.try(&.ord) || -1
+      o = yield.try(&.ord) || -1
+      # A run of extra `ESC`s (Alt+Esc, or Alt-prefixed sequences that
+      # meta-send-escape as `\e\e[A`): treat the *last* ESC as the real
+      # introducer and dispatch on the byte that follows it, rather than
+      # swallowing the whole sequence. A bare `\e\e` exhausts input here
+      # (`o == -1`) and falls through to `Key::Escape` via `read_control`; the
+      # phantom-escape suppression in `Input#listen` exempts that `\e\e` shape
+      # so one Escape is still delivered. (An iterative loop, not recursion:
+      # a block-yielding method that called itself couldn't be inlined.)
+      while o == 27
+        o = yield.try(&.ord) || -1
+      end
+      case o
       when 13 then Key::AltEnter
-        # when 27 then Key::Escape
       when 93 then Key::Osc # `\e]…` OSC reply (e.g. OSC 52 clipboard)
       when 79               # SS3: `\eO…` — application-mode cursor / F1-F4 keys
         case yield.try(&.ord)
@@ -424,6 +435,15 @@ class Tput
       when '^'.ord          then csi_tilde_key p0, 5 # rxvt ctrl+nav
       when 'A'.ord, 'B'.ord, 'C'.ord, 'D'.ord, 'F'.ord, 'H'.ord
         csi_letter_key final, p1
+        # Modified F1-F4 (modern xterm): `CSI 1 ; mod P/Q/R/S`. Unmodified F1-F4
+        # arrive as SS3 (`\eOP`-`\eOS`); the CSI form only appears with a
+        # modifier, so `p0 == 1` guards against a `CSI row;col R` (CPR) reply
+        # being misread as F3. No distinct modified-F-key members exist, so the
+        # held modifier is ignored (matching `#function_key`).
+      when 'P'.ord then Key::F1 if p0 == 1
+      when 'Q'.ord then Key::F2 if p0 == 1
+      when 'R'.ord then Key::F3 if p0 == 1
+      when 'S'.ord then Key::F4 if p0 == 1
       else
         nil
       end

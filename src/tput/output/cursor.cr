@@ -116,7 +116,7 @@ class Tput
       end
 
       # :ditto:
-      def move(x = nil, y = nil)
+      def move(x = 0, y = 0)
         cursor_pos y, x
       end
 
@@ -548,14 +548,25 @@ class Tput
       # OSC Ps ; Pt BEL
       #   Reset colors
       def reset_cursor_color
-        put_extended("Cr") || _tprint("\e]112\x07")
+        # Route through the fallback under tmux/screen: `put_extended` writes the
+        # terminfo cap via `_write`, bypassing the multiplexer DCS passthrough
+        # that `_tprint` applies — so the reset wouldn't reach the outer terminal.
+        # Same pattern as `Colors#set_dynamic_color`.
+        unless emulator.tmux? || emulator.screen?
+          return true if put_extended("Cr")
+        end
+        _tprint("\e]112\x07")
       end
 
       # OSC Ps ; Pt ST
       # OSC Ps ; Pt BEL
       #   Change dynamic colors
       def dynamic_cursor_color(param)
-        put_extended("Cs", param) || _tprint("\e]12;#{param}\x07")
+        # See `#reset_cursor_color` for the tmux/screen passthrough rationale.
+        unless emulator.tmux? || emulator.screen?
+          return true if put_extended("Cs", param)
+        end
+        _tprint("\e]12;#{param}\x07")
       end
     end
   end
