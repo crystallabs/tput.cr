@@ -50,6 +50,14 @@ class Tput
       @sequence || [@char]
     end
 
+    # The raw input sequence *as stored* — `nil` for a single-character event
+    # (plain typing). Unlike `#sequence`, this never materializes a
+    # one-element `[@char]` array, so a consumer that can carry the nilable
+    # form through avoids the per-keypress allocation.
+    def sequence? : Array(Char)?
+      @sequence
+    end
+
     # Whether this event is a mouse/focus report.
     def mouse? : Bool
       !@mouse.nil?
