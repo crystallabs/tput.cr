@@ -140,6 +140,14 @@ class Tput
   # `#enable_mouse`/`#disable_mouse`). Used by `#pause` to restore it on resume.
   getter? mouse_enabled = false
 
+  # When SGR-Pixels (DEC private mode 1016) mouse reporting is active, the
+  # terminal's cell size in pixels (`{cell_w, cell_h}`) used to derive cell
+  # coordinates from the pixel coordinates the terminal now reports; `nil`
+  # (the default) means pixel mode is off and `\e[<…M/m` reports are decoded
+  # as ordinary SGR (1006) cell coordinates. Set by `#enable_mouse`/
+  # `#set_mouse` and consulted by the mouse parser (`#read_sgr`).
+  property mouse_cell_pixels : Tuple(Int32, Int32)? = nil
+
   # The enhanced keyboard protocol currently enabled (tracked by
   # `#enable_keyboard_protocol`/`#disable_keyboard_protocol`), or `nil` when only
   # the always-available `Legacy` baseline is active. Used by `#pause`. See

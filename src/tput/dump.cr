@@ -196,6 +196,7 @@ class Tput
       # `true` after a positive DECRQM reply; once probed, a missing reply is
       # definitive `false` (unsupported), not unknown.
       h["in_band_resize"] = det "in_band_resize", (in_band_resize? ? "true" : (probed? ? "false" : nil))
+      h["pixel_mouse"] = det "pixel_mouse", (pixel_mouse? ? "true" : (probed? ? "false" : nil))
       h
     end
 

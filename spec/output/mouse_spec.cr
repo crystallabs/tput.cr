@@ -16,6 +16,18 @@ describe Tput::Output::Mouse do
       x.t.enable_mouse(focus: true)
       x.o.should eq "\e[?1000h\e[?1002h\e[?1003h\e[?1004h\e[?1006h"
     end
+
+    it "additionally enables SGR-Pixels (1016) and caches the cell size when pixels given" do
+      x.t.enable_mouse(pixels: {8, 16})
+      x.o.should eq "\e[?1000h\e[?1002h\e[?1003h\e[?1006h\e[?1016h"
+      x.t.mouse_cell_pixels.should eq({8, 16})
+    end
+
+    it "disables 1016 and clears the cached cell size" do
+      x.t.disable_mouse
+      x.o.should eq "\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1016l"
+      x.t.mouse_cell_pixels.should be_nil
+    end
   end
 
   describe "set_mouse" do

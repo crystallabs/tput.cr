@@ -133,6 +133,14 @@ class Tput
     @[JSON::Field(ignore: true)]
     property? in_band_resize : Bool = false
 
+    # Whether the terminal supports SGR-Pixels mouse reporting (DEC private mode
+    # 1016), probed via DECRQM at startup. When true, a consumer can enable
+    # pixel-resolution mouse coordinates (see `Output::Mouse#enable_mouse`'s
+    # `pixels` argument). Independent of whether the terminal *reports* a cell
+    # pixel size — a consumer still needs that to derive cell coordinates.
+    @[JSON::Field(ignore: true)]
+    property? pixel_mouse : Bool = false
+
     @[JSON::Field(ignore: true)]
     # :nodoc:
     getter tput : Tput
@@ -162,7 +170,7 @@ class Tput
       # `Tput#probe!` if/when the terminal actually answers.
       {"ambiguous_width", "default_foreground", "default_background",
        "palette", "da_params", "kitty_keyboard", "modify_other_keys",
-       "da2_params", "terminal_version", "in_band_resize"}.each do |k|
+       "da2_params", "terminal_version", "in_band_resize", "pixel_mouse"}.each do |k|
         @sources[k] = BASELINE_PROBE_SOURCE
       end
 

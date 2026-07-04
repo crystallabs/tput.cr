@@ -576,6 +576,13 @@ class Tput
         when 'M', 'm'
           p2 = cur if idx == 2
           return nil unless idx >= 2 # Cb ; Cx ; Cy
+          # `\e[<…M/m` is byte-identical for SGR (1006, cells) and SGR-Pixels
+          # (1016, pixels); only the active mode tells them apart. When pixel
+          # mode is on (`@mouse_cell_pixels` set), decode the params as pixels
+          # and derive cell coords with the cached cell size.
+          if cp = @mouse_cell_pixels
+            return Mouse.parse_sgr_pixels p0, p1, p2, c, cp[0], cp[1]
+          end
           return Mouse.parse_sgr p0, p1, p2, c
         else
           return nil

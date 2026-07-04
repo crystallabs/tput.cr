@@ -65,6 +65,15 @@ class Tput
       # Page number, only set by the DEC-locator encoding; `nil` otherwise.
       property page : Int32?
 
+      # Sub-cell pixel coordinates, **0-based**, only set by the SGR-Pixels
+      # encoding (DEC private mode 1016); `nil` for every other encoding. When
+      # present, `x`/`y` still carry the derived cell coordinates (pixel ÷ cell
+      # size), so existing cell-based hit-testing is unaffected — a consumer
+      # wanting sub-cell precision (paint/drag over pixel graphics) reads
+      # `px`/`py`.
+      property px : Int32?
+      property py : Int32?
+
       # Where the event originated: `:xterm` for sequences parsed from the input
       # stream, other producers (e.g. `:gpm`) set their own tag. Informational only.
       property source : Symbol
@@ -79,6 +88,8 @@ class Tput
         @ctrl : Bool = false,
         @source : Symbol = :xterm,
         @page : Int32? = nil,
+        @px : Int32? = nil,
+        @py : Int32? = nil,
       )
       end
 
@@ -177,6 +188,24 @@ class Tput
     def self.parse_sgr(cb : Int32, cx : Int32, cy : Int32, final : Char) : Event
       action, button, shift, meta, ctrl = decode_button(cb, released: final == 'm')
       Event.new action, button, (cx - 1), (cy - 1), shift, meta, ctrl
+    end
+
+    # Parses an SGR-Pixels (DEC private mode 1016) encoded event. The wire
+    # format is identical to SGR (1006) — `\e[< Cb ; Cx ; Cy M|m` — but *cx*/*cy*
+    # are **pixel** coordinates, not cells. *cell_w*/*cell_h* are the terminal's
+    # cell size in pixels (from `Tput#mouse_cell_pixels`); they derive the cell
+    # coordinates carried on `x`/`y` while the raw 0-based pixels are kept on
+    # `px`/`py`. A non-positive cell size (unknown, e.g. under a multiplexer)
+    # degrades gracefully: the pixel value is used directly as the cell value
+    # rather than dividing by zero.
+    def self.parse_sgr_pixels(cb : Int32, cx : Int32, cy : Int32, final : Char,
+                              cell_w : Int32, cell_h : Int32) : Event
+      action, button, shift, meta, ctrl = decode_button(cb, released: final == 'm')
+      px = cx - 1
+      py = cy - 1
+      x = cell_w > 0 ? px // cell_w : px
+      y = cell_h > 0 ? py // cell_h : py
+      Event.new action, button, x, y, shift, meta, ctrl, px: px, py: py
     end
 
     # Parses a URxvt (mode 1015) encoded event. *cb*, *cx*, *cy* are the decimal

@@ -71,6 +71,13 @@ class Tput
       # * *utf* — `?1005`, UTF-8 extended coordinates.
       # * *sgr* — `?1006`, SGR extended encoding (the modern default).
       # * *urxvt* — `?1015`, urxvt extended encoding.
+      # * *pixels* — `?1016`, SGR-Pixels encoding (DEC 1016). Identical wire
+      #   format to `sgr` (`\e[< Cb ; Cx ; Cy M|m`) but the coordinates are
+      #   **pixels** rather than cells. Supersedes 1006 when both are on, so a
+      #   caller wanting pixel resolution should still leave `sgr` enabled as a
+      #   fallback. Enabling here only toggles the mode byte; the cell size
+      #   needed to derive cell coordinates is set separately via
+      #   `#mouse_cell_pixels=` (see `#enable_mouse`).
       # * *dec* — DEC locator mode (DECELR/DECSLE).
       # * *pterm*, *jsbterm* — pterm / jsbterm private mouse protocols.
       # * *normal* — convenience for `vt200` + `all_motion`.
@@ -89,6 +96,7 @@ class Tput
         utf : Bool? = nil,
         sgr : Bool? = nil,
         urxvt : Bool? = nil,
+        pixels : Bool? = nil,
         dec : Bool? = nil,
         pterm : Bool? = nil,
         jsbterm : Bool? = nil,
@@ -120,6 +128,7 @@ class Tput
         toggle_mode 1005, utf
         toggle_mode 1006, sgr
         toggle_mode 1015, urxvt
+        toggle_mode 1016, pixels
 
         unless dec.nil?
           _print(dec ? "\e[1;2'z\e[1;3'{" : "\e['z")
@@ -142,16 +151,26 @@ class Tput
       #
       # 1006 is what makes `Tput::Input#listen` receive the modern `\e[<…M/m`
       # reports. Pass *focus* `true` to also enable FocusIn/FocusOut (mode 1004).
-      def enable_mouse(focus : Bool = false)
+      #
+      # Pass *pixels* the terminal's cell size (`{cell_w, cell_h}` in pixels) to
+      # additionally enable SGR-Pixels reporting (DEC 1016): reports then carry
+      # pixel coordinates, and the parser (`#read_sgr`) uses this cell size to
+      # derive cell coordinates while surfacing the raw pixels on the event's
+      # `px`/`py`. 1006 stays enabled as a cell-coordinate fallback. Leave
+      # *pixels* `nil` (the default) for ordinary cell-resolution reporting.
+      def enable_mouse(focus : Bool = false, pixels : Tuple(Int32, Int32)? = nil)
         set_mouse vt200: true, cell_motion: true, all_motion: true, sgr: true,
-          send_focus: (focus ? true : nil)
+          pixels: (pixels ? true : nil), send_focus: (focus ? true : nil)
+        @mouse_cell_pixels = pixels
         @mouse_enabled = true
       end
 
-      # Disables the xterm mouse reporting modes enabled by `#enable_mouse`.
+      # Disables the xterm mouse reporting modes enabled by `#enable_mouse`
+      # (including SGR-Pixels 1016 and its cached cell size).
       def disable_mouse(focus : Bool = false)
         set_mouse vt200: false, cell_motion: false, all_motion: false, sgr: false,
-          send_focus: focus ? false : nil
+          pixels: (@mouse_cell_pixels ? false : nil), send_focus: focus ? false : nil
+        @mouse_cell_pixels = nil
         @mouse_enabled = false
       end
 

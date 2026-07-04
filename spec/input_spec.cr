@@ -28,6 +28,21 @@ private def one_mouse(data : String) : Tput::Mouse::Event?
   ev[0][2]
 end
 
+# Like `feed`, but with SGR-Pixels (DEC 1016) mode active: sets the cached cell
+# size so the parser decodes `\e[<…M/m` as pixel coordinates.
+private def one_mouse_pixels(data : String, cell_w : Int32, cell_h : Int32) : Tput::Mouse::Event?
+  t = Tput.new \
+    input: IO::Memory.new(data),
+    output: IO::Memory.new,
+    screen_size: Tput::DEFAULT_SCREEN_SIZE,
+    probe: false
+  t.mouse_cell_pixels = {cell_w, cell_h}
+  mice = [] of Tput::Mouse::Event
+  t.listen { |e| mice << e.mouse.not_nil! if e.mouse? }
+  mice.size.should eq 1
+  mice[0]
+end
+
 private def feed_paste(data : String) : Array(String)
   pastes = [] of String
   t = Tput.new \
@@ -283,6 +298,45 @@ describe Tput::Input do
       # drag; both must still decode as a wheel, keeping the up/down direction.
       one_mouse("\e[128;5;5M").not_nil!.action.should eq Tput::Mouse::Action::WheelUp
       one_mouse("\e[129;5;5M").not_nil!.action.should eq Tput::Mouse::Action::WheelDown
+    end
+
+    it "decodes SGR-Pixels (1016) as pixels, deriving cell coords from cell size" do
+      # Same `\e[<…M/m` wire format as 1006, but with pixel mode active the
+      # params are pixels. With an 8x16 cell: pixel (100,50) 1-based -> px/py
+      # (99,49) 0-based -> cell (99//8, 49//16) = (12, 3).
+      m = one_mouse_pixels("\e[<0;100;50M", 8, 16).not_nil!
+      m.action.should eq Tput::Mouse::Action::Down
+      m.button.should eq Tput::Mouse::Button::Left
+      m.px.should eq 99
+      m.py.should eq 49
+      m.x.should eq 12
+      m.y.should eq 3
+      one_mouse_pixels("\e[<0;100;50m", 8, 16).not_nil!.action.should eq Tput::Mouse::Action::Up
+    end
+
+    it "leaves px/py nil for ordinary SGR (1006) reports" do
+      m = one_mouse("\e[<0;10;20M").not_nil!
+      m.px.should be_nil
+      m.py.should be_nil
+    end
+  end
+
+  describe "Tput::Mouse.parse_sgr_pixels" do
+    it "keeps pixels on px/py and derives cell coords" do
+      m = Tput::Mouse.parse_sgr_pixels 2, 33, 65, 'M', 16, 32 # right button
+      m.button.should eq Tput::Mouse::Button::Right
+      m.px.should eq 32
+      m.py.should eq 64
+      m.x.should eq 2 # 32 // 16
+      m.y.should eq 2 # 64 // 32
+    end
+
+    it "degrades gracefully when the cell size is unknown (0), using pixels as cells" do
+      m = Tput::Mouse.parse_sgr_pixels 0, 10, 20, 'M', 0, 0
+      m.px.should eq 9
+      m.py.should eq 19
+      m.x.should eq 9
+      m.y.should eq 19
     end
   end
 

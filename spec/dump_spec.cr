@@ -98,7 +98,7 @@ describe "Tput#dump / detections" do
       probed = Tput::Test.new.p.features.probed_detections
       {"ambiguous_width", "default_foreground", "default_background", "palette",
        "da_params", "da2_params", "terminal_version", "kitty_keyboard",
-       "modify_other_keys", "in_band_resize"}.each do |k|
+       "modify_other_keys", "in_band_resize", "pixel_mouse"}.each do |k|
         probed.has_key?(k).should be_true
         probed[k].value.should eq "(not probed)"
         probed[k].source.empty?.should be_false
@@ -136,6 +136,22 @@ describe "Tput#dump / detections" do
       probed = tp.features.probed_detections
       probed["in_band_resize"].value.should eq "true"
       probed["in_band_resize"].source.should eq "probed via DECRQM (CSI ? 2048 $ p)"
+    end
+
+    it "surfaces pixel_mouse once positively probed (SGR-Pixels 1016)" do
+      tp = Tput::Test.new.p
+      tp.features.probed_detections["pixel_mouse"].value.should eq "(not probed)"
+
+      canned = IO::Memory.new
+      canned << "\e[?1016;1$y" # DECRQM: mode 1016 (SGR-Pixels mouse) supported
+      canned << "\e[?62;1;6c"  # DA1 terminator
+      canned.rewind
+      tp.probe_consume canned, 1.second
+
+      probed = tp.features.probed_detections
+      probed["pixel_mouse"].value.should eq "true"
+      probed["pixel_mouse"].source.should eq "probed via DECRQM (CSI ? 1016 $ p)"
+      tp.features.pixel_mouse?.should be_true
     end
   end
 

@@ -139,10 +139,15 @@ class Tput
             end
           when 'y'
             # DECRQM reply (`CSI ? mode ; Ps $ y`): mode-support probe. A `Ps`
-            # of 1–4 means the mode is recognized. We probe 2048 (in-band resize).
+            # of 1–4 means the mode is recognized. We probe 2048 (in-band
+            # resize) and 1016 (SGR-Pixels mouse); each reply carries its own
+            # mode in `params[0]`, so dispatch on that.
             if probe_decrqm_recognized? params, 2048
               f.in_band_resize = true
               f.sources["in_band_resize"] = "probed via DECRQM (CSI ? 2048 $ p)"
+            elsif probe_decrqm_recognized? params, 1016
+              f.pixel_mouse = true
+              f.sources["pixel_mouse"] = "probed via DECRQM (CSI ? 1016 $ p)"
             end
           end
         when ']'.ord # OSC
@@ -194,6 +199,7 @@ class Tput
         io << "\e[?u"
         io << "\e[?4m"
         io << "\e[?2048$p" # DECRQM: in-band resize support (`CSI ? 2048 ; Ps $ y`)
+        io << "\e[?1016$p" # DECRQM: SGR-Pixels mouse support (`CSI ? 1016 ; Ps $ y`)
         io << "\e[>0q"     # XTVERSION: terminal name+version (DCS reply)
         io << "\e[>c"      # DA2: secondary attributes (`CSI > … c`), before DA1
         io << "\e[c"       # DA1: capabilities + terminator
