@@ -363,6 +363,14 @@ class Tput
       Resize.new (nums[1]? || 0), (nums[2]? || 0), (nums[3]? || 0), (nums[4]? || 0)
     end
 
+    # Accumulates decimal digit *d* into running parameter *cur*, saturating at
+    # `Int32::MAX` instead of overflowing. Input parsers must be total over
+    # arbitrary byte streams: a CSI parameter of 10+ digits would otherwise raise
+    # `OverflowError` on the checked `*`/`+` and kill the input fiber.
+    private def acc_digit(cur : Int32, d : Int32) : Int32
+      cur > 0x0FFF_FFFF ? Int32::MAX : cur * 10 + d
+    end
+
     # Parses the `;`-separated decimal parameters of a captured CSI *sequence*
     # (`\e[ … <final>`), ignoring any private marker/intermediates. Shared by
     # `#parse_resize`/`#parse_color_scheme`.
@@ -372,7 +380,7 @@ class Tput
       (2...(sequence.size - 1)).each do |i|
         c = sequence[i]
         if '0' <= c <= '9'
-          cur = cur * 10 + (c.ord - '0'.ord)
+          cur = acc_digit cur, (c.ord - '0'.ord)
         elsif c == ';'
           nums << cur
           cur = 0
@@ -480,7 +488,7 @@ class Tput
         c = i == last ? ';' : sequence[i] # the final byte closes the last group
         case c
         when '0'..'9'
-          num = (num || 0) * 10 + (c.ord - '0'.ord)
+          num = acc_digit (num || 0), (c.ord - '0'.ord)
         when ':', ';' # sub-parameter / parameter separator
           case group
           when 0
@@ -566,7 +574,7 @@ class Tput
       cur = 0
       while c = yield
         case c
-        when '0'..'9' then cur = cur * 10 + (c.ord - '0'.ord)
+        when '0'..'9' then cur = acc_digit cur, (c.ord - '0'.ord)
         when ';'
           case idx
           when 0 then p0 = cur
@@ -592,22 +600,23 @@ class Tput
     end
 
     # Scans the `;`-separated decimal parameters of a numeric-CSI mouse report
-    # already captured in *sequence* (from index 2) into a fixed four-slot
+    # already captured in *sequence* (from index 2) into a fixed five-slot
     # buffer. Stops at the first byte in *terminators* (`&` for DEC-locator,
     # `M`/`m` for URxvt) or any other non-digit, non-`;` byte. Returns the
     # buffer paired with the parameter count. `StaticArray` returned by value
-    # keeps this allocation-free on the hot mouse-drag path.
-    private def scan_csi_mouse_params(sequence, terminators : String) : Tuple(StaticArray(Int32, 4), Int32)
-      params = StaticArray(Int32, 4).new(0)
+    # keeps this allocation-free on the hot mouse-drag path. Five slots hold the
+    # full DEC-locator report `Pe ; Pb ; Pr ; Pc ; Pp` (xterm usually omits `Pp`).
+    private def scan_csi_mouse_params(sequence, terminators : String) : Tuple(StaticArray(Int32, 5), Int32)
+      params = StaticArray(Int32, 5).new(0)
       idx = 0
       cur = 0
       i = 2
       while i < sequence.size
         c = sequence[i]
         if '0' <= c <= '9'
-          cur = cur * 10 + (c.ord - '0'.ord)
+          cur = acc_digit cur, (c.ord - '0'.ord)
         elsif c == ';' || terminators.includes?(c)
-          params[idx] = cur if idx < 4
+          params[idx] = cur if idx < 5
           idx += 1
           cur = 0
           break if c != ';' # a terminator (intermediate/final) closes the report
@@ -619,12 +628,16 @@ class Tput
       {params, idx}
     end
 
-    # Parses a DEC-locator report (`\e[ Cb ; Cx ; Cy ; Cp & w`) already captured
-    # in *sequence*. Terminates on the `&` intermediate and requires all four parameters.
+    # Parses a DEC-locator event report (`\e[ Pe ; Pb ; Pr ; Pc [; Pp] & w`)
+    # already captured in *sequence*: `Pe` event code, `Pb` button-state mask,
+    # `Pr` row, `Pc` column, optional `Pp` page (xterm omits it, so a 4-parameter
+    # report is canonical). Terminates on the `&` intermediate and requires at
+    # least four parameters.
     private def read_dec(sequence) : Mouse::Event?
       params, idx = scan_csi_mouse_params sequence, "&"
-      return nil unless idx >= 4 # Cb ; Cx ; Cy ; Cp (the `&` closes Cp -> idx 4)
-      Mouse.parse_dec params[0], params[1], params[2], params[3]
+      return nil unless idx >= 4 # Pe ; Pb ; Pr ; Pc (the `&` closes the last -> idx >= 4)
+      # event = Pe, column = Pc, row = Pr, page = Pp (default 1 when omitted).
+      Mouse.parse_dec params[0], params[3], params[2], (idx >= 5 ? params[4] : 1)
     end
 
     # Parses a URxvt report (`\e[ Cb ; Cx ; Cy M`) already captured in

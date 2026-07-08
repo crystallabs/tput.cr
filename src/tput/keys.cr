@@ -276,6 +276,14 @@ class Tput
       end
     end
 
+    # Accumulates decimal digit *d* into running parameter *cur*, saturating at
+    # `Int32::MAX` instead of overflowing. Input parsers must be total over
+    # arbitrary byte streams: a CSI parameter of 10+ digits would otherwise raise
+    # `OverflowError` on the checked `*`/`+` and kill the input fiber.
+    private def self.acc_digit(cur : Int32, d : Int32) : Int32
+      cur > 0x0FFF_FFFF ? Int32::MAX : cur * 10 + d
+    end
+
     # Reads a numeric CSI parameter list (`\e[ … <final>`) whose first digit
     # value is *first*, then classifies it as a key or a URxvt mouse report.
     # Yields for each subsequent input char.
@@ -297,7 +305,7 @@ class Tput
         o = yield.try(&.ord)
         break unless o
         if 48 <= o <= 57 # digit
-          cur = cur * 10 + (o - 48)
+          cur = acc_digit cur, (o - 48)
           next
         end
         # A separator or the final byte closes the current parameter.
@@ -314,7 +322,7 @@ class Tput
           # CSI intermediate byte (0x20-0x2F).
           #
           # `&` (0x26) always introduces a DEC-locator report
-          # (`CSI Pe [; Cx ; Cy ; Cp] & w`) — rxvt's modified-nav finals use `$`
+          # (`CSI Pe [; Pb ; Pr ; Pc ; Pp] & w`) — rxvt's modified-nav finals use `$`
           # and `^`, never `&` — so keep scanning for the trailing `w` regardless
           # of parameter count. The "locator unavailable/outside" report is the
           # single-parameter `CSI Pe & w` (e.g. `\e[0&w`); treating `&` as final
@@ -362,7 +370,7 @@ class Tput
         o = yield.try(&.ord)
         break unless o
         case o
-        when 48..57 then cur = cur * 10 + (o - 48)
+        when 48..57 then cur = acc_digit cur, (o - 48)
         when 59     then p0 = cur if p0.nil?; cur = 0
         when 32..47
           # CSI intermediate byte (0x20-0x2F), e.g. the `$` in a DECRPM reply

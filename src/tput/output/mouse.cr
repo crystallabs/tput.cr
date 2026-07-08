@@ -162,15 +162,19 @@ class Tput
         set_mouse vt200: true, cell_motion: true, all_motion: true, sgr: true,
           pixels: (pixels ? true : nil), send_focus: (focus ? true : nil)
         @mouse_cell_pixels = pixels
+        @mouse_focus_enabled = focus
         @mouse_enabled = true
       end
 
       # Disables the xterm mouse reporting modes enabled by `#enable_mouse`
-      # (including SGR-Pixels 1016 and its cached cell size).
+      # (including SGR-Pixels 1016 and its cached cell size, and focus reporting
+      # mode 1004 if it was enabled via `enable_mouse(focus: true)`).
       def disable_mouse(focus : Bool = false)
         set_mouse vt200: false, cell_motion: false, all_motion: false, sgr: false,
-          pixels: (@mouse_cell_pixels ? false : nil), send_focus: focus ? false : nil
+          pixels: (@mouse_cell_pixels ? false : nil),
+          send_focus: ((focus || @mouse_focus_enabled) ? false : nil)
         @mouse_cell_pixels = nil
+        @mouse_focus_enabled = false
         @mouse_enabled = false
       end
 

@@ -249,22 +249,32 @@ describe Tput::Input do
       m.y.should eq 19
     end
 
-    it "parses DEC-locator events (CSI Cb;Cx;Cy;Cp & w, no `<` prefix)" do
+    it "parses DEC-locator events (CSI Pe;Pb;Pr;Pc[;Pp] & w, no `<` prefix)" do
       # A real DEC-locator report is introduced by a digit (the event code) and
-      # terminated by `& w`; there is no `\e[<` prefix. It must route through the
-      # numeric-CSI path and reach `Mouse.parse_dec`.
-      m = one_mouse("\e[2;10;20;1&w").not_nil!
+      # terminated by `& w`; there is no `\e[<` prefix. The wire field order is
+      # `Pe ; Pb(button-mask) ; Pr(row) ; Pc(column) [ ; Pp(page) ]`, so the
+      # COLUMN is the 4th parameter (blessed/older crysterm wrongly decoded the
+      # button mask as X). It must route through the numeric-CSI path and reach
+      # `Mouse.parse_dec`.
+      m = one_mouse("\e[2;4;10;20&w").not_nil! # left down, mask 4, row 10, col 20
       m.button.should eq Tput::Mouse::Button::Left
       m.action.should eq Tput::Mouse::Action::Down
-      m.x.should eq 9
-      m.y.should eq 19
-      m.page.should eq 1
+      m.x.should eq 19 # column 20 -> 0-based 19 (NOT the button mask 4)
+      m.y.should eq 9  # row 10 -> 0-based 9
 
       # A release (odd event code) keeps the button identity.
-      up = one_mouse("\e[7;10;20;2&w").not_nil! # right button up, page 2
+      up = one_mouse("\e[7;0;10;20&w").not_nil! # right button up, row 10, col 20
       up.button.should eq Tput::Mouse::Button::Right
       up.action.should eq Tput::Mouse::Action::Up
-      up.page.should eq 2
+      up.x.should eq 19
+      up.y.should eq 9
+
+      # A 5-parameter report additionally carries the page (Pp) as the last
+      # field; the column is still Pc (4th), the page is Pp (5th).
+      pg = one_mouse("\e[2;4;10;20;3&w").not_nil!
+      pg.x.should eq 19
+      pg.y.should eq 9
+      pg.page.should eq 3
 
       # A `w` final that is NOT a DEC-locator report (no `&` intermediate) must
       # not be mistaken for one; it is simply an unrecognized CSI and drops.
@@ -368,10 +378,13 @@ describe Tput::Input do
 
   describe "Tput::Mouse.parse_dec" do
     it "decodes button press/release pairs, keeping the button on release" do
-      # Even codes are presses, the following odd code the matching release.
-      mid_up = Tput::Mouse.parse_dec 5, 10, 20, 1 # middle button up
+      # Args are (event code, column, row, page). Even codes are presses, the
+      # following odd code the matching release.
+      mid_up = Tput::Mouse.parse_dec 5, 10, 20, 1 # middle button up, col 10, row 20
       mid_up.action.should eq Tput::Mouse::Action::Up
       mid_up.button.should eq Tput::Mouse::Button::Middle
+      mid_up.x.should eq 9  # column 10 -> 0-based 9
+      mid_up.y.should eq 19 # row 20 -> 0-based 19
 
       right_up = Tput::Mouse.parse_dec 7, 10, 20, 1 # right button up
       right_up.action.should eq Tput::Mouse::Action::Up
@@ -380,6 +393,35 @@ describe Tput::Input do
       left_up = Tput::Mouse.parse_dec 3, 10, 20, 1 # left button up
       left_up.action.should eq Tput::Mouse::Action::Up
       left_up.button.should eq Tput::Mouse::Button::Left
+    end
+  end
+
+  describe "DEC-locator reports (end-to-end)" do
+    it "takes X from the column parameter, not the button-state mask" do
+      # Wire order is `CSI Pe ; Pb ; Pr ; Pc & w`: event code, button-state
+      # mask, ROW, COLUMN. A left-button press at row 10, column 20 arrives as
+      # `\e[2;4;10;20&w` (Pe=2, Pb=4, Pr=10, Pc=20). The X must come from Pc
+      # (20 -> 19), never from the button mask Pb (4).
+      ev = one_mouse("\e[2;4;10;20&w").not_nil!
+      ev.action.should eq Tput::Mouse::Action::Down
+      ev.button.should eq Tput::Mouse::Button::Left
+      ev.x.should eq 19 # column 20 -> 0-based (NOT 4-1 from the button mask)
+      ev.y.should eq 9  # row 10 -> 0-based
+    end
+  end
+
+  describe "overflow safety" do
+    it "does not raise on a CSI parameter with 12 digits (saturates)" do
+      # A malformed/huge parameter would overflow Int32 on the checked `*`/`+`
+      # and kill the input fiber; the accumulator must saturate instead. This
+      # unrecognized tilde sequence is simply consumed (no event), but must not
+      # raise while accumulating the 12-digit parameter.
+      feed("\e[999999999999~").should be_a Array({Char, Tput::Key?, Tput::Mouse::Event?})
+
+      # A 12-digit SGR mouse coordinate must likewise saturate and still parse.
+      m = one_mouse("\e[<0;999999999999;5M").not_nil!
+      m.action.should eq Tput::Mouse::Action::Down
+      m.button.should eq Tput::Mouse::Button::Left
     end
   end
 end

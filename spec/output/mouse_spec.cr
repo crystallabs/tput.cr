@@ -69,4 +69,59 @@ describe Tput::Output::Mouse do
       x.t.emulator.tmux = false
     end
   end
+
+  # Regression for BUGS11 #32: focus reporting (mode 1004) enabled via
+  # enable_mouse(focus: true) must be turned back off by the paired teardown
+  # paths, otherwise \e[I/\e[O garbage leaks to the shell after exit/suspend.
+  describe "focus reporting (1004) teardown [BUGS11 #32]" do
+    it "disable_mouse turns off focus reporting enabled via enable_mouse(focus: true)" do
+      y = Tput::Test.new
+      y.t.enable_mouse(focus: true)
+      y.o # drain enable output
+      y.t.disable_mouse
+      y.o.should contain "\e[?1004l"
+    end
+
+    it "restore_terminal turns off focus reporting" do
+      y = Tput::Test.new
+      y.t.enable_mouse(focus: true)
+      y.o # drain enable output
+      y.t.restore_terminal
+      y.o.should contain "\e[?1004l"
+    end
+
+    it "disable_mouse does not touch 1004 when focus reporting was never enabled" do
+      y = Tput::Test.new
+      y.t.enable_mouse
+      y.o # drain enable output
+      y.t.disable_mouse
+      y.o.should_not contain "1004"
+    end
+  end
+
+  # Regression for BUGS11 #32 & #34: pause/resume must round-trip both the
+  # SGR-Pixels (1016) mode with its cached cell size and focus reporting (1004).
+  describe "pause/resume restores mouse state [BUGS11 #32 & #34]" do
+    it "re-enables SGR-Pixels (1016) and restores the cached cell size" do
+      y = Tput::Test.new
+      y.t.enable_mouse(pixels: {8, 16})
+      y.o # drain enable output
+      resume = y.t.pause
+      y.t.mouse_cell_pixels.should be_nil # teardown cleared it
+      y.o                                 # drain teardown output
+      resume.call
+      y.o.should contain "\e[?1016h"
+      y.t.mouse_cell_pixels.should eq({8, 16})
+    end
+
+    it "re-enables focus reporting (1004) across pause/resume" do
+      y = Tput::Test.new
+      y.t.enable_mouse(focus: true)
+      y.o # drain enable output
+      resume = y.t.pause
+      y.o # drain teardown output
+      resume.call
+      y.o.should contain "\e[?1004h"
+    end
+  end
 end

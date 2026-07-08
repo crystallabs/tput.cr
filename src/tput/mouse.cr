@@ -224,8 +224,11 @@ class Tput
       Event.new action, button, (cx - 1), (cy - 1), shift, meta, ctrl
     end
 
-    # Parses a DEC-locator event report (`\e[ Cb ; Cx ; Cy ; Cp & w`). *cb* is
-    # the locator event code, *cx*/*cy* the cell coordinates, *cp* the page.
+    # Parses a DEC-locator event report (`\e[ Pe ; Pb ; Pr ; Pc [; Pp] & w`).
+    # The caller maps the wire fields to these arguments: *cb* = `Pe` locator
+    # event code, *cx* = `Pc` column, *cy* = `Pr` row, *cp* = `Pp` page (1 when
+    # the terminal omits it, as xterm does). The button-state mask `Pb` is not
+    # currently surfaced.
     #
     # Each button has a press/release pair of codes (even = press, odd =
     # release): 2/3 = left, 4/5 = middle, 6/7 = right.

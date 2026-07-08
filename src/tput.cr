@@ -148,6 +148,12 @@ class Tput
   # `#set_mouse` and consulted by the mouse parser (`#read_sgr`).
   property mouse_cell_pixels : Tuple(Int32, Int32)? = nil
 
+  # Whether FocusIn/FocusOut reporting (DEC private mode 1004) is currently
+  # enabled (tracked by `#enable_mouse`/`#disable_mouse`). Kept so `#disable_mouse`
+  # and `#_teardown_terminal` can turn mode 1004 back off, and so `#pause` can
+  # restore it on resume.
+  getter? mouse_focus_enabled = false
+
   # The enhanced keyboard protocol currently enabled (tracked by
   # `#enable_keyboard_protocol`/`#disable_keyboard_protocol`), or `nil` when only
   # the always-available `Legacy` baseline is active. Used by `#pause`. See
@@ -323,6 +329,10 @@ class Tput
   def pause(callback : Proc? = nil) : Proc(Nil)
     alt = is_alt
     mouse = mouse_enabled?
+    # Capture SGR-Pixels cell size and focus-reporting state before teardown
+    # clears them, so resume can restore mode 1016 and 1004 too.
+    px = @mouse_cell_pixels
+    focus = @mouse_focus_enabled
     kbd = @keyboard_protocol
     kbd_events = @keyboard_events
 
@@ -339,7 +349,7 @@ class Tput
       restore_raw_input
 
       alternate_buffer if alt
-      enable_mouse if mouse
+      enable_mouse(focus: focus, pixels: px) if mouse
       enable_keyboard_protocol kbd_events if kbd
       enable_bracketed_paste if paste
       enable_in_band_resize if resize
