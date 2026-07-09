@@ -227,6 +227,19 @@ class Tput
       legacy_range_supported? OCTANT_SUPPORT
     end
 
+    # Whether the terminal ships with (or is overwhelmingly configured with) a
+    # modern, well-covered monospace font — fancy dingbats, geometric shapes
+    # beyond the WGL4 set, emoji. Like the legacy-computing ranges above, font
+    # coverage has no escape-sequence probe (a missing glyph is same-width
+    # tofu), so this is decided from terminal identity: the self-rendering
+    # emulators that bundle capable font stacks. Product flags are hardened by
+    # `refine_from_probe!` (XTVERSION), so a post-probe answer outranks env
+    # leakage. Distinct from `legacy_computing_sextant?`/`octant?`: iTerm2's
+    # bundled fonts cover dingbats/emoji but not the legacy-computing ranges.
+    def modern_font? : Bool
+      kitty? || wezterm? || ghostty? || iterm2?
+    end
+
     # Resolves a legacy-computing capability *table* against this terminal:
     #
     # * terminal not listed (incl. unidentified) → `true` (optimistic default);
