@@ -156,13 +156,36 @@ class Tput
       # additionally enable SGR-Pixels reporting (DEC 1016): reports then carry
       # pixel coordinates, and the parser (`#read_sgr`) uses this cell size to
       # derive cell coordinates while surfacing the raw pixels on the event's
-      # `px`/`py`. 1006 stays enabled as a cell-coordinate fallback. Leave
-      # *pixels* `nil` (the default) for ordinary cell-resolution reporting.
-      def enable_mouse(focus : Bool = false, pixels : Tuple(Int32, Int32)? = nil)
+      # `px`/`py`. 1006 stays enabled as a cell-coordinate fallback.
+      #
+      # *pixels* and *focus* are three-state, so a bare re-assert (this method
+      # is re-invoked to re-send the enable sequences) cannot silently desync
+      # the terminal from the parser:
+      #
+      #   * *pixels* `nil` / *focus* `nil` (the defaults) — leave the mode as it
+      #     is: an active SGR-Pixels session keeps its cached cell size, an
+      #     active 1004 stays on.
+      #   * *pixels* `{w, h}` / *focus* `true` — enable the mode.
+      #   * *pixels* `false` / *focus* `false` — turn the mode off, sending the
+      #     DECRST only when it is actually active.
+      def enable_mouse(focus : Bool? = nil, pixels : Tuple(Int32, Int32) | Bool | Nil = nil)
+        pixels_toggle = case pixels
+                        when Tuple then true
+                        when false then @mouse_cell_pixels ? false : nil
+                        else            nil
+                        end
+        focus_toggle = case focus
+                       when true  then true
+                       when false then @mouse_focus_enabled ? false : nil
+                       else            nil
+                       end
         set_mouse vt200: true, cell_motion: true, all_motion: true, sgr: true,
-          pixels: (pixels ? true : nil), send_focus: (focus ? true : nil)
-        @mouse_cell_pixels = pixels
-        @mouse_focus_enabled = focus
+          pixels: pixels_toggle, send_focus: focus_toggle
+        case pixels
+        when Tuple then @mouse_cell_pixels = pixels
+        when false then @mouse_cell_pixels = nil
+        end
+        @mouse_focus_enabled = focus unless focus.nil?
         @mouse_enabled = true
       end
 

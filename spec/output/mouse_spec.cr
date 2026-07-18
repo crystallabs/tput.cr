@@ -24,9 +24,39 @@ describe Tput::Output::Mouse do
     end
 
     it "disables 1016 and clears the cached cell size" do
+      # 1004 is reset too: the focus enable two tests up survives the
+      # pixels-only re-assert (focus/pixels are three-state; `nil` preserves),
+      # so teardown must turn it off.
       x.t.disable_mouse
-      x.o.should eq "\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1016l"
+      x.o.should eq "\e[?1000l\e[?1002l\e[?1003l\e[?1004l\e[?1006l\e[?1016l"
       x.t.mouse_cell_pixels.should be_nil
+      x.t.mouse_focus_enabled?.should be_false
+    end
+
+    it "a re-assert with nil pixels/focus preserves both modes" do
+      x.t.enable_mouse(focus: true, pixels: {8, 16})
+      x.o
+      x.t.enable_mouse
+      x.o.should eq "\e[?1000h\e[?1002h\e[?1003h\e[?1006h"
+      x.t.mouse_cell_pixels.should eq({8, 16})
+      x.t.mouse_focus_enabled?.should be_true
+      x.t.disable_mouse
+      x.o
+    end
+
+    it "explicit false downgrades pixels/focus only when active" do
+      x.t.enable_mouse(focus: true, pixels: {8, 16})
+      x.o
+      x.t.enable_mouse(focus: false, pixels: false)
+      x.o.should eq "\e[?1000h\e[?1002h\e[?1003h\e[?1004l\e[?1006h\e[?1016l"
+      x.t.mouse_cell_pixels.should be_nil
+      x.t.mouse_focus_enabled?.should be_false
+
+      # Inactive modes: false must not emit stray DECRSTs.
+      x.t.enable_mouse(focus: false, pixels: false)
+      x.o.should eq "\e[?1000h\e[?1002h\e[?1003h\e[?1006h"
+      x.t.disable_mouse
+      x.o
     end
   end
 

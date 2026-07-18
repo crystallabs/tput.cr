@@ -11,10 +11,17 @@ class Tput
       # `param` times; `CSI <param> <final>` is both the ANSI fast path and the
       # fallback. (`Int#times` returns nil, so the repeat branch yields explicit
       # `true` — otherwise the chain falls through and double-emits the CSI.)
+      #
+      # A zero `param` — a requested zero delta, or a nonzero one that the
+      # `_adjust_xy_rel` clamp reduced to zero — emits nothing: ECMA-48
+      # terminals treat an explicit `0` parameter as `1` (`\e[0A` moves one
+      # row), so emitting it would move a cursor that must not move.
       private macro _emit_parm_move(param, parm_cap, step_cap, final)
-        (!features.ansi_cursor? && (put(&.{{parm_cap}}?({{param}})) ||
-          (has?(&.{{step_cap}}?) && ({{param}}.times { put(&.{{step_cap}}) }; true)))) ||
-          _print { |io| io << "\e[" << {{param}} << {{final}} }
+        if {{param}} != 0
+          (!features.ansi_cursor? && (put(&.{{parm_cap}}?({{param}})) ||
+            (has?(&.{{step_cap}}?) && ({{param}}.times { put(&.{{step_cap}}) }; true)))) ||
+            _print { |io| io << "\e[" << {{param}} << {{final}} }
+        end
       end
 
       # Positioning

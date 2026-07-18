@@ -194,6 +194,121 @@ class Tput
       end
     end
 
+    # Re-encodes this event as the **legacy byte sequence** a terminal with no
+    # enhanced protocol active would have sent — what a child process that
+    # never negotiated kitty/`modifyOtherKeys` expects on its tty: Ctrl+C →
+    # `0x03`, Esc → `"\e"`, Alt+x → `"\ex"`, nav/function keys → their legacy
+    # CSI/SS3 forms, plain text → the character itself. Used by embedded
+    # terminals to forward host keystrokes to a legacy-mode child.
+    #
+    # Returns `nil` when a legacy terminal would have sent nothing: releases,
+    # lone modifier presses, and functional keys with no legacy encoding
+    # (kitty Private-Use-Area codes such as media/keypad keys).
+    def to_legacy_bytes : String?
+      return nil unless press? || repeat?
+      return nil if modifier_key?
+
+      case final
+      when 'u'                          then u_legacy_bytes
+      when 'A', 'B', 'C', 'D', 'H', 'F' then csi_letter_legacy_bytes
+      when '~'                          then tilde_legacy_bytes
+      when 'P', 'Q', 'R', 'S'           then ss3_fn_legacy_bytes
+      else                                   nil
+      end
+    end
+
+    # Modifiers relevant to a legacy encoding: legacy terminals never encode
+    # the ambient lock state, so CapsLock/NumLock are dropped (same stripping
+    # as `Modifiers#pick_nav`).
+    private def effective_mods : Modifiers
+      mods & ~(Modifiers::CapsLock | Modifiers::NumLock)
+    end
+
+    # The xterm on-the-wire modifier parameter (`1 + bitmask`) for the
+    # effective (lock-stripped) modifiers. `1` means unmodified.
+    private def legacy_modval : Int32
+      1 + effective_mods.value
+    end
+
+    # Cursor/Home/End (`A`-`D`, `H`, `F` finals): `\e[A` unmodified, xterm
+    # modified form `\e[1;<mod>A` otherwise.
+    private def csi_letter_legacy_bytes : String
+      m = legacy_modval
+      m == 1 ? "\e[#{final}" : "\e[1;#{m}#{final}"
+    end
+
+    # Nav/function tilde keys (`\e[5~` PageUp, `\e[15~` F5, …). `number` is the
+    # tilde parameter itself (the `~`-final `KeyEvent` shape; the
+    # modifyOtherKeys format-0 `CSI 27;…~` shape was normalized to a `u` final
+    # by `from_csi` and never reaches here).
+    private def tilde_legacy_bytes : String
+      m = legacy_modval
+      m == 1 ? "\e[#{number}~" : "\e[#{number};#{m}~"
+    end
+
+    # F1-F4 (`P`-`S` finals): unmodified legacy form is SS3 (`\eOP`), the
+    # modified form is CSI (`\e[1;<mod>P`) — matching xterm.
+    private def ss3_fn_legacy_bytes : String
+      m = legacy_modval
+      m == 1 ? "\eO#{final}" : "\e[1;#{m}#{final}"
+    end
+
+    # Legacy bytes for a `u`-final (kitty / modifyOtherKeys) event, where
+    # `number` is a Unicode codepoint or kitty functional code.
+    private def u_legacy_bytes : String?
+      eff = effective_mods
+      # Alt/Meta prefix the base encoding with ESC (xterm meta-sends-escape).
+      prefix = (eff.alt? || eff.meta?) ? "\e" : ""
+
+      # C0-coded keys kitty reports by their legacy codepoint.
+      case number
+      when  27 then return prefix + "\e"
+      when  13 then return prefix + "\r"
+      when   9 then return eff.shift? ? "\e[Z" : prefix + "\t"
+      when 127 then return prefix + (eff.ctrl? ? "\b" : "\x7f")
+      end
+
+      # Remaining C0 numbers and kitty functional codes (Private Use Area:
+      # media keys, keypad, lone locks, F13+…) have no legacy encoding.
+      return nil if number < 0x20 || (0xE000 <= number <= 0xF8FF)
+
+      if eff.ctrl?
+        if code = ctrl_code(number)
+          return prefix + code.chr
+        end
+        # No control-char mapping (e.g. Ctrl+1): legacy terminals send the
+        # plain character — fall through.
+      end
+
+      # Text keys. Prefer the terminal-supplied associated text (layout,
+      # caps lock and dead keys correct); else the shifted codepoint when
+      # Shift is held and reported; else the key's own codepoint.
+      if (t = text) && !t.empty? && !eff.ctrl?
+        return prefix + t
+      end
+      cp = (eff.shift? ? shifted : nil) || number
+      ch = cp.chr rescue return nil
+      prefix + ch
+    end
+
+    # The C0 control byte a legacy terminal sends for Ctrl+<codepoint>, or
+    # `nil` when the combination has no control-char form (in which case
+    # xterm sends the plain character).
+    private def ctrl_code(cp : Int32) : Int32?
+      case cp
+      when 'a'.ord..'z'.ord then cp - 'a'.ord + 1
+      when 'A'.ord..'Z'.ord then cp - 'A'.ord + 1
+      when ' '.ord, '@'.ord then 0
+      when '['.ord          then 27
+      when '\\'.ord         then 28
+      when ']'.ord          then 29
+      when '^'.ord          then 30
+      when '_'.ord, '/'.ord then 31
+      when '?'.ord          then 127
+      else                       nil
+      end
+    end
+
     # Picks the legacy enum member for a cursor/nav key given the held modifier.
     # Only single shift/alt/ctrl map to distinct members; anything else (a
     # combination, or super/meta) falls back to the unmodified key.
