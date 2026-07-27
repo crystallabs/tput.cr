@@ -3,7 +3,6 @@ class Tput
     module Screen
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       def clear
         @cursor.x = 0

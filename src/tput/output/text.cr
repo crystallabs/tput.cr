@@ -4,7 +4,6 @@ class Tput
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
       include Crystallabs::Helpers::Logging
-      include Macros
 
       # ICH/DCH/ECH share one emit shape: try the parametric edit cap unless the
       # terminal is verified standard-ANSI, else emit the literal `CSI <param>

@@ -1,5 +1,4 @@
 require "log"
-Log.setup_from_env backend: Log::IOBackend.new STDERR
 
 require "term-screen"
 
@@ -12,8 +11,8 @@ require "crystallabs-helpers"
 require "./tput/config"
 
 require "./tput/ext"
-require "./tput/macros"
 require "./tput/namespace"
+require "./tput/unicode"
 require "./tput/keys"
 require "./tput/key_event"
 require "./tput/mouse"

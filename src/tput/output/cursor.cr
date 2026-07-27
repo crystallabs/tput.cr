@@ -3,7 +3,6 @@ class Tput
     module Cursor
       include Crystallabs::Helpers::Alias_Methods
       include Crystallabs::Helpers::Boolean
-      include Macros
 
       # CUU/CUD/CUF/CUB share one emit shape, differing only in capability and
       # final CSI byte: if not verified standard-ANSI, prefer the parametric cap

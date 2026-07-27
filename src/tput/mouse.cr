@@ -49,6 +49,67 @@ class Tput
       Unknown
     end
 
+    # One of the on-the-wire report encodings, for *generating* reports with
+    # `Mouse.encode` — the inverse of the parsers in `Tput::Input`. A terminal
+    # emulator hosting a child application selects one of these via DECSET
+    # 1005/1006/1015 and must re-encode normalized events back into it.
+    enum Encoding
+      Normal # X10 legacy: `\e[M Cb Cx Cy`, each byte value + 32
+      Utf8   # mode 1005; generated as `Normal` (best-effort)
+      Sgr    # mode 1006: `\e[< Cb ; Cx ; Cy M|m`
+      Urxvt  # mode 1015: `\e[ Cb+32 ; Cx ; Cy M`
+    end
+
+    # Writes the xterm mouse report for one normalized event into *io*, in
+    # *encoding*. *x1*/*y1* are **1-based** on-the-wire coordinates (callers
+    # holding 0-based cells pass `x + 1`/`y + 1`). Raw bytes are written for
+    # the legacy encoding: packed values may exceed 0x7F, which a UTF-8
+    # `String` round-trip would corrupt — so give this a binary-safe *io*
+    # (e.g. `IO::Memory`) and forward its bytes.
+    def self.encode(io : IO, encoding : Encoding, action : Action, button : Button,
+                    x1 : Int32, y1 : Int32, *, shift : Bool = false,
+                    meta : Bool = false, ctrl : Bool = false) : Nil
+      cb = report_cb(action, button, encoding.sgr?, shift: shift, meta: meta, ctrl: ctrl)
+      released = action.up?
+      case encoding
+      in .sgr?
+        io << "\e[<" << cb << ';' << x1 << ';' << y1 << (released ? 'm' : 'M')
+      in .urxvt?
+        io << "\e[" << (cb + 32) << ';' << x1 << ';' << y1 << 'M'
+      in .normal?, .utf8? # utf8 generated as normal, best-effort
+        io << "\e[M"
+        io.write_byte (cb + 32).clamp(0, 255).to_u8
+        io.write_byte (x1 + 32).clamp(0, 255).to_u8
+        io.write_byte (y1 + 32).clamp(0, 255).to_u8
+      end
+    end
+
+    # Reconstructs the xterm "Cb" button byte for a report. In SGR the button
+    # is preserved on release (the trailing `m` signals the release); the
+    # legacy encodings use the generic "button 3" release code.
+    def self.report_cb(action : Action, button : Button, sgr : Bool, *,
+                       shift : Bool = false, meta : Bool = false, ctrl : Bool = false) : Int32
+      bits = case button
+             when Button::Left   then 0
+             when Button::Middle then 1
+             when Button::Right  then 2
+             else                     3
+             end
+
+      cb = case action
+           when Action::WheelUp   then 64
+           when Action::WheelDown then 65
+           when Action::Move      then 32 + bits
+           when Action::Up        then sgr ? bits : 3
+           else                        bits # Down
+           end
+
+      cb += 4 if shift
+      cb += 8 if meta
+      cb += 16 if ctrl
+      cb
+    end
+
     # A single, normalized mouse event.
     #
     # `x`/`y` are **0-based** screen coordinates (column, row); the on-the-wire

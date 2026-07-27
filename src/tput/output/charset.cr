@@ -3,7 +3,6 @@ class Tput
     module Charset
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       alias C = Tput::Namespace::Charset
 

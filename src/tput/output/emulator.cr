@@ -3,7 +3,6 @@ class Tput
     module Emulator
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       # Sets terminal emulator's title.
       #

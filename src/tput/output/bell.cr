@@ -3,7 +3,6 @@ class Tput
     module Bell
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       # Ring the bell.
       #

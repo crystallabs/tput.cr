@@ -3,7 +3,6 @@ class Tput
     module Rectangles
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       # CSI Pt; Pl; Pb; Pr; Ps$ r
       #   Change Attributes in Rectangular Area (DECCARA), VT400 and up.

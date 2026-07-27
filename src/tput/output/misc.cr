@@ -3,7 +3,6 @@ class Tput
     module Misc
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       # Repeats string `str` `i` times.
       # TODO support io-based version of this

@@ -240,6 +240,24 @@ class Tput
       kitty? || wezterm? || ghostty? || iterm2?
     end
 
+    # Whether *env* alone identifies one of the `#modern_font?` terminals
+    # (kitty, WezTerm, Ghostty, iTerm2). The static counterpart for consumers
+    # that must answer from an env snapshot with no live tty/`Tput` — e.g. a
+    # headless layout pass choosing a glyph tier. The instance predicate is
+    # sharper: it also folds in the terminal *name* and XTVERSION probe
+    # refinement, so prefer it whenever a `Tput` exists.
+    def self.modern_font_env?(env = ENV) : Bool
+      return true if env.has_key?("KITTY_WINDOW_ID") ||
+                     env.has_key?("WEZTERM_PANE") ||
+                     env.has_key?("WEZTERM_EXECUTABLE") ||
+                     env.has_key?("GHOSTTY_RESOURCES_DIR") ||
+                     env.has_key?("ITERM_SESSION_ID")
+      program = env["TERM_PROGRAM"]?.try(&.downcase) || ""
+      return true if {"kitty", "wezterm", "ghostty", "iterm.app"}.includes?(program)
+      term = env["TERM"]?.try(&.downcase) || ""
+      term.includes?("kitty") || term.includes?("wezterm") || term.includes?("ghostty")
+    end
+
     # Resolves a legacy-computing capability *table* against this terminal:
     #
     # * terminal not listed (incl. unidentified) → `true` (optimistic default);

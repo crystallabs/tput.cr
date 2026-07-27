@@ -3,7 +3,6 @@ class Tput
     module Mouse
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       # CSI Pt ; Pl ; Pb ; Pr ' w
       #   Enable Filter Rectangle (DECEFR), VT420 and up.

@@ -3,7 +3,6 @@ class Tput
     module Colors
       include Crystallabs::Helpers::Alias_Methods
       # include Crystallabs::Helpers::Boolean
-      include Macros
 
       # Resets the terminal's dynamic colors back to their defaults.
       #
