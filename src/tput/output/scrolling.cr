@@ -2,6 +2,7 @@ class Tput
   module Output
     module Scrolling
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # Moves the cursor one line down without changing column position, scrolling if needed.

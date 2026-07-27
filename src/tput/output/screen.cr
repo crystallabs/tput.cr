@@ -2,6 +2,7 @@ class Tput
   module Output
     module Screen
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       def clear

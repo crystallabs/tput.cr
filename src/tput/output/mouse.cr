@@ -2,6 +2,7 @@ class Tput
   module Output
     module Mouse
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # CSI Pt ; Pl ; Pb ; Pr ' w

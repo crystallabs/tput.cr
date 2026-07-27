@@ -2,6 +2,7 @@ class Tput
   module Output
     module Colors
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # Resets the terminal's dynamic colors back to their defaults.

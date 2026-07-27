@@ -2,6 +2,7 @@ class Tput
   module Output
     module Bell
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # Ring the bell.

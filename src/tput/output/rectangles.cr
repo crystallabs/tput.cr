@@ -2,6 +2,7 @@ class Tput
   module Output
     module Rectangles
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # CSI Pt; Pl; Pb; Pr; Ps$ r

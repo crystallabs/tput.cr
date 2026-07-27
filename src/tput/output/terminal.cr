@@ -2,6 +2,7 @@ class Tput
   module Output
     module Terminal
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # ESC c Full Reset (RIS).

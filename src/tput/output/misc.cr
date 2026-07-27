@@ -2,6 +2,7 @@ class Tput
   module Output
     module Misc
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # Repeats string `str` `i` times.

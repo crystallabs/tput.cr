@@ -2,6 +2,7 @@ class Tput
   module Output
     module Emulator
       include Crystallabs::Helpers::Alias_Methods
+
       # include Crystallabs::Helpers::Boolean
 
       # Sets terminal emulator's title.
