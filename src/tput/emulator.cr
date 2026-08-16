@@ -215,6 +215,14 @@ class Tput
       "Apple Terminal" => nil,
       # kitty draws octants natively since 0.40.0 (older builds show tofu).
       "kitty" => "0.40.0",
+      # Ghostty's built-in glyph renderer gained the Unicode 16 supplement
+      # (octants) in 1.1.0; 1.0.x draws sextants but not octants.
+      "Ghostty" => "1.1.0",
+      # WezTerm's last stable release (20240203) predates Unicode 16; flip to
+      # a minimum version once a release ships the supplement.
+      "WezTerm" => nil,
+      # foot draws octants natively since 1.19.0.
+      "foot" => "1.19.0",
     }
 
     # Whether the terminal reliably renders legacy-computing sextants (U+1FB00…).
