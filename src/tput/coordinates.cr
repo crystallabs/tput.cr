@@ -5,7 +5,7 @@ class Tput
 
     # Gets terminal/screen size as number of columns and rows.
     def get_screen_size
-      r, c = ENV["TPUT_SCREEN_SIZE"]?.try { |s|
+      r, c = ENV["TPUT_SCREEN_SIZE"]?.try do |s|
         # Requires well-formed "<rows>x<cols>" with both dimensions positive;
         # malformed input falls through to real detection. `0` is truthy in
         # Crystal, so the explicit `> 0` check is needed to avoid a degenerate
@@ -14,7 +14,7 @@ class Tput
         if nums.size == 2 && (rr = nums[0]) && (cc = nums[1]) && rr > 0 && cc > 0
           {rr, cc}
         end
-      } ||
+      end ||
              # Query this terminal's own output fd, so multiple `Tput`s on
              # different terminals each get their real dimensions (unlike
              # `Term::Screen.size`, which probes STDIN/STDOUT/STDERR).

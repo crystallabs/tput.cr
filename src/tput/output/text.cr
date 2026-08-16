@@ -9,7 +9,7 @@ class Tput
       # terminal is verified standard-ANSI, else emit the literal `CSI <param>
       # <final>` directly. They differ only in their cap and final CSI byte.
       private macro _emit_char_edit(param, cap, final)
-        (!features.ansi_edit? && put(&.{{cap}}?({{param}}))) || _print { |io| io << "\e[" << {{param}} << {{final}} }
+        (!features.ansi_edit? && put(&.{{ cap }}?({{ param }}))) || _print { |io| io << "\e[" << {{ param }} << {{ final }} }
       end
 
       # # Prints text with optional attributes
@@ -277,7 +277,6 @@ class Tput
 
       private def _compute_attr(param : Array | String, val = true)
         parts = [] of String
-        color = nil
         m = nil
         multi = false
 

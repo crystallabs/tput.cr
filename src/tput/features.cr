@@ -597,7 +597,7 @@ class Tput
     # firmware/version field. `nil` when not probed/answered.
     def da2_decoded : String?
       params = @da2_params
-      return nil if params.nil? || params.empty?
+      return if params.nil? || params.empty?
       type = DA2_TYPE[params[0]]? || "type #{params[0]}"
       ver = params[1]?
       ver ? "#{type}, firmware/version #{ver}" : type

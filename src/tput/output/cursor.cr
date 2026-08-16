@@ -16,10 +16,10 @@ class Tput
       # terminals treat an explicit `0` parameter as `1` (`\e[0A` moves one
       # row), so emitting it would move a cursor that must not move.
       private macro _emit_parm_move(param, parm_cap, step_cap, final)
-        if {{param}} != 0
-          (!features.ansi_cursor? && (put(&.{{parm_cap}}?({{param}})) ||
-            (has?(&.{{step_cap}}?) && ({{param}}.times { put(&.{{step_cap}}) }; true)))) ||
-            _print { |io| io << "\e[" << {{param}} << {{final}} }
+        if {{ param }} != 0
+          (!features.ansi_cursor? && (put(&.{{ parm_cap }}?({{ param }})) ||
+            (has?(&.{{ step_cap }}?) && ({{ param }}.times { put(&.{{ step_cap }}) }; true)))) ||
+            _print { |io| io << "\e[" << {{ param }} << {{ final }} }
         end
       end
 

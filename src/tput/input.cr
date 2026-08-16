@@ -206,11 +206,9 @@ class Tput
 
     def next_char(timeout : Bool = false, &)
       c = with_read_timeout(timeout) do
-        begin
-          @input.read_char
-        rescue IO::TimeoutError
-          nil
-        end
+        @input.read_char
+      rescue IO::TimeoutError
+        nil
       end
 
       if c
@@ -225,11 +223,9 @@ class Tput
     # exceed `0x7F` and would be corrupted by `read_char`.
     private def next_byte(timeout : Bool = false) : Int32?
       b = with_read_timeout(timeout) do
-        begin
-          @input.read_byte
-        rescue IO::TimeoutError
-          nil
-        end
+        @input.read_byte
+      rescue IO::TimeoutError
+        nil
       end
 
       b.try &.to_i
@@ -359,7 +355,7 @@ class Tput
     # leading parameter is not the resize marker `48`.
     private def parse_resize(sequence : Array(Char)) : Resize?
       nums = csi_param_ints sequence
-      return nil unless nums[0]? == 48
+      return unless nums[0]? == 48
       Resize.new (nums[1]? || 0), (nums[2]? || 0), (nums[3]? || 0), (nums[4]? || 0)
     end
 
@@ -394,11 +390,10 @@ class Tput
     # a `ColorScheme` (`Ps` 1 = dark, 2 = light); `nil` if unrecognized.
     private def parse_color_scheme(sequence : Array(Char)) : ColorScheme?
       nums = csi_param_ints sequence
-      return nil unless nums[0]? == 997
+      return unless nums[0]? == 997
       case nums[1]?
       when 1 then ColorScheme::Dark
       when 2 then ColorScheme::Light
-      else        nil
       end
     end
 
@@ -422,8 +417,8 @@ class Tput
         end
       end
       data = body.to_s
-      return nil unless data.starts_with? "52;"
-      b64 = data.split(';')[2]? || return nil
+      return unless data.starts_with? "52;"
+      b64 = data.split(';')[2]? || return
       Base64.decode_string b64
     rescue
       nil
@@ -466,7 +461,7 @@ class Tput
     # empty fields become `nil`. `KeyEvent.from_csi` interprets the groups
     # according to the final byte.
     private def parse_key_event(sequence : Array(Char)) : KeyEvent?
-      return nil if sequence.size < 3
+      return if sequence.size < 3
       final = sequence.last
 
       # `KeyEvent.from_csi` only consults the first three sub-parameters of
@@ -541,7 +536,7 @@ class Tput
         cb = next_byte true
         cx = next_byte true
         cy = next_byte true
-        return nil unless cb && cx && cy
+        return unless cb && cx && cy
         sequence << cb.chr << cx.chr << cy.chr
         Mouse.parse_x10 cb, cx, cy
       when 'I' then Mouse::Event.focus
@@ -555,7 +550,6 @@ class Tput
         else
           read_urxvt sequence
         end
-      else nil
       end
     end
 
@@ -583,7 +577,7 @@ class Tput
           idx += 1; cur = 0
         when 'M', 'm'
           p2 = cur if idx == 2
-          return nil unless idx >= 2 # Cb ; Cx ; Cy
+          return unless idx >= 2 # Cb ; Cx ; Cy
           # `\e[<…M/m` is byte-identical for SGR (1006, cells) and SGR-Pixels
           # (1016, pixels); only the active mode tells them apart. When pixel
           # mode is on (`@mouse_cell_pixels` set), decode the params as pixels
@@ -593,7 +587,7 @@ class Tput
           end
           return Mouse.parse_sgr p0, p1, p2, c
         else
-          return nil
+          return
         end
       end
       nil
@@ -635,7 +629,7 @@ class Tput
     # least four parameters.
     private def read_dec(sequence) : Mouse::Event?
       params, idx = scan_csi_mouse_params sequence, "&"
-      return nil unless idx >= 4 # Pe ; Pb ; Pr ; Pc (the `&` closes the last -> idx >= 4)
+      return unless idx >= 4 # Pe ; Pb ; Pr ; Pc (the `&` closes the last -> idx >= 4)
       # event = Pe, column = Pc, row = Pr, page = Pp (default 1 when omitted).
       Mouse.parse_dec params[0], params[3], params[2], (idx >= 5 ? params[4] : 1)
     end
@@ -644,7 +638,7 @@ class Tput
     # *sequence*. Terminates on the `M`/`m` final and requires three parameters.
     private def read_urxvt(sequence) : Mouse::Event?
       params, idx = scan_csi_mouse_params sequence, "Mm"
-      return nil unless idx >= 3 # Cb ; Cx ; Cy
+      return unless idx >= 3 # Cb ; Cx ; Cy
       Mouse.parse_urxvt params[0], params[1], params[2]
     end
   end

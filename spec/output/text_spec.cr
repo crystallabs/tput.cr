@@ -276,12 +276,12 @@ describe Tput::Output::Text do
   describe "insert_line" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[1]}" do
-        expect_raises(ArgumentError) {
+        expect_raises(ArgumentError) do
           t[0].insert_line 0
-        }
-        expect_raises(ArgumentError) {
+        end
+        expect_raises(ArgumentError) do
           t[0].il -1
-        }
+        end
       end
     end
     it "works with terminfo" do
@@ -311,12 +311,12 @@ describe Tput::Output::Text do
   describe "delete_line" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "works with #{t[1]}" do
-        expect_raises(ArgumentError) {
+        expect_raises(ArgumentError) do
           t[0].delete_line 0
-        }
-        expect_raises(ArgumentError) {
+        end
+        expect_raises(ArgumentError) do
           t[0].dl -1
-        }
+        end
       end
     end
     it "works with terminfo" do

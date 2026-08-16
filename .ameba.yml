@@ -38,6 +38,17 @@ Metrics/CyclomaticComplexity:
 
 # --- Accepted with a guardrail kept active --------------------------------
 
+# The enums in these files carry intentional same-value aliases: color-name
+# synonyms (`Aquamarine1` = `Aquamarine`, ANSI vs. web names), cursor-shape
+# synonyms (`Block`/`Box`, `Underline`/`Underscore`/`HLine`/`HBar`), charset
+# synonyms (`ACS`/`SCLD`, `US`/`ASCII`) and key aliases (`Tab`/`CtrlI`,
+# `Enter`/`CtrlM`). Keep the rule active elsewhere to catch accidental
+# duplicates.
+Lint/DuplicateEnumValue:
+  Excluded:
+    - src/tput/namespace.cr
+    - src/tput/keys.cr
+
 # `not_nil!` is used in spec assertions where a nil result should fail the test
 # loudly anyway. Keep the rule active for src/.
 Lint/NotNil:

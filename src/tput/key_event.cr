@@ -120,8 +120,8 @@ class Tput
     end
 
     {% for m in %w[shift alt ctrl super hyper meta] %}
-      def {{m.id}}? : Bool
-        mods.{{m.id}}?
+      def {{ m.id }}? : Bool
+        mods.{{ m.id }}?
       end
     {% end %}
 
@@ -148,19 +148,19 @@ class Tput
     # lock, dead keys); else the shifted codepoint when Shift is held and
     # reported (`Shift+a` → `A`), else the base codepoint.
     def char : Char?
-      return nil unless press? || repeat?
+      return unless press? || repeat?
       if t = text
         return t[0]?
       end
-      return nil unless final == 'u'
+      return unless final == 'u'
       # Don't surface a character when ctrl/alt/super/meta is held — those are
       # control combinations, represented through `to_legacy_key`/`mods`.
-      return nil if ctrl? || alt? || super? || meta? || hyper?
+      return if ctrl? || alt? || super? || meta? || hyper?
       cp = (shift? ? shifted : nil) || number
       # kitty functional key codes (arrows, F-keys, modifiers, …) occupy the
       # Unicode Private Use Area U+E000..U+F8FF; not text. Codepoints above that
       # range (emoji, supplementary-plane chars) are real text and pass through.
-      return nil if cp < 0x20 || (0xE000 <= cp <= 0xF8FF)
+      return if cp < 0x20 || (0xE000 <= cp <= 0xF8FF)
       cp.chr rescue nil
     end
 
@@ -172,7 +172,7 @@ class Tput
     # Releases return `nil` deliberately, so a legacy consumer never mistakes a
     # release for a press. Auto-repeats do project.
     def to_legacy_key : Key?
-      return nil unless press? || repeat?
+      return unless press? || repeat?
 
       case final
       when 'A', 'B', 'C', 'D', 'H', 'F'
@@ -190,7 +190,6 @@ class Tput
       when 'Q' then Key::F2
       when 'R' then Key::F3
       when 'S' then Key::F4
-      else          nil
       end
     end
 
@@ -205,15 +204,14 @@ class Tput
     # lone modifier presses, and functional keys with no legacy encoding
     # (kitty Private-Use-Area codes such as media/keypad keys).
     def to_legacy_bytes : String?
-      return nil unless press? || repeat?
-      return nil if modifier_key?
+      return unless press? || repeat?
+      return if modifier_key?
 
       case final
       when 'u'                          then u_legacy_bytes
       when 'A', 'B', 'C', 'D', 'H', 'F' then csi_letter_legacy_bytes
       when '~'                          then tilde_legacy_bytes
       when 'P', 'Q', 'R', 'S'           then ss3_fn_legacy_bytes
-      else                                   nil
       end
     end
 
@@ -270,7 +268,7 @@ class Tput
 
       # Remaining C0 numbers and kitty functional codes (Private Use Area:
       # media keys, keypad, lone locks, F13+…) have no legacy encoding.
-      return nil if number < 0x20 || (0xE000 <= number <= 0xF8FF)
+      return if number < 0x20 || (0xE000 <= number <= 0xF8FF)
 
       if eff.ctrl?
         if code = ctrl_code(number)
@@ -287,7 +285,7 @@ class Tput
         return prefix + t
       end
       cp = (eff.shift? ? shifted : nil) || number
-      ch = cp.chr rescue return nil
+      ch = cp.chr rescue return
       prefix + ch
     end
 
@@ -305,7 +303,6 @@ class Tput
       when '^'.ord          then 30
       when '_'.ord, '/'.ord then 31
       when '?'.ord          then 127
-      else                       nil
       end
     end
 
@@ -338,7 +335,6 @@ class Tput
       when 127              then Key::Backspace
       when 'a'.ord..'z'.ord then ctrl_alt_letter number
       when 'A'.ord..'Z'.ord then ctrl_alt_letter number - 'A'.ord + 'a'.ord
-      else                       nil
       end
     end
 
@@ -351,8 +347,6 @@ class Tput
         Key.from_value?(lower - 'a'.ord + 1) # CtrlA..CtrlZ
       elsif alt?
         Key.from_value?(Key::AltA.value + (lower - 'a'.ord))
-      else
-        nil
       end
     end
 
@@ -384,9 +378,9 @@ class Tput
     end
 
     private def self.decode_text(group : Array(Int32?)?) : String?
-      return nil unless group
+      return unless group
       cps = group.compact
-      return nil if cps.empty?
+      return if cps.empty?
       String.build { |io| cps.each { |cp| io << cp.chr } }
     rescue
       nil

@@ -275,11 +275,11 @@ class Tput
   # put &.cursor_pos?(10, 20)
   # ```
   def put(&)
-    @shim.try { |s|
-      yield(s).try { |data|
+    @shim.try do |s|
+      yield(s).try do |data|
         _put_write data
-      }
-    }
+      end
+    end
   end
 
   # Writes capability output, honoring the terminal's padding feature: routes
@@ -307,13 +307,13 @@ class Tput
   # put_extended "Cs", "white" # set cursor color
   # ```
   def put_extended(name : String, *args)
-    @terminfo.try { |ti|
-      ti.extensions.get_str?(name).try { |cap|
+    @terminfo.try do |ti|
+      ti.extensions.get_str?(name).try do |cap|
         data = ti.run(cap, *args)
         _put_write data
         true
-      }
-    }
+      end
+    end
   end
 
   # Suspends the program's use of the terminal: saves the cursor, leaves the

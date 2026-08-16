@@ -201,8 +201,8 @@ class Tput
 
     # Parses a CPR reply (`CSI row ; col R`) into a 0-based `Point`.
     def read_cursor_response(io : IO, timeout : Time::Span) : Point?
-      ints = read_csi_ints(io, timeout, "R") || return nil
-      return nil unless ints.size >= 2
+      ints = read_csi_ints(io, timeout, "R") || return
+      return unless ints.size >= 2
       Point.new ints[1] - 1, ints[0] - 1
     end
 
@@ -225,7 +225,7 @@ class Tput
     # Returns `nil` on timeout/EOF.
     private def read_xtwinops_size(io : IO, timeout : Time::Span, *codes : Int32) : {Int32, Int32}?
       loop do
-        ints = read_csi_ints(io, timeout, "t") || return nil
+        ints = read_csi_ints(io, timeout, "t") || return
         return {ints[1], ints[2]} if ints.size >= 3 && codes.includes?(ints[0])
       end
     end
@@ -250,8 +250,8 @@ class Tput
 
     # :ditto:
     def read_pixel_size_response(io : IO, timeout : Time::Span, *codes : Int32) : {Int32, Int32}?
-      h, w = read_xtwinops_size(io, timeout, *codes) || return nil
-      return nil unless h > 0 && w > 0
+      h, w = read_xtwinops_size(io, timeout, *codes) || return
+      return unless h > 0 && w > 0
       {h, w}
     end
 
@@ -263,26 +263,26 @@ class Tput
     # Parses a DECRQLP locator-position reply (`CSI … & w`). The `&`
     # intermediate is stripped before the parameters are parsed.
     def read_locator_position_response(io : IO, timeout : Time::Span) : Array(Int32)?
-      reply = read_csi_reply(io, timeout, "w") || return nil
+      reply = read_csi_reply(io, timeout, "w") || return
       probe_ints reply[0].delete('&')
     end
 
     # Parses an OSC text-parameter reply (`OSC param ; Pt`) and returns `Pt`.
     def read_text_params_response(io : IO, timeout : Time::Span, param : Int32) : String?
-      data = read_osc_reply(io, timeout, "#{param};") || return nil
+      data = read_osc_reply(io, timeout, "#{param};") || return
       data.split(';', 2)[1]?
     end
 
     # Parses an OSC 12 cursor-color reply into an `RGB`.
     def read_cursor_color_response(io : IO, timeout : Time::Span) : RGB?
-      pt = read_text_params_response(io, timeout, 12) || return nil
+      pt = read_text_params_response(io, timeout, 12) || return
       parse_rgb pt
     end
 
     # Parses an XTVERSION reply (`DCS > | <name> ST`) and returns `<name>`.
     def read_xtversion_response(io : IO, timeout : Time::Span) : String?
       loop do
-        payload = read_dcs_reply(io, timeout) || return nil
+        payload = read_dcs_reply(io, timeout) || return
         return payload[2..] if payload.starts_with? ">|"
       end
     end
@@ -290,8 +290,8 @@ class Tput
     # Parses an OSC 52 clipboard reply (`OSC 52 ; <selection> ; <base64> ST`)
     # and returns the decoded text.
     def read_clipboard_response(io : IO, timeout : Time::Span) : String?
-      data = read_osc_reply(io, timeout, "52;") || return nil
-      b64 = data.split(';')[2]? || return nil
+      data = read_osc_reply(io, timeout, "52;") || return
+      b64 = data.split(';')[2]? || return
       Base64.decode_string b64
     rescue
       nil
@@ -341,12 +341,11 @@ class Tput
 
     # Parses a color-scheme reply (`CSI ? 997 ; Ps n`) into a `ColorScheme`.
     def read_color_scheme_response(io : IO, timeout : Time::Span) : ColorScheme?
-      ints = read_csi_ints(io, timeout, "n") || return nil
-      return nil unless ints[0]? == 997
+      ints = read_csi_ints(io, timeout, "n") || return
+      return unless ints[0]? == 997
       case ints[1]?
       when 1 then ColorScheme::Dark
       when 2 then ColorScheme::Light
-      else        nil
       end
     end
 
@@ -354,7 +353,7 @@ class Tput
     # is recognized (`Ps` 1–4), `false` if not (`Ps` 0), `nil` on a mismatched
     # or absent reply.
     def read_decrqm_response(io : IO, timeout : Time::Span, mode : Int32) : Bool?
-      reply = read_csi_reply(io, timeout, "y") || return nil
+      reply = read_csi_reply(io, timeout, "y") || return
       probe_decrqm_recognized? reply[0], mode
     end
 
@@ -365,7 +364,7 @@ class Tput
     # `nil` without writing anything if the terminal can't be queried (not a
     # tty, e.g. tests / piped).
     private def query(request : String, timeout : Time::Span, & : IO -> T) : T? forall T
-      return nil unless probe_capable?
+      return unless probe_capable?
 
       result = nil
       with_raw_input do
@@ -384,9 +383,9 @@ class Tput
     # first). Returns `nil` on timeout/EOF.
     private def read_reply(io : IO, timeout : Time::Span, intro : Char, & : -> T?) : T? forall T
       loop do
-        b = probe_read_byte(io, timeout) || return nil
+        b = probe_read_byte(io, timeout) || return
         next unless b == 0x1b_u8
-        nb = probe_read_byte(io, timeout) || return nil
+        nb = probe_read_byte(io, timeout) || return
         next unless nb == intro.ord
         if result = yield
           return result
@@ -408,7 +407,7 @@ class Tput
     # parameters as integers (the common shape for DSR/DA/window/DECREQTPARM
     # replies). Returns `nil` on timeout/EOF.
     private def read_csi_ints(io : IO, timeout : Time::Span, finals : String) : Array(Int32)?
-      reply = read_csi_reply(io, timeout, finals) || return nil
+      reply = read_csi_reply(io, timeout, finals) || return
       probe_ints reply[0]
     end
 

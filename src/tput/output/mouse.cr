@@ -168,16 +168,14 @@ class Tput
       #   * *pixels* `{w, h}` / *focus* `true` — enable the mode.
       #   * *pixels* `false` / *focus* `false` — turn the mode off, sending the
       #     DECRST only when it is actually active.
-      def enable_mouse(focus : Bool? = nil, pixels : Tuple(Int32, Int32) | Bool | Nil = nil)
+      def enable_mouse(focus : Bool? = nil, pixels : (Tuple(Int32, Int32) | Bool)? = nil)
         pixels_toggle = case pixels
                         when Tuple then true
                         when false then @mouse_cell_pixels ? false : nil
-                        else            nil
                         end
         focus_toggle = case focus
                        when true  then true
                        when false then @mouse_focus_enabled ? false : nil
-                       else            nil
                        end
         set_mouse vt200: true, cell_motion: true, all_motion: true, sgr: true,
           pixels: pixels_toggle, send_focus: focus_toggle

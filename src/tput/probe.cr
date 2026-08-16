@@ -338,7 +338,7 @@ class Tput
     # `Response#read_decrqm_response`.
     private def probe_decrqm_recognized?(params : String, mode : Int32) : Bool?
       ints = params.tr("?$", "").split(';').map(&.to_i?)
-      return nil unless ints[0]? == mode
+      return unless ints[0]? == mode
       ps = ints[1]?
       !!(ps && ps != 0)
     end
@@ -383,19 +383,19 @@ class Tput
     # Parses an `rgb:RR/GG/BB` spec (1-4 hex digits per channel) into an
     # `RGB`, scaling each channel down to 8 bits.
     private def parse_rgb(spec : String) : RGB?
-      return nil unless spec.starts_with? "rgb:"
+      return unless spec.starts_with? "rgb:"
       comps = spec[4..].split('/')
-      return nil unless comps.size == 3
+      return unless comps.size == 3
 
       vals = comps.map do |c|
         v = c.to_i?(16)
-        return nil unless v
+        return unless v
         case c.size
         when 1 then (v * 0xff // 0xf).to_u8
         when 2 then v.to_u8
         when 3 then ((v * 0xff + 0x7ff) // 0xfff).to_u8
         when 4 then ((v * 0xff + 0x7fff) // 0xffff).to_u8
-        else        return nil
+        else        return
         end
       end
 

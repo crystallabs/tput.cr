@@ -232,8 +232,6 @@ class Tput
         when  99 then Key::CtrlRight
         when 100 then Key::CtrlLeft
         when 101 then Key::Clear
-        else
-          nil
         end
       when 91 # CSI: `\e[…` — cursor/function keys and mouse reports
         o = yield.try(&.ord) || -1
@@ -263,16 +261,12 @@ class Tput
           # Numeric CSI parameter list: navigation/function key (`\e[3~`,
           # `\e[1;5C`, …) or URxvt mouse report (`\e[ Cb ; Cx ; Cy M`).
           read_numeric_csi(o - 48) { yield }
-        else
-          nil
         end
       when 97..122
         # Alt+<letter>: ESC followed by `a`-`z`. `AltA`..`AltZ` are contiguous and
         # alphabetical, matching bytes 97..122 (same invariant `KeyEvent#u_key`
         # relies on).
         Key.from_value? Key::AltA.value + (o - 97)
-      else
-        nil
       end
     end
 
@@ -349,7 +343,7 @@ class Tput
           break
         end
       end
-      return nil unless final
+      return unless final
       # `& w`-terminated multi-parameter report is a DEC-locator event; hand to
       # `Input#read_mouse`, which re-parses via `Mouse.parse_dec`. Real
       # DEC-locator reports carry no `<` introducer, so this numeric path (not
@@ -379,7 +373,7 @@ class Tput
         else p0 = cur if p0.nil?; final = o; break
         end
       end
-      return nil unless final
+      return unless final
       return Key::ColorScheme if final == 'n'.ord && p0 == 997
       nil
     end
@@ -411,8 +405,6 @@ class Tput
       when 69 then Key::F5 # `\e[[E`
       when 48..57
         read_numeric_csi(o - 48) { yield } # `\e[[5~`/`\e[[6~`  (putty)
-      else
-        nil
       end
     end
 
@@ -452,8 +444,6 @@ class Tput
       when 'Q'.ord then Key::F2 if p0 == 1
       when 'R'.ord then Key::F3 if p0 == 1
       when 'S'.ord then Key::F4 if p0 == 1
-      else
-        nil
       end
     end
 
@@ -484,7 +474,6 @@ class Tput
       when 4, 8 then {Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd}
       when 5    then {Key::PageUp, Key::ShiftPageUp, Key::AltPageUp, Key::CtrlPageUp}
       when 6    then {Key::PageDown, Key::ShiftPageDown, Key::AltPageDown, Key::CtrlPageDown}
-      else           nil
       end
     end
 
@@ -516,7 +505,6 @@ class Tput
       when 32 then Key::F18
       when 33 then Key::F19
       when 34 then Key::F20
-      else         nil
       end
     end
 
@@ -542,7 +530,6 @@ class Tput
       when 'D' then {Key::Left, Key::ShiftLeft, Key::AltLeft, Key::CtrlLeft}
       when 'H' then {Key::Home, Key::ShiftHome, Key::AltHome, Key::CtrlHome}
       when 'F' then {Key::End, Key::ShiftEnd, Key::AltEnd, Key::CtrlEnd}
-      else          nil
       end
     end
 
