@@ -1,3 +1,5 @@
+require "./spec_helper"
+
 # Process-lifecycle: pause/resume/restore_terminal. Uses fresh `Tput`s (not the
 # shared `Tput::Test` fixture) so the mutable paused/mouse/alt state doesn't
 # leak into other specs. `IO::Memory` isn't a tty, so the raw-mode toggling is a

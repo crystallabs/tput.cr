@@ -1,3 +1,5 @@
+require "./spec_helper"
+
 describe "Tput#dump / detections" do
   x = Tput::Test.new
 

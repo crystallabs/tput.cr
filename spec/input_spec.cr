@@ -1,3 +1,5 @@
+require "./spec_helper"
+
 # End-to-end input parsing: feeds canned bytes through `Tput::Input#listen`
 # (exercising `Tput::Key.read_control` + `read_mouse` + `Tput::Mouse`) and
 # collects the decoded events. `IO::Memory` is not a tty, so `with_raw_input`

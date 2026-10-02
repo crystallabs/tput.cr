@@ -1,3 +1,5 @@
+require "../spec_helper"
+
 describe Tput::Output::Bell do
   x = Tput::Test.new
 

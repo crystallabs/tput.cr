@@ -1,3 +1,5 @@
+require "../spec_helper"
+
 describe Tput::Output::Scrolling do
   x = Tput::Test.new
 

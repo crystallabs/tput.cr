@@ -1,3 +1,5 @@
+require "../spec_helper"
+
 describe "Padding" do
   x = Tput::Test.new
 

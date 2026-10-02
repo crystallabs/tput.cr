@@ -1,3 +1,5 @@
+require "./spec_helper"
+
 describe Tput::Response do
   x = Tput::Test.new
   t = x.p # parsing needs no terminfo

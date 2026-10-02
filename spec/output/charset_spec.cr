@@ -1,3 +1,5 @@
+require "../spec_helper"
+
 alias C = Tput::Namespace::Charset
 
 describe Tput::Output::Charset do

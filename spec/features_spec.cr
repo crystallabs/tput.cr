@@ -1,3 +1,5 @@
+require "./spec_helper"
+
 # Runs *block* with the given environment variables temporarily set (a `nil`
 # value deletes the var), restoring the previous environment afterwards.
 def with_env(vars : Hash(String, String?), &)
