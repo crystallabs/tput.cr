@@ -65,3 +65,12 @@ def with_env(vars : Hash(String, String?), &)
     saved.each { |k, v| v ? (ENV[k] = v) : ENV.delete(k) }
   end
 end
+
+# A plain (terminfo-less) Tput so env-based detection is isolated from terminfo.
+def plain_tput
+  Tput.new(
+    input: IO::Memory.new,
+    output: IO::Memory.new,
+    screen_size: Tput::DEFAULT_SCREEN_SIZE,
+    probe: false)
+end

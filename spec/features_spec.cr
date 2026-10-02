@@ -1,14 +1,5 @@
 require "./spec_helper"
 
-# A plain (terminfo-less) Tput so env-based detection is isolated from terminfo.
-def plain_tput
-  Tput.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    screen_size: Tput::DEFAULT_SCREEN_SIZE,
-    probe: false)
-end
-
 # Canned terminal input: an optional DECRQSS *dcs* reply followed by a DA1
 # terminator (so `probe_consume` stops).
 def truecolor_probe_io(dcs : String?)
