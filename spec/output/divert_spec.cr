@@ -1,7 +1,5 @@
 require "../spec_helper"
 
-require "../spec_helper"
-
 private def new_tput(output = IO::Memory.new)
   Tput.new input: IO::Memory.new(""), output: output,
     screen_size: Tput::DEFAULT_SCREEN_SIZE, probe: false

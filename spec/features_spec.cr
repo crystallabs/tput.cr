@@ -1,18 +1,5 @@
 require "./spec_helper"
 
-# Runs *block* with the given environment variables temporarily set (a `nil`
-# value deletes the var), restoring the previous environment afterwards.
-def with_env(vars : Hash(String, String?), &)
-  saved = {} of String => String?
-  vars.each_key { |k| saved[k] = ENV[k]? }
-  vars.each { |k, v| v ? (ENV[k] = v) : ENV.delete(k) }
-  begin
-    yield
-  ensure
-    saved.each { |k, v| v ? (ENV[k] = v) : ENV.delete(k) }
-  end
-end
-
 # A plain (terminfo-less) Tput so env-based detection is isolated from terminfo.
 def plain_tput
   Tput.new(

@@ -1,52 +1,5 @@
 require "./spec_helper"
 
-class Tput
-  class Test
-    ENV["TERM"] = "xterm-256color"
-
-    getter input = IO::Memory.new
-    getter output = IO::Memory.new
-
-    getter t : Tput
-    getter p : Tput
-
-    getter term : Unibilium
-
-    def initialize
-      @term = Unibilium.from_file "#{__DIR__}/../support/xterm-256color"
-
-      # tput with terminfo
-      @t = Tput.new \
-        terminfo: term,
-        input: @input,
-        output: @output,
-        screen_size: Tput::DEFAULT_SCREEN_SIZE
-
-      # tput plain
-      @p = Tput.new \
-        input: @input,
-        output: @output,
-        screen_size: Tput::DEFAULT_SCREEN_SIZE
-    end
-
-    def o
-      # Output is now batched in an internal buffer and only reaches `@output`
-      # on flush (the consumer flushes at frame boundaries). Drain both tput
-      # instances' buffers so this reflects what has actually reached the
-      # terminal; flush is a no-op for whichever instance has nothing buffered.
-      @t.flush
-      @p.flush
-      s = String.new @output.to_slice
-      @output.clear
-      s
-    end
-
-    def esc(*args)
-      "\e" + args.join
-    end
-  end
-end
-
 describe Tput do
   x = Tput::Test.new
 

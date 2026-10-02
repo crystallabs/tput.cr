@@ -1,7 +1,5 @@
 require "../spec_helper"
 
-require "../spec_helper"
-
 private def tmux_tput(output)
   Tput.new(input: IO::Memory.new(""), output: output,
     screen_size: Tput::DEFAULT_SCREEN_SIZE, probe: false).tap do |t|
