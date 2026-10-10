@@ -250,6 +250,26 @@ class Tput
       kitty? || wezterm? || ghostty? || iterm2? || osxterm?
     end
 
+    # Whether the terminal advances two columns for a character made emoji-
+    # presentation by the VS16 selector (`❤️`, `⚠️`, `🖼️`), as `Unicode#width`
+    # counts such a cluster. Measured by `Tput#probe!` when it ran
+    # (`Features#vs16_width`, a cursor-position round trip, so the answer is
+    # this terminal's in its current state); without a measurement, decided
+    # by identity: every self-rendering terminal measured widens — kitty,
+    # Ghostty, WezTerm, iTerm2 — and so does tmux, while Apple Terminal
+    # draws the color glyph but advances one column, as for the bare
+    # character, so the next cell lands over the glyph's right half. A drawer
+    # on such a terminal pads the cluster with a space to keep its cursor in
+    # step (Crysterm's `Window#draw`). Unidentified terminals are assumed to
+    # follow the majority.
+    def vs16_widens? : Bool
+      if w = @tput.features.vs16_width
+        w >= 2
+      else
+        !osxterm?
+      end
+    end
+
     # Whether *env* alone identifies one of the `#modern_font?` terminals
     # (kitty, WezTerm, Ghostty, iTerm2, Apple Terminal). The static counterpart for consumers
     # that must answer from an env snapshot with no live tty/`Tput` — e.g. a

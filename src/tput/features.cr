@@ -87,6 +87,13 @@ class Tput
     @[JSON::Field(ignore: true)]
     property ambiguous_width : Int32? = nil
 
+    # Rendered width (in cells) of a VS16 emoji-presentation cluster (`🖼️`),
+    # measured via DSR/CPR: 2 where the terminal honors the selector for
+    # width, as the width tables count it; 1 where it does not (Apple
+    # Terminal). `nil` if not probed. Consumed by `Emulator#vs16_widens?`.
+    @[JSON::Field(ignore: true)]
+    property vs16_width : Int32? = nil
+
     # Default foreground color reported via OSC 10.
     @[JSON::Field(ignore: true)]
     property default_foreground : RGB? = nil
@@ -168,7 +175,7 @@ class Tput
 
       # Baseline provenance for the probe-only fields; overwritten by
       # `Tput#probe!` if/when the terminal actually answers.
-      {"ambiguous_width", "default_foreground", "default_background",
+      {"ambiguous_width", "vs16_width", "default_foreground", "default_background",
        "palette", "da_params", "kitty_keyboard", "modify_other_keys",
        "da2_params", "terminal_version", "in_band_resize", "pixel_mouse"}.each do |k|
         @sources[k] = BASELINE_PROBE_SOURCE

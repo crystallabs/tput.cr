@@ -39,6 +39,7 @@ class Tput
     # Outcome of consuming the terminal's probe replies.
     record ProbeResult,
       ambiguous_width : Int32? = nil,
+      vs16_width : Int32? = nil,
       got_da : Bool = false
 
     # Whether probing is possible (both ends must be a real terminal).
@@ -76,6 +77,10 @@ class Tput
         features.ambiguous_width = w
         features.sources["ambiguous_width"] = "probed via DSR/CPR cursor-position measurement"
       end
+      if w = result.vs16_width
+        features.vs16_width = w
+        features.sources["vs16_width"] = "probed via DSR/CPR cursor-position measurement"
+      end
 
       # Harden the env/TERM-based emulator identity with the terminal's own
       # XTVERSION self-report (now stored on `features`).
@@ -93,7 +98,9 @@ class Tput
     # holding canned responses, without a real terminal.
     def probe_consume(io : IO, timeout : Time::Span) : ProbeResult
       f = features
-      width : Int32? = nil
+      # The CPR replies arrive in query order: the ambiguous character's,
+      # then the VS16 cluster's (see `build_probe_query`).
+      widths = [] of Int32
       got_da = false
 
       loop do
@@ -121,10 +128,10 @@ class Tput
               break
             end
           when 'R'
-            # CPR `row ; col`. The char was printed at column 1, so the
-            # reported column minus one is its rendered width.
+            # CPR `row ; col`. The probe character was printed at column 1,
+            # so the reported column minus one is its rendered width.
             ints = probe_ints params
-            width = ints[1] - 1 if ints.size >= 2
+            widths << ints[1] - 1 if ints.size >= 2
           when 'u'
             # Kitty keyboard protocol reply (`CSI ? <flags> u`). Any reply means
             # the protocol is supported; the value is the active flags.
@@ -166,7 +173,48 @@ class Tput
         end
       end
 
-      ProbeResult.new ambiguous_width: width, got_da: got_da
+      ProbeResult.new ambiguous_width: widths[0]?, vs16_width: widths[1]?, got_da: got_da
+    end
+
+    # Measures the VS16 cluster's width again, on its own — for a caller that
+    # has since changed the terminal's state in a way that can change the
+    # answer. iTerm2, for one, advances two columns for `🖼️` on the normal
+    # buffer but one on the alternate screen, so a full-screen application
+    # must measure after switching buffers, where it will draw. Same
+    # mechanics as `#probe!` (raw input, one DSR/CPR round trip, cleanup),
+    # and the same rule: only while no other reader is on the input. Stores
+    # the result as `Features#vs16_width` and returns it; `nil` when probing
+    # is not possible or the terminal did not answer in *timeout*.
+    def probe_vs16_width!(timeout : Time::Span = 1.second) : Int32?
+      return unless probe_capable?
+      width = nil
+      with_raw_input do
+        with_sync_output do
+          probe_write "\e7\r🖼\u{FE0F}\e[6n"
+          width = probe_vs16_consume @input, timeout
+          probe_write build_probe_cleanup
+        end
+      end
+      if width
+        features.vs16_width = width
+        features.sources["vs16_width"] = "probed via DSR/CPR cursor-position measurement (in the drawing buffer)"
+      end
+      width
+    end
+
+    # Reads replies until the CPR, returning the measured width (the reported
+    # column minus one), or `nil` on timeout. Other sequences are skipped.
+    def probe_vs16_consume(io : IO, timeout : Time::Span) : Int32?
+      loop do
+        b = probe_read_byte io, timeout
+        return unless b
+        next unless b == 0x1b_u8
+        next unless probe_read_byte(io, timeout) == '['.ord
+        params, final = probe_read_csi io, timeout
+        next unless final == 'R'
+        ints = probe_ints params
+        return ints[1] - 1 if ints.size >= 2
+      end
     end
 
     # Builds the single batched query string. `DECSC` (`\e7`) saves the cursor
@@ -192,6 +240,12 @@ class Tput
         # `1$r<n> q`; one that doesn't sends `0$r` or nothing.
         io << "\eP$q q\e\\"
         io << "\r…\e[6n" # park at column 1, print ambiguous char, CPR
+        # VS16 width probe: a text-presentation pictograph made emoji-
+        # presentation by VS16 (`🖼️`, U+1F5BC U+FE0F). The width tables count
+        # it two columns and most terminals advance two; Apple Terminal (and
+        # some terminal states) advance one. Measured the same way, so the
+        # answer reflects this terminal in this state, whatever its identity.
+        io << "\r🖼\u{FE0F}\e[6n"
         # Enhanced keyboard protocols. Both are private queries that supporting
         # terminals answer and others silently ignore: `CSI ? u` → kitty
         # keyboard protocol (`CSI ? <flags> u`); `CSI ? 4 m` → XTQMODKEYS for
