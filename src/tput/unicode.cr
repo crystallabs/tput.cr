@@ -308,11 +308,18 @@ class Tput
 
     # Sorted, non-overlapping ranges of East-Asian-Wide / Fullwidth codepoints
     # plus emoji that render in 2 columns. Derived from the standard
-    # `wcwidth`/East-Asian-Width data.
+    # `wcwidth`/East-Asian-Width data; the supplementary-plane part is
+    # exactly the `W` ranges of Unicode 16's `EastAsianWidth.txt`, which in
+    # the pictograph blocks are the `Emoji_Presentation` characters. The
+    # *text*-presentation pictographs there (🖼 U+1F5BC, 🗑 U+1F5D1, 🏷
+    # U+1F3F7, 🌧 U+1F327, …) are deliberately absent: terminals draw them in
+    # 1 column, like their BMP peers (⚠ ✂ ☎), unless a VS16 follows — which
+    # `#width(String)` handles. Listing the whole blocks instead put every
+    # cell after such a glyph one column off, leaving artifacts on redraw.
     WIDE = [
-      {0x1100, 0x115F},   # Hangul Jamo (leading consonants)
+      {0x1100, 0x115F},   # ᄀ Hangul Jamo (leading consonants)
       {0x231A, 0x231B},   # ⌚⌛ watch / hourglass (emoji)
-      {0x2329, 0x232A},   # angle brackets
+      {0x2329, 0x232A},   # 〈〉 angle brackets
       {0x23E9, 0x23EC},   # ⏩⏪⏫⏬ fast forward/rewind (emoji)
       {0x23F0, 0x23F0},   # ⏰ alarm clock (emoji)
       {0x23F3, 0x23F3},   # ⏳ hourglass with flowing sand (emoji)
@@ -345,31 +352,65 @@ class Tput
       {0x2B1B, 0x2B1C},   # ⬛⬜ black/white large square (emoji)
       {0x2B50, 0x2B50},   # ⭐ white medium star (emoji)
       {0x2B55, 0x2B55},   # ⭕ heavy large circle (emoji)
-      {0x2E80, 0x303E},   # CJK radicals .. Kangxi .. CJK symbols
-      {0x3041, 0x33FF},   # Hiragana, Katakana, CJK symbols/letters
-      {0x3400, 0x4DBF},   # CJK Unified Ideographs Extension A
-      {0x4E00, 0x9FFF},   # CJK Unified Ideographs
-      {0xA000, 0xA4CF},   # Yi
-      {0xA960, 0xA97F},   # Hangul Jamo Extended-A
-      {0xAC00, 0xD7A3},   # Hangul Syllables
-      {0xF900, 0xFAFF},   # CJK Compatibility Ideographs
-      {0xFE10, 0xFE19},   # vertical forms
-      {0xFE30, 0xFE6F},   # CJK compatibility / small forms
-      {0xFF00, 0xFF60},   # Fullwidth forms
-      {0xFFE0, 0xFFE6},   # Fullwidth signs
-      {0x1B000, 0x1B16F}, # Kana supplement / extended
-      {0x1F004, 0x1F004}, # mahjong red dragon
-      {0x1F0CF, 0x1F0CF}, # playing card black joker
-      {0x1F18E, 0x1F18E}, # negative squared AB
-      {0x1F191, 0x1F19A}, # squared CL .. VS
-      {0x1F200, 0x1F2FF}, # enclosed ideographic supplement
-      {0x1F300, 0x1F64F}, # misc symbols & pictographs, emoticons
-      {0x1F680, 0x1F6FF}, # transport & map symbols
-      {0x1F7E0, 0x1F7EB}, # geometric shapes extended (🟠🟢🟥🟫 colored circles/squares)
+      {0x2E80, 0x303E},   # ⺀ CJK radicals .. Kangxi .. CJK symbols
+      {0x3041, 0x33FF},   # ぁ Hiragana, Katakana, CJK symbols/letters
+      {0x3400, 0x4DBF},   # 㐀 CJK Unified Ideographs Extension A
+      {0x4E00, 0x9FFF},   # 一 CJK Unified Ideographs
+      {0xA000, 0xA4CF},   # ꀀ Yi
+      {0xA960, 0xA97F},   # ꥠ Hangul Jamo Extended-A
+      {0xAC00, 0xD7A3},   # 가 Hangul Syllables
+      {0xF900, 0xFAFF},   # 豈 CJK Compatibility Ideographs
+      {0xFE10, 0xFE19},   # ︐ vertical forms
+      {0xFE30, 0xFE6F},   # ︰ CJK compatibility / small forms
+      {0xFF00, 0xFF60},   # Ａ Fullwidth forms
+      {0xFFE0, 0xFFE6},   # ￠ Fullwidth signs
+      {0x1B000, 0x1B16F}, # 𛀀 Kana supplement / extended
+      {0x1F004, 0x1F004}, # 🀄 mahjong tile red dragon
+      {0x1F0CF, 0x1F0CF}, # 🃏 playing card black joker
+      {0x1F18E, 0x1F18E}, # 🆎 negative squared ab
+      {0x1F191, 0x1F19A}, # 🆑..🆚 squared cl .. squared vs
+      {0x1F200, 0x1F202}, # 🈀..🈂 square hiragana hoka .. squared katakana sa
+      {0x1F210, 0x1F23B}, # 🈐..🈻 squared cjk unified ideograph-624b .. squared cjk unified ideograph-914d
+      {0x1F240, 0x1F248}, # 🉀..🉈 tortoise shell bracketed cjk unified ideograph-672c .. tortoise shell bracketed cjk unified ideograph-6557
+      {0x1F250, 0x1F251}, # 🉐..🉑 circled ideograph advantage .. circled ideograph accept
+      {0x1F260, 0x1F265}, # 🉠..🉥 rounded symbol for fu .. rounded symbol for cai
+      {0x1F300, 0x1F320}, # 🌀..🌠 cyclone .. shooting star
+      {0x1F32D, 0x1F335}, # 🌭..🌵 hot dog .. cactus
+      {0x1F337, 0x1F37C}, # 🌷..🍼 tulip .. baby bottle
+      {0x1F37E, 0x1F393}, # 🍾..🎓 bottle with popping cork .. graduation cap
+      {0x1F3A0, 0x1F3CA}, # 🎠..🏊 carousel horse .. swimmer
+      {0x1F3CF, 0x1F3D3}, # 🏏..🏓 cricket bat and ball .. table tennis paddle and ball
+      {0x1F3E0, 0x1F3F0}, # 🏠..🏰 house building .. european castle
+      {0x1F3F4, 0x1F3F4}, # 🏴 waving black flag
+      {0x1F3F8, 0x1F43E}, # 🏸..🐾 badminton racquet and shuttlecock .. paw prints
+      {0x1F440, 0x1F440}, # 👀 eyes
+      {0x1F442, 0x1F4FC}, # 👂..📼 ear .. videocassette
+      {0x1F4FF, 0x1F53D}, # 📿..🔽 prayer beads .. down-pointing small red triangle
+      {0x1F54B, 0x1F54E}, # 🕋..🕎 kaaba .. menorah with nine branches
+      {0x1F550, 0x1F567}, # 🕐..🕧 clock face one oclock .. clock face twelve-thirty
+      {0x1F57A, 0x1F57A}, # 🕺 man dancing
+      {0x1F595, 0x1F596}, # 🖕..🖖 reversed hand with middle finger extended .. raised hand with part between middle and ring fingers
+      {0x1F5A4, 0x1F5A4}, # 🖤 black heart
+      {0x1F5FB, 0x1F64F}, # 🗻..🙏 mount fuji .. person with folded hands
+      {0x1F680, 0x1F6C5}, # 🚀..🛅 rocket .. left luggage
+      {0x1F6CC, 0x1F6CC}, # 🛌 sleeping accommodation
+      {0x1F6D0, 0x1F6D2}, # 🛐..🛒 place of worship .. shopping trolley
+      {0x1F6D5, 0x1F6D7}, # 🛕..🛗 hindu temple .. elevator
+      {0x1F6DC, 0x1F6DF}, # 🛜..🛟 wireless .. ring buoy
+      {0x1F6EB, 0x1F6EC}, # 🛫..🛬 airplane departure .. airplane arriving
+      {0x1F6F4, 0x1F6FC}, # 🛴..🛼 scooter .. roller skate
+      {0x1F7E0, 0x1F7EB}, # 🟠..🟫 large orange circle .. large brown square
       {0x1F7F0, 0x1F7F0}, # 🟰 heavy equals sign
-      {0x1F900, 0x1F9FF}, # supplemental symbols & pictographs
-      {0x1FA70, 0x1FAFF}, # symbols & pictographs extended-A
-      {0x20000, 0x3FFFD}, # CJK Unified Ideographs Extension B..
+      {0x1F90C, 0x1F93A}, # 🤌..🤺 pinched fingers .. fencer
+      {0x1F93C, 0x1F945}, # 🤼..🥅 wrestlers .. goal net
+      {0x1F947, 0x1F9FF}, # 🥇..🧿 first place medal .. nazar amulet
+      {0x1FA70, 0x1FA7C}, # 🩰..🩼 ballet shoes .. crutch
+      {0x1FA80, 0x1FA89}, # 🪀..🪉 yo-yo .. harp
+      {0x1FA8F, 0x1FAC6}, # 🪏..🫆 shovel .. fingerprint
+      {0x1FACE, 0x1FADC}, # 🫎..🫜 moose .. root vegetable
+      {0x1FADF, 0x1FAE9}, # 🫟..🫩 splatter .. face with bags under eyes
+      {0x1FAF0, 0x1FAF8}, # 🫰..🫸 hand with index finger and thumb crossed .. rightwards pushing hand
+      {0x20000, 0x3FFFD}, # 𠀀 CJK Unified Ideographs Extension B..
     ]
   end
 end

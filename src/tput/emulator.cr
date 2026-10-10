@@ -242,14 +242,16 @@ class Tput
     # tofu), so this is decided from terminal identity: the self-rendering
     # emulators that bundle capable font stacks. Product flags are hardened by
     # `refine_from_probe!` (XTVERSION), so a post-probe answer outranks env
-    # leakage. Distinct from `legacy_computing_sextant?`/`octant?`: iTerm2's
-    # bundled fonts cover dingbats/emoji but not the legacy-computing ranges.
+    # leakage. Distinct from `legacy_computing_sextant?`/`octant?`: the macOS
+    # terminals' fonts cover dingbats/emoji (Apple Terminal and iTerm2 both
+    # fall back to the system's Apple Symbols and Apple Color Emoji) but not
+    # the legacy-computing ranges.
     def modern_font? : Bool
-      kitty? || wezterm? || ghostty? || iterm2?
+      kitty? || wezterm? || ghostty? || iterm2? || osxterm?
     end
 
     # Whether *env* alone identifies one of the `#modern_font?` terminals
-    # (kitty, WezTerm, Ghostty, iTerm2). The static counterpart for consumers
+    # (kitty, WezTerm, Ghostty, iTerm2, Apple Terminal). The static counterpart for consumers
     # that must answer from an env snapshot with no live tty/`Tput` — e.g. a
     # headless layout pass choosing a glyph tier. The instance predicate is
     # sharper: it also folds in the terminal *name* and XTVERSION probe
@@ -261,7 +263,7 @@ class Tput
                      env.has_key?("GHOSTTY_RESOURCES_DIR") ||
                      env.has_key?("ITERM_SESSION_ID")
       program = env["TERM_PROGRAM"]?.try(&.downcase) || ""
-      return true if {"kitty", "wezterm", "ghostty", "iterm.app"}.includes?(program)
+      return true if {"kitty", "wezterm", "ghostty", "iterm.app", "apple_terminal"}.includes?(program)
       term = env["TERM"]?.try(&.downcase) || ""
       term.includes?("kitty") || term.includes?("wezterm") || term.includes?("ghostty")
     end
