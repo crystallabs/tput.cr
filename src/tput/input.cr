@@ -252,13 +252,21 @@ class Tput
               # `<` SGR/DEC-locator, `I`/`O` focus, a digit URxvt.
               mouse = read_mouse(sequence) { next_char(true) { sequence } }
               key = nil
-            when Key::Enhanced
-              # Enhanced keyboard sequence (kitty protocol / modifyOtherKeys).
-              # Re-parse into a `KeyEvent`, then project back onto legacy
-              # channels: a printable press still arrives as `char`, a
-              # recognizable key still maps to `Key`. Release/repeat leaves
-              # `key` clear so it isn't mistaken for a press.
-              key_event = parse_key_event sequence
+            when Key::Enhanced, Key::Keypad
+              # Enhanced keyboard sequence (kitty protocol / modifyOtherKeys),
+              # or an application-keypad key (`\eOM`, `\eOp`, …), given the
+              # `KeyEvent` kitty reports for it, so a keypad key is one shape
+              # either way. Re-parse into a `KeyEvent`, then project back onto
+              # legacy channels: a printable press still arrives as `char`, a
+              # recognizable key still maps to `Key` (the keypad's Enter is
+              # `Key::Enter`). Release/repeat leaves `key` clear so it isn't
+              # mistaken for a press.
+              key_event =
+                if key == Key::Keypad
+                  KeyEvent.from_ss3_keypad sequence.last
+                else
+                  parse_key_event sequence
+                end
               if ev = key_event
                 key = ev.to_legacy_key
                 if c = ev.char

@@ -97,8 +97,88 @@ class Tput
       57450 => :right_super, 57451 => :right_hyper, 57452 => :right_meta,
     }
 
+    # kitty functional key codes for the numeric keypad, `KP_0` (57399)
+    # through `KP_BEGIN` (57427). Under the kitty protocol the keypad reports
+    # these; `Input#listen` gives an application-keypad (DECKPAM) key the same
+    # code (`.from_ss3_keypad`), so `#keypad?` tells a keypad key apart
+    # whichever way it arrived, as Qt marks one with `Qt::KeypadModifier`.
+    KEYPAD = 57399..57427
+
+    # kitty's keypad code for the final byte of an application-keypad SS3
+    # sequence (`\eO` + final), after xterm's table.
+    SS3_KEYPAD = {
+      'M' => 57414, # KP_ENTER
+      'X' => 57415, # KP_EQUAL
+      'j' => 57411, # KP_MULTIPLY
+      'k' => 57413, # KP_ADD
+      'l' => 57416, # KP_SEPARATOR
+      'm' => 57412, # KP_SUBTRACT
+      'n' => 57409, # KP_DECIMAL
+      'o' => 57410, # KP_DIVIDE
+      'p' => 57399, # KP_0 … KP_9
+      'q' => 57400,
+      'r' => 57401,
+      's' => 57402,
+      't' => 57403,
+      'u' => 57404,
+      'v' => 57405,
+      'w' => 57406,
+      'x' => 57407,
+      'y' => 57408,
+    }
+
     def initialize(@number, @final, @mods = Modifiers::None, @type = Type::Press,
                    @shifted = nil, @base = nil, @text = nil)
+    end
+
+    # The event for an application-keypad key, `\eO` followed by *final*
+    # (`M` for Enter, `p` for 0, …): a press of kitty's code for that key, or
+    # `nil` for a final that is no keypad key.
+    def self.from_ss3_keypad(final : Char) : KeyEvent?
+      if code = SS3_KEYPAD[final]?
+        new code, 'u'
+      end
+    end
+
+    # Whether this is a numeric-keypad key (kitty's `KP_*` codes), Qt's
+    # `Qt::KeypadModifier`. Widgets mostly treat it as the key it stands
+    # for (`#main_key`): the keypad's Enter as Return, its digits as digits.
+    def keypad? : Bool
+      final == 'u' && KEYPAD.includes?(number)
+    end
+
+    # For a keypad key, the main-keyboard key it stands for, with the same
+    # modifiers, type and text: Enter for `KP_ENTER`, the character for the
+    # digits and operators, the cursor and editing keys for the keypad's
+    # navigation keys (NumLock off). `nil` for any other key, and for
+    # `KP_BEGIN` (the keypad's 5 with NumLock off), which stands for none.
+    def main_key : KeyEvent?
+      return unless keypad?
+      main =
+        case number
+        when 57399..57408 then {'0'.ord + number - 57399, 'u'} # KP_0-KP_9
+        when 57409        then {'.'.ord, 'u'}
+        when 57410        then {'/'.ord, 'u'}
+        when 57411        then {'*'.ord, 'u'}
+        when 57412        then {'-'.ord, 'u'}
+        when 57413        then {'+'.ord, 'u'}
+        when 57414        then {13, 'u'} # KP_ENTER: Return
+        when 57415        then {'='.ord, 'u'}
+        when 57416        then {','.ord, 'u'}
+        when 57417        then {1, 'D'} # KP_LEFT
+        when 57418        then {1, 'C'} # KP_RIGHT
+        when 57419        then {1, 'A'} # KP_UP
+        when 57420        then {1, 'B'} # KP_DOWN
+        when 57421        then {5, '~'} # KP_PAGE_UP
+        when 57422        then {6, '~'} # KP_PAGE_DOWN
+        when 57423        then {1, 'H'} # KP_HOME
+        when 57424        then {1, 'F'} # KP_END
+        when 57425        then {2, '~'} # KP_INSERT
+        when 57426        then {3, '~'} # KP_DELETE
+        end
+      if main
+        KeyEvent.new main[0], main[1], mods, type, text: text
+      end
     end
 
     # The Unicode codepoint for `u`-final events. Meaningless for legacy-final
@@ -149,6 +229,7 @@ class Tput
     # reported (`Shift+a` → `A`), else the base codepoint.
     def char : Char?
       return unless press? || repeat?
+      return main_key.try(&.char) if keypad?
       if t = text
         return t[0]?
       end
@@ -173,6 +254,8 @@ class Tput
     # release for a press. Auto-repeats do project.
     def to_legacy_key : Key?
       return unless press? || repeat?
+      # A keypad key projects as the key it stands for (`KP_ENTER` → `Enter`).
+      return main_key.try(&.to_legacy_key) if keypad?
 
       case final
       when 'A', 'B', 'C', 'D', 'H', 'F'
@@ -202,10 +285,13 @@ class Tput
     #
     # Returns `nil` when a legacy terminal would have sent nothing: releases,
     # lone modifier presses, and functional keys with no legacy encoding
-    # (kitty Private-Use-Area codes such as media/keypad keys).
+    # (kitty Private-Use-Area codes such as media keys). A keypad key sends
+    # what the key it stands for sends (`#main_key`), as the keypad does in a
+    # legacy terminal's numeric keypad mode.
     def to_legacy_bytes : String?
       return unless press? || repeat?
       return if modifier_key?
+      return main_key.try(&.to_legacy_bytes) if keypad?
 
       case final
       when 'u'                          then u_legacy_bytes
@@ -267,7 +353,7 @@ class Tput
       end
 
       # Remaining C0 numbers and kitty functional codes (Private Use Area:
-      # media keys, keypad, lone locks, F13+…) have no legacy encoding.
+      # media keys, lone locks, F13+…) have no legacy encoding.
       return if number < 0x20 || (0xE000 <= number <= 0xF8FF)
 
       if eff.ctrl?

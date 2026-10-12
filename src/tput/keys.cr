@@ -174,6 +174,13 @@ class Tput
     # `#listen`'s `color_scheme` argument.
     ColorScheme = 16777308
 
+    # Numeric-keypad key in application keypad mode (DECKPAM): `\eO` followed
+    # by `M` (Enter), `X` (`=`) or `j`-`y` (operators and digits). Turned by
+    # `Tput::Input#listen` into the `Tput::KeyEvent` of kitty's code for the
+    # key (`KeyEvent.from_ss3_keypad`), which projects onto the key it stands
+    # for: `Key::Enter` for the keypad's Enter, the character for the others.
+    Keypad = 16777309
+
     Unknown = 33554431
 
     # Reads a `Control` input from *char*. If an escape sequence was detected,
@@ -210,8 +217,8 @@ class Tput
       case o
       when 13 then Key::AltEnter
       when 93 then Key::Osc # `\e]…` OSC reply (e.g. OSC 52 clipboard)
-      when 79               # SS3: `\eO…` — application-mode cursor / F1-F4 keys
-        case yield.try(&.ord)
+      when 79               # SS3: `\eO…` — application-mode cursor / F1-F4 / keypad keys
+        case yield.try(&.ord) || -1
         when 65 then Key::Up
         when 66 then Key::Down
         when 67 then Key::Right
@@ -227,11 +234,16 @@ class Tput
         when 82 then Key::F3
         when 83 then Key::F4
           # rxvt ctrl+cursor: `\eOa`-`\eOe` (lowercase)
-        when  97 then Key::CtrlUp
-        when  98 then Key::CtrlDown
-        when  99 then Key::CtrlRight
+        when 97  then Key::CtrlUp
+        when 98  then Key::CtrlDown
+        when 99  then Key::CtrlRight
         when 100 then Key::CtrlLeft
         when 101 then Key::Clear
+          # Numeric keypad in application keypad mode (DECKPAM, enabled with
+          # `Tput#enable_keypad`): Enter `\eOM`, `=` `\eOX`, the operators
+          # `\eOj`-`\eOo` and the digits `\eOp`-`\eOy`. Without these the
+          # sequence fell through to `nil` and the key was dropped.
+        when 77, 88, 106..121 then Key::Keypad
         end
       when 91 # CSI: `\e[…` — cursor/function keys and mouse reports
         o = yield.try(&.ord) || -1
