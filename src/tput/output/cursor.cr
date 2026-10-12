@@ -244,8 +244,10 @@ class Tput
 
         if features.cursor_color?
           _tprint "\e]112\x07"
-          # urxvt doesn't support OSC 112
-          _tprint "\e]12;white\x07"
+          # urxvt doesn't support OSC 112, so it gets white, its default.
+          # Elsewhere that would replace the terminal's own cursor color,
+          # which OSC 112 has just put back, with white.
+          _tprint "\e]12;white\x07" if emulator.rxvt?
           emitted = true
         end
 
