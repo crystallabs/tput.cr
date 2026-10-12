@@ -26,13 +26,17 @@ class Tput
   # * OSC 12 ; ?           -> whether the terminal can report (and thus set) its
   #                           hardware cursor color.
   # * print `…` + DSR/CPR  -> measured width of an ambiguous-width char
+  # * print `🖼️` + DSR/CPR -> measured width of a VS16 emoji-presentation
+  #                           cluster: 2 where the terminal honors the
+  #                           selector for width, as the width tables do
   # * DA1 (`CSI c`)        -> device attributes, *and* a universal terminator:
   #                           every terminal answers DA1, but not all answer
   #                           the OSC queries, so its reply tells us when to
   #                           stop reading.
   #
   # Results are stored on `Tput#features` (`Features#default_foreground`,
-  # `#default_background`, `#palette`, `#ambiguous_width`, `#da_params`).
+  # `#default_background`, `#palette`, `#ambiguous_width`, `#vs16_width`,
+  # `#da_params`).
   module Probe
     include Crystallabs::Helpers::Logging
 
