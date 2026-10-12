@@ -260,6 +260,15 @@ class Tput
         when 70 then Key::End
         when 72 then Key::Home
         when 90 then Key::ShiftTab
+          # Unmodified F1, F2 and F4 under the kitty keyboard protocol
+          # (kitty, Ghostty, iTerm2, WezTerm, foot…): `\e[P`, `\e[Q`, `\e[S`,
+          # the `CSI 1 ; mod P/Q/S` of a modified one with the `1` left out.
+          # F3 comes as `\e[13~` there (a bare `CSI R` reads like a cursor
+          # position report), which `#function_key` already knows. Without
+          # these the three keys were parsed to nothing and dropped.
+        when 80 then Key::F1
+        when 81 then Key::F2
+        when 83 then Key::F4
           # rxvt shift+cursor: `\e[a`-`\e[e` (lowercase)
         when 97  then Key::ShiftUp
         when 98  then Key::ShiftDown
