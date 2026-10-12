@@ -364,7 +364,17 @@ class Tput
       {0xFE30, 0xFE6F},   # ︰ CJK compatibility / small forms
       {0xFF00, 0xFF60},   # Ａ Fullwidth forms
       {0xFFE0, 0xFFE6},   # ￠ Fullwidth signs
+      {0x16FE0, 0x16FE4}, # 𖿠 Tangut/Nushu iteration marks, Khitan small script filler
+      {0x16FF0, 0x16FF1}, # 𖿰 Vietnamese alternate reading marks
+      {0x17000, 0x187F7}, # 𗀀 Tangut
+      {0x18800, 0x18CD5}, # 𘠀 Tangut components, Khitan Small Script
+      {0x18CFF, 0x18D08}, # 𘳿 Khitan Small Script .. Tangut Supplement
+      {0x1AFF0, 0x1AFF3}, # 𚿰 Kana Extended-B
+      {0x1AFF5, 0x1AFFB}, # 𚿵 Kana Extended-B
+      {0x1AFFD, 0x1AFFE}, # 𚿽 Kana Extended-B
       {0x1B000, 0x1B16F}, # 𛀀 Kana supplement / extended
+      {0x1B170, 0x1B2FB}, # 𛅰 Nushu
+
       {0x1F004, 0x1F004}, # 🀄 mahjong tile red dragon
       {0x1F0CF, 0x1F0CF}, # 🃏 playing card black joker
       {0x1F18E, 0x1F18E}, # 🆎 negative squared ab

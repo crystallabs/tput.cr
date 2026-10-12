@@ -45,4 +45,18 @@ describe Tput::Unicode do
   it "measures a mixed string by the sum of its graphemes" do
     u.display_width("a🖼 b💾 c").should eq 8
   end
+
+  it "counts the supplementary-plane CJK scripts as 2 columns" do
+    # Tangut, Tangut components, Nushu, Kana Extended-B, CJK Extension B.
+    {"𗀀", "𘠀", "𛅰", "𚿰", "𠀀"}.each do |c|
+      u.display_width(c).should eq(2), c.inspect
+    end
+  end
+
+  it "keeps the WIDE table sorted and non-overlapping, as its binary search requires" do
+    Tput::Unicode::WIDE.each_cons_pair do |a, b|
+      a[0].should be <= a[1]
+      a[1].should be < b[0]
+    end
+  end
 end
