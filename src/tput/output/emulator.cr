@@ -5,26 +5,54 @@ class Tput
 
       # include Crystallabs::Helpers::Boolean
 
-      # Sets terminal emulator's title.
+      # Sets the terminal's window and icon title (`OSC 0 ; Pt BEL`), kept in
+      # `#_title`.
       #
-      # To change title without issuing an instruction to the terminal, use `#title=`.
+      # Sent on every terminal: one that has no title ignores the OSC, as
+      # every terminal does with an OSC it does not know. Sent as is under
+      # tmux and GNU screen, which take the title themselves (tmux as the
+      # pane's title, passed on to the outer terminal with `set-titles`)
+      # where a passthrough-wrapped one only got through with tmux's
+      # `allow-passthrough`, off by default. Control characters in *title* (a
+      # file name may hold an ESC or a BEL) are dropped, so they cannot end
+      # the OSC early and run the rest as escape sequences.
       #
-      #     OSC Ps ; Pt ST
-      #     OSC Ps ; Pt BEL
-      #       Set Text Parameters.
+      # The first title saves the terminal's own on its title stack
+      # (`#push_title`) and `#restore_title` puts it back, as `#pause` and
+      # `#restore_terminal` do, so the program's title does not outlive it.
       def title=(title)
+        title = title.to_s.gsub { |c| c.control? ? "" : c }
         @_title = title
+        unless @title_pushed
+          push_title
+          @title_pushed = true
+        end
+        _print { |io| io << "\e]0;" << title << '\a' }
+      end
 
-        # D O:
-        # if (term('screen')) {
-        #   # Tmux pane
-        #   # if (tmux) {
-        #   #   _write('\e]2;' + title + '\e\\')
-        #   # }
-        #   _write('\ek' + title + '\e\\')
-        # }
+      # Whether `#title=` saved the terminal's title, for `#restore_title`
+      # to put back.
+      getter? title_pushed = false
 
-        _tprint "\e]0;#{title}\x07"
+      # Saves the terminal's window and icon titles on its title stack
+      # (XTWINOPS `CSI 22 ; 0 t`; xterm, VTE, kitty, Ghostty, iTerm2, foot…;
+      # ignored elsewhere). `#title=` does it before the first title.
+      def push_title : Nil
+        manipulate_window 22, 0
+      end
+
+      # Restores the titles last saved with `#push_title` (`CSI 23 ; 0 t`).
+      def pop_title : Nil
+        manipulate_window 23, 0
+      end
+
+      # Puts back the title the terminal had before the first `#title=`, when
+      # one was set; a later `#title=` saves it again. Called when the
+      # program hands the terminal back.
+      def restore_title : Nil
+        return unless @title_pushed
+        pop_title
+        @title_pushed = false
       end
 
       # Copies text to clipboard. Does nothing if terminal emulator is not iTerm2.

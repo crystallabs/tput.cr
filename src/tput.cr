@@ -337,6 +337,8 @@ class Tput
 
     paste = bracketed_paste_enabled?
     resize = in_band_resize_enabled?
+    # The program's title, given back with the terminal's own while paused.
+    title = title_pushed? ? @_title : nil
 
     lsave_cursor :pause
     # Teardown below uses the live predicates, unchanged since capture above;
@@ -348,6 +350,7 @@ class Tput
       restore_raw_input
 
       alternate_buffer if alt
+      title.try { |t| self.title = t }
       enable_mouse(focus: focus, pixels: px) if mouse
       enable_keyboard_protocol kbd_events if kbd
       enable_bracketed_paste if paste
@@ -371,7 +374,9 @@ class Tput
 
   # Emits the sequences that hand the terminal back to another program: disable
   # mouse reporting, the enhanced keyboard protocol, bracketed paste and
-  # in-band resize, leave the alternate buffer, show the cursor — then flush so
+  # in-band resize, put the terminal's title back (`#restore_title`, before
+  # leaving the alternate buffer, whose terminfo `rmcup` may pop a title of
+  # its own), leave the alternate buffer, show the cursor — then flush so
   # those reach the terminal before `#suspend_raw_input` returns input to
   # cooked mode. Shared by `#pause` and `#restore_terminal`; each `if` guards
   # on the live predicate so only active features are turned off.
@@ -380,6 +385,7 @@ class Tput
     disable_keyboard_protocol if @keyboard_protocol
     disable_bracketed_paste if bracketed_paste_enabled?
     disable_in_band_resize if in_band_resize_enabled?
+    restore_title
     normal_buffer if is_alt
     show_cursor
     flush
