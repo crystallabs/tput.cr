@@ -325,7 +325,16 @@ class Tput
   #
   # The caller must not emit output between `#pause` and `#resume`; the
   # dominant use (`#sigtstp`) suspends the whole process, so this is automatic.
+  #
+  # Pausing a paused terminal changes nothing and returns the continuation
+  # already stored (*callback* is not run on resume): what the terminal had
+  # before the first pause is what `#resume` brings back, not the handed-back
+  # state a second capture would see (a program's windows sharing this
+  # terminal are each paused on a suspend).
   def pause(callback : Proc? = nil) : Proc(Nil)
+    if paused = @_resume
+      return paused
+    end
     alt = is_alt
     mouse = mouse_enabled?
     # Capture SGR-Pixels cell size and focus-reporting state before teardown

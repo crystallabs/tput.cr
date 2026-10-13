@@ -39,6 +39,18 @@ describe "Tput lifecycle" do
       t.mouse_enabled?.should be_true
     end
 
+    it "keeps the first pause's state when paused again before resuming" do
+      t = fresh_tput
+      t.alternate_buffer
+      t.enable_mouse
+      t.pause
+      t.pause
+      t.is_alt.should be_false
+      t.resume
+      t.is_alt.should be_true
+      t.mouse_enabled?.should be_true
+    end
+
     it "shows the cursor when pausing" do
       t = fresh_tput
       t.hide_cursor
