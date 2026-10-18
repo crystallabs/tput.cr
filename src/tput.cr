@@ -239,7 +239,14 @@ class Tput
     probe! if probe && probe_capable?
   end
 
-  def sigtstp(callback)
+  # Suspends the program as Ctrl-Z would, with the terminal handed back first
+  # (`#pause`), and restores it on `SIGCONT`, running *callback* after.
+  #
+  # The stop is delivered as `SIGSTOP` to the process group, not `SIGTSTP`:
+  # this is called from the program's own `SIGTSTP` handler, so raising
+  # `SIGTSTP` again would only run that handler again, forever, and never
+  # stop the process. `SIGSTOP` cannot be caught, so it stops it.
+  def sigtstp(callback = nil)
     r = pause
     Signal::CONT.trap do
       Signal::CONT.ignore
@@ -247,7 +254,7 @@ class Tput
       callback.try &.call
     end
 
-    Process.signal Signal::TSTP, 0
+    Process.signal Signal::STOP, 0
   end
 
   def name?(nam : String)
