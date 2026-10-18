@@ -343,24 +343,22 @@ class Tput
     end
 
     # Detects a boolean feature that is *on* by default and turned *off* by the
-    # presence of an `NCURSES_NO_*` env variable. Shared by `magic_cookie` and
-    # `setbuf` detections.
+    # presence of an `NCURSES_NO_*` env variable. Shared by the `magic_cookie`,
+    # `setbuf` and `padding` detections.
     #
     # `NCURSES_NO_*` variables are disable switches: the feature defaults to
     # true and the variable's mere presence (any value, even `"0"`) turns it
-    # off, matching ncurses/blessed (see `detect_padding`/`NCURSES_NO_PADDING`).
+    # off, matching ncurses/blessed.
     private def detect_ncurses_flag(feature : String, env : String) : Bool
       present = !ENV[env]?.nil?
       @sources[feature] = present ? "env #{env} (disabled)" : "default (true)"
       !present
     end
 
+    # Padding is honored unless disabled via the ncurses-compatible
+    # `NCURSES_NO_PADDING` env variable. See `Tput::Output#_pad_write`.
     def detect_padding
-      # Honored unless disabled via the ncurses-compatible NCURSES_NO_PADDING
-      # env variable. See `Tput::Output#_pad_write`.
-      v = ENV["NCURSES_NO_PADDING"]?.nil?
-      @sources["padding"] = ENV["NCURSES_NO_PADDING"]? ? "env NCURSES_NO_PADDING (disabled)" : "default (enabled)"
-      v
+      detect_ncurses_flag "padding", "NCURSES_NO_PADDING"
     end
 
     def detect_ansi_cursor
