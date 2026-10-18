@@ -54,7 +54,7 @@ require "./tput/dump"
 # In all of the examples above, spaces exist just for clarity and are not part of actual escape
 # sequences. For example, in "ESC [" or " Ps ; Ps ;" there are no actual spaces.
 class Tput
-  VERSION = "2.3.0"
+  VERSION = "2.3.1"
   include Namespace
   include JSON::Serializable
   include Crystallabs::Helpers::Logging
