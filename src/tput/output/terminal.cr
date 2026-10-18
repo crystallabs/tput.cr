@@ -270,21 +270,23 @@ class Tput
         manipulate_window 8, 65535, 65535
       end
 
-      # TODO avoid strings
+      # CSI ? Pm h
+      #   DEC Private Mode Set (DECSET); `Ps` values as for `#set_mode`.
       def decset(*arguments)
-        set_mode "?#{arguments.join ';'}"
+        private_mode_op 'h', *arguments
       end
 
-      # TODO avoid strings
+      # CSI ? Pm l
+      #   DEC Private Mode Reset (DECRST); `Ps` values as for `#reset_mode`.
       def decrst(*arguments)
-        reset_mode "?#{arguments.join ';'}"
+        private_mode_op 'l', *arguments
       end
 
       # CSI ? Pm s
       #   Save DEC Private Mode Values (XTSAVE).
       #   `Ps` values are the same as for DECSET.
       def save_private_values(*arguments)
-        _print { |io| io << "\e[?"; arguments.join(io, ';'); io << "s" }
+        private_mode_op 's', *arguments
       end
 
       # CSI ? Pm r
@@ -292,7 +294,14 @@ class Tput
       #   saved with `#save_private_values` are restored.
       #   `Ps` values are the same as for DECSET.
       def restore_private_values(*arguments)
-        _print { |io| io << "\e[?"; arguments.join(io, ';'); io << "r" }
+        private_mode_op 'r', *arguments
+      end
+
+      # Shared framing for the DEC private-mode ops: `CSI ? Pm <final>`
+      # (DECSET `h`, DECRST `l`, XTSAVE `s`, XTRESTORE `r`), written straight
+      # to the IO with no intermediate `String`.
+      private def private_mode_op(final : Char, *arguments)
+        _print { |io| io << "\e[?"; arguments.join(io, ';'); io << final }
       end
 
       # Enter application keypad / keyboard-transmit mode (terminfo `smkx`).

@@ -50,7 +50,7 @@ class Tput
       # parses `CSI Ps x` as DECREQTPARM (Request Terminal Parameters), triggering
       # an unsolicited parameter report instead of selecting the change extent.
       def select_change_extent(param = 0)
-        _print "\e[#{param}*x"
+        _print { |io| io << "\e[" << param << "*x" }
       end
 
       alias_previous decsace
