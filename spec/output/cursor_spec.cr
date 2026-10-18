@@ -412,3 +412,65 @@ describe Tput::Output::Cursor do
     end
   end
 end
+
+describe "cursor_next_line / cursor_preceding_line with no row to move" do
+  x = Tput::Test.new
+
+  # `CSI 0 E` moves a line (a zero parameter reads as one), so a zero row
+  # delta — asked for, or clamped to at the last line — must go to the first
+  # column some other way.
+  it "goes to column 0 as CHA for a zero delta" do
+    x.p.cup 5, 10; x.o
+    x.p.cursor_next_line 0
+    x.p.cursor.x.should eq 0
+    x.p.cursor.y.should eq 5
+    x.o.should eq "\e[1G"
+  end
+
+  it "goes to column 0 as CHA when clamped at the last line" do
+    x.p.cup 23, 10; x.o
+    x.p.cursor_next_line 3
+    x.p.cursor.x.should eq 0
+    x.p.cursor.y.should eq 23
+    x.o.should eq "\e[1G"
+  end
+
+  it "goes to column 0 as CHA when clamped at the first line" do
+    x.p.cup 0, 10; x.o
+    x.p.cursor_preceding_line 2
+    x.p.cursor.x.should eq 0
+    x.p.cursor.y.should eq 0
+    x.o.should eq "\e[1G"
+  end
+end
+
+describe "relative position helpers clamp and take negatives" do
+  x = Tput::Test.new
+
+  it "h_position_relative clamps to the right edge and emits nothing at it" do
+    x.p.cup 4, 78; x.o
+    x.p.h_position_relative 5
+    x.p.cursor.x.should eq 79
+    x.o.should eq "\e[1a"
+    x.p.h_position_relative 1
+    x.p.cursor.x.should eq 79
+    x.o.should eq ""
+  end
+
+  it "h_position_relative moves back for a negative param" do
+    x.p.cup 4, 6; x.o
+    x.p.h_position_relative -2
+    x.p.cursor.x.should eq 4
+    x.o.should eq "\e[2D"
+  end
+
+  it "v_position_relative clamps to the bottom and moves up for a negative param" do
+    x.p.cup 22, 6; x.o
+    x.p.v_position_relative 5
+    x.p.cursor.y.should eq 23
+    x.o.should eq "\e[1e"
+    x.p.v_position_relative -3
+    x.p.cursor.y.should eq 20
+    x.o.should eq "\e[3A"
+  end
+end

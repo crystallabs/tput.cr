@@ -30,6 +30,10 @@ class Tput
       # same as CSI Ps B ?
       def cursor_next_line(param = 1)
         _, param = _adjust_xy_rel 0, param
+        # A zero row delta (asked for, or clamped to at the last line) still
+        # means "go to the first column", but `CSI 0 E` would move a line (a
+        # `0` parameter reads as `1`), so make that move as CHA instead.
+        return cursor_char_absolute 0 if param == 0
         @cursor.y += param
         # CNL moves to the first column of the target line; reset tracked column too.
         @cursor.x = 0
@@ -39,11 +43,13 @@ class Tput
       alias_previous cnl
 
       # CSI Ps F
-      # Cursor Preceding Line Ps Times (default = 1) (CNL).
+      # Cursor Preceding Line Ps Times (default = 1) (CPL).
       # reuse CSI Ps A ?
       def cursor_preceding_line(param = 1)
         _, param = _adjust_xy_rel 0, -param
         param *= -1
+        # See `#cursor_next_line`.
+        return cursor_char_absolute 0 if param == 0
         @cursor.y -= param
         # CPL, like CNL, moves to the first column of the target line.
         @cursor.x = 0
@@ -482,12 +488,18 @@ class Tput
       # 141 61 a * HPR -
       # Horizontal Position Relative
       # reuse CSI Ps C ?
-      # TODO switch to adjust_xy
+      #
+      # A negative *param* moves back (CUB); HPR itself takes no negative
+      # parameter. The move is clamped to the screen like `#cursor_forward`
+      # and emits nothing when the clamp leaves nothing to move (`CSI 0 a`
+      # would move one column).
       def h_position_relative(param = 1)
+        return cursor_backward(-param) if param < 0
+        param, _ = _adjust_xy_rel param
+        return if param == 0
         # Keep @cursor.x in sync (mirrors `v_position_relative`); leaving it
         # stale would desync later relative moves.
         @cursor.x += param
-        _ncoords
 
         # Mirror terminfo `cuf` branch (emits `CSI Ps C`); no-terminfo fallback
         # uses `CSI Ps a` (HPR) form.
@@ -506,10 +518,14 @@ class Tput
 
       # 145 65 e * VPR - Vertical Position Relative
       # reuse CSI Ps B ?
-      # TODO adjust_xy
+      #
+      # A negative *param* moves up (CUU); clamped and zero-guarded as
+      # `#h_position_relative`.
       def v_position_relative(param = 1)
+        return cursor_up(-param) if param < 0
+        _, param = _adjust_xy_rel 0, param
+        return if param == 0
         @cursor.y += param
-        _ncoords
 
         # Mirror terminfo `cud` branch (emits `CSI Ps B`); no-terminfo fallback
         # uses `CSI Ps e` (VPR) form.
