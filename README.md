@@ -30,7 +30,7 @@ in C, many of the ncurses methods make no sense. Also in general, the ncurses AP
 dependencies:
   tput:
     github: crystallabs/tput.cr
-    version: ~> 1.0
+    version: ~> 2.3
 ```
 
 2. Run `shards install`
