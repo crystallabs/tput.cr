@@ -555,6 +555,29 @@ describe Tput::Output::Text do
     end
   end
 
+  describe "numeric color attribute" do
+    # The first 16 colors have SGR codes of their own; above that the
+    # 256-color form is emitted whatever terminfo says the terminal has —
+    # support/xterm declares 8 colors, and `"200 fg"` on it used to come out
+    # as the meaningless `CSI 200 m`.
+    it "maps the 16 ANSI colors to their own SGR codes" do
+      x.p._attr("1 fg").should eq "\e[31m"
+      x.p._attr("9 fg").should eq "\e[91m"
+      x.p._attr("1 bg").should eq "\e[41m"
+      x.p._attr("9 bg").should eq "\e[101m"
+      x.p._attr("9 fg", false).should eq "\e[39m"
+    end
+
+    it "emits the 256-color form above 15, also on a 16-color terminfo" do
+      x.p._attr("200 fg").should eq "\e[38;5;200m"
+      x.p._attr("200 bg").should eq "\e[48;5;200m"
+      t = Tput.new terminfo: Unibilium.from_file("#{__DIR__}/../../support/xterm"),
+        input: IO::Memory.new, output: IO::Memory.new, screen_size: Tput::DEFAULT_SCREEN_SIZE
+      t._attr("200 fg").should eq "\e[38;5;200m"
+      t._attr("9 bg").should eq "\e[101m"
+    end
+  end
+
   describe "_attr caching" do
     [{x.t, "terminfo"}, {x.p, "plain"}].each do |t|
       it "returns identical results on repeated calls with #{t[1]}" do

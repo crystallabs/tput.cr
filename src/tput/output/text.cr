@@ -467,33 +467,17 @@ class Tput
             # TODO
             # color = ::Crysterm::Colors.reduce(color, @tput.colors)
 
-            # XXX color < 16 or <=? Seems <= ?
-            if (color < 16) || @shim.try { |s| s.colors?.try { |c| c <= 16 } }
-              if m[2] == "fg"
-                if color < 8
-                  color += 30
-                elsif color < 16
-                  color -= 8
-                  color += 90
-                end
-              elsif m[2] == "bg"
-                if color < 8
-                  color += 40
-                elsif color < 16
-                  color -= 8
-                  color += 100
-                end
-              end
+            # The 16 ANSI colors have their own SGR codes (30-37/90-97 fg,
+            # 40-47/100-107 bg); anything above is the 256-color form, whatever
+            # terminfo says the terminal has — a `CSI 200 m` is no color at all,
+            # while `38;5;200` is at worst ignored and reduced to the palette
+            # by most terminals.
+            if color < 16
+              color += (color < 8 ? 30 : 82) + (m[2] == "bg" ? 10 : 0)
               return "\e[#{color}m"
             end
 
-            if m[2] == "fg"
-              return "\e[38;5;#{color}m"
-            end
-
-            if m[2] == "bg"
-              return "\e[48;5;#{color}m"
-            end
+            return "\e[#{m[2] == "fg" ? 38 : 48};5;#{color}m"
           end
 
           if param.match /^[\d;]*$/
