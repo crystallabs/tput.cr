@@ -79,9 +79,11 @@ class Tput
     def _owrite(*args)
       # No support for this yet:
       # return unless @output.writable?
-      args.map { |arg| (@ret || @output).write arg }
+      dest = @ret || @output
+      args.each { |arg| dest.write arg }
       # TODO drop writes if in pause mode
       # same for _oprint
+      true
     end
 
     def _oprint(*args)
@@ -281,7 +283,12 @@ class Tput
     #  true
     # end
 
-    # Flushes internal buffer into `@output` and calls `@output.flush`
+    # Flushes internal buffer into `@output` and calls `@output.flush`.
+    #
+    # `@output` is flushed even when the internal buffer is empty: bytes reach
+    # it without passing through `@_buf` (`use_buffer: false`, the direct
+    # `_oprint` of `#_tprint`, a diverted `@ret`), and a buffered `@output`
+    # (STDOUT with no newline in sight) would otherwise hold them.
     def flush
       unless @_buf.empty?
         # `@output << @_buf` would route via `IO::Memory#to_s`, allocating a
@@ -289,8 +296,8 @@ class Tput
         # bytes.
         @output.write @_buf.to_slice
         @_buf.clear
-        @output.flush
       end
+      @output.flush
       true
     end
   end
