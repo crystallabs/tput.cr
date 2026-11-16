@@ -199,6 +199,21 @@ class Tput
   @[JSON::Field(ignore: true)]
   getter read_timeout : Time::Span = Superconf.tput_read_timeout
 
+  # How long a bracketed paste may stall before it is taken to be over without
+  # its `\e[201~` terminator. A paste otherwise ends only at the terminator (or
+  # EOF / `#stop_listen`), however slowly it arrives: cutting it short at the
+  # escape timeout would run the rest of the pasted text as keystrokes. The
+  # bound is there for a terminator that never comes (a terminal that died or
+  # dropped the mode mid-paste), so that it cannot turn everything typed
+  # afterwards into paste text for good: after this much silence the paste is
+  # delivered as it stands and input is read as keys again.
+  @[JSON::Field(ignore: true)]
+  getter paste_timeout : Time::Span = Superconf.tput_paste_timeout
+
+  # The running `#listen`'s byte source.
+  @[JSON::Field(ignore: true)]
+  @listen_input : ListenInput? = nil
+
   include Coordinates
 
   def initialize(

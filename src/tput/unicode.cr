@@ -98,11 +98,13 @@ class Tput
     end
 
     # Whether *c* extends the grapheme cluster it follows: a combining mark, a
-    # zero-width joiner (U+200D), a variation selector (U+FE00..U+FE0F), or an
-    # emoji skin-tone modifier (U+1F3FB..U+1F3FF).
+    # zero-width joiner (U+200D), a variation selector (U+FE00..U+FE0F), an
+    # emoji skin-tone modifier (U+1F3FB..U+1F3FF), or an emoji tag character
+    # (U+E0020..U+E007F, the tail of a subdivision flag).
     def grapheme_extender?(c : Char) : Bool
       cp = c.ord
-      c.mark? || cp == 0x200D || (0xFE00 <= cp <= 0xFE0F) || (0x1F3FB <= cp <= 0x1F3FF)
+      c.mark? || cp == 0x200D || (0xFE00 <= cp <= 0xFE0F) || (0x1F3FB <= cp <= 0x1F3FF) ||
+        (0xE0020 <= cp <= 0xE007F)
     end
 
     # Whether *c* is a Unicode regional-indicator symbol (U+1F1E6..U+1F1FF); a
@@ -276,13 +278,16 @@ class Tput
     end
 
     private def zero_width?(cp : Int32) : Bool
-      cp == 0x200B ||               # zero width space
-        cp == 0x200C ||             # zero width non-joiner
-        cp == 0x200D ||             # zero width joiner
-        cp == 0xFEFF ||             # zero width no-break space / BOM
-        (0x1160 <= cp <= 0x11FF) || # Hangul Jungseong/Jongseong (conjoining)
-        (0xFE00 <= cp <= 0xFE0F) || # variation selectors
-        (0xE0100 <= cp <= 0xE01EF)  # variation selectors supplement
+      (0x200B <= cp <= 0x200F) ||     # zero width space / (non-)joiner, LRM / RLM
+        (0x202A <= cp <= 0x202E) ||   # bidi embeddings and overrides
+        (0x2060 <= cp <= 0x2064) ||   # word joiner, invisible operators
+        (0x2066 <= cp <= 0x206F) ||   # bidi isolates, deprecated format controls
+        cp == 0x061C ||               # Arabic letter mark
+        cp == 0xFEFF ||               # zero width no-break space / BOM
+        (0x1160 <= cp <= 0x11FF) ||   # Hangul Jungseong/Jongseong (conjoining)
+        (0xFE00 <= cp <= 0xFE0F) ||   # variation selectors
+        (0xE0020 <= cp <= 0xE007F) || # emoji tag characters
+        (0xE0100 <= cp <= 0xE01EF)    # variation selectors supplement
     end
 
     private def regional_indicator?(cp : Int32) : Bool

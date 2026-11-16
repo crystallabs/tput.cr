@@ -382,10 +382,15 @@ class Tput
     # matching sequence (CSI/OSC filter by final byte / prefix; DCS takes the
     # first). Returns `nil` on timeout/EOF.
     private def read_reply(io : IO, timeout : Time::Span, intro : Char, & : -> T?) : T? forall T
+      # One deadline for the whole scan: unrelated input arriving meanwhile
+      # (keys, mouse reports) must not keep extending the wait.
+      deadline = Time.instant + timeout
       loop do
-        b = probe_read_byte(io, timeout) || return
+        left = deadline - Time.instant
+        return unless left > Time::Span.zero
+        b = probe_read_byte(io, left) || return
         next unless b == 0x1b_u8
-        nb = probe_read_byte(io, timeout) || return
+        nb = probe_read_intro(io, timeout) || return
         next unless nb == intro.ord
         if result = yield
           return result

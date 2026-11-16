@@ -97,6 +97,10 @@ class Tput
     # or releases regardless.
     def enable_keyboard_protocol(events : Bool = false) : KeyboardProtocol
       protocol = best_keyboard_protocol
+      # Kitty keeps its flags on a stack that `#disable_keyboard_protocol` pops
+      # once, so a protocol that is already on (a change of reporting level)
+      # is turned off before being enabled again.
+      disable_keyboard_protocol if @keyboard_protocol
       case protocol
       when .kitty?
         flags = KittyKeyboard::DisambiguateEscapeCodes

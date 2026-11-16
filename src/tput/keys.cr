@@ -181,6 +181,13 @@ class Tput
     # for: `Key::Enter` for the keypad's Enter, the character for the others.
     Keypad = 16777309
 
+    # A key sent with an `ESC` prefix, as a terminal sends one pressed with
+    # Alt held (`\e1`, `\eA`, `\e\x7f`), other than `\ea`-`\ez` and `\e\r`,
+    # which have members of their own. Turned by `Tput::Input#listen` into the
+    # `Tput::KeyEvent` an enhanced keyboard protocol reports for that key
+    # with Alt (`KeyEvent.from_esc_prefixed`).
+    EscPrefixed = 16777310
+
     Unknown = 33554431
 
     # Reads a `Control` input from *char*. If an escape sequence was detected,
@@ -198,9 +205,15 @@ class Tput
     end
 
     # Dispatches on the byte after `ESC`: `O` (SS3), `[` (CSI, delegating numeric
-    # parameter lists to `#read_numeric_csi`), or a letter (Alt+letter). Modified
+    # parameter lists to `#read_numeric_csi`), `]` (OSC), `P`/`X`/`^`/`_`
+    # (DCS/SOS/PM/APC strings, discarded), or any other key (Alt+key). Modified
     # function keys (e.g. Shift+F5) report the base F-key; no modified-F-key
     # members exist.
+    #
+    # A sequence introducer with nothing after it within the escape timeout is
+    # the Alt-modified key of that byte (Alt+`[`, Alt+Shift+`O`, …): a terminal
+    # sends a sequence in one piece. A bare `\e\\` stays a string terminator
+    # and is dropped.
     private def self.read_escape_sequence(char, &)
       o = yield.try(&.ord) || -1
       # A run of extra `ESC`s (Alt+Esc, or Alt-prefixed sequences that
@@ -216,9 +229,21 @@ class Tput
       end
       case o
       when 13 then Key::AltEnter
-      when 93 then Key::Osc # `\e]…` OSC reply (e.g. OSC 52 clipboard)
-      when 79               # SS3: `\eO…` — application-mode cursor / F1-F4 / keypad keys
-        case yield.try(&.ord) || -1
+      when 93
+        # `\e]…` OSC reply (e.g. OSC 52 clipboard). Its first payload char is
+        # read here; `Input#listen` reads the rest.
+        yield ? Key::Osc : Key::EscPrefixed
+      when 80, 88, 94, 95
+        # DCS (`\eP`), SOS (`\eX`), PM (`\e^`), APC (`\e_`): a string up to ST.
+        if c = yield
+          skip_control_string(c) { yield }
+        else
+          Key::EscPrefixed
+        end
+      when 92 then nil # `\e\\`: a string terminator with no string
+      when 79          # SS3: `\eO…` — application-mode cursor / F1-F4 / keypad keys
+        case o = yield.try(&.ord) || -1
+        when -1 then Key::EscPrefixed
         when 65 then Key::Up
         when 66 then Key::Down
         when 67 then Key::Right
@@ -244,10 +269,14 @@ class Tput
           # `\eOj`-`\eOo` and the digits `\eOp`-`\eOy`. Without these the
           # sequence fell through to `nil` and the key was dropped.
         when 77, 88, 106..121 then Key::Keypad
+          # Modified cursor / Home / End / F1-F4 with the modifier ahead of the
+          # final (`\eO5P`, `\eO1;5P`), as some terminals send them.
+        when 48..57 then read_ss3_params(o - 48) { yield }
         end
       when 91 # CSI: `\e[…` — cursor/function keys and mouse reports
         o = yield.try(&.ord) || -1
         case o
+        when -1 then Key::EscPrefixed
         when 77 then Key::Mouse # `\e[M` -> X10 mouse report (binary payload follows)
         when 73 then Key::Mouse # `\e[I` -> focus-in report
         when 79 then Key::Mouse # `\e[O` -> focus-out report
@@ -288,15 +317,84 @@ class Tput
         # alphabetical, matching bytes 97..122 (same invariant `KeyEvent#u_key`
         # relies on).
         Key.from_value? Key::AltA.value + (o - 97)
+      when -1
+        nil
+      else
+        Key::EscPrefixed
+      end
+    end
+
+    # Reads and discards a control string (DCS, SOS, PM, APC) whose first
+    # payload char is *first*, through its terminator: ST (`\e\\`), or CAN/SUB,
+    # which cancel one. None maps to a key; unread, the payload of a reply
+    # arriving mid-`#listen` (XTVERSION, DECRQSS, a kitty graphics response)
+    # would come out as typed characters. A stream going quiet for the escape
+    # timeout ends the string too, so a lost terminator cannot hold the input.
+    # Always returns `nil`.
+    private def self.skip_control_string(first : Char, &) : Key?
+      c = first
+      loop do
+        case c
+        when '\u0018', '\u001a'
+          break
+        when '\e'
+          c = yield || break
+          break if c == '\\'
+          next
+        end
+        c = yield || break
+      end
+      nil
+    end
+
+    # Reads the parameters and final byte of an SS3 sequence that carries a
+    # modifier (`\eO 5 P`, `\eO 1 ; 5 P`), whose first digit value is *first*,
+    # and classifies it like the CSI form `\e[ 1 ; mod <final>`. A lone
+    # parameter is the modifier.
+    private def self.read_ss3_params(first : Int32, &) : Key?
+      p0 : Int32? = nil
+      p1 : Int32? = nil
+      count = 0
+      cur = first
+      final = nil
+      loop do
+        o = yield.try(&.ord)
+        break unless o
+        if 48 <= o <= 57
+          cur = acc_digit cur, (o - 48)
+          next
+        end
+        case count
+        when 0 then p0 = cur
+        when 1 then p1 = cur
+        end
+        count += 1
+        cur = 0
+        next if o == 59
+        final = o
+        break
+      end
+      return unless final
+      mod = count == 1 ? p0 : p1
+      case final
+      when 'A'.ord, 'B'.ord, 'C'.ord, 'D'.ord, 'F'.ord, 'H'.ord
+        csi_letter_key final, mod
+      when 'P'.ord then Key::F1
+      when 'Q'.ord then Key::F2
+      when 'R'.ord then Key::F3
+      when 'S'.ord then Key::F4
       end
     end
 
     # Accumulates decimal digit *d* into running parameter *cur*, saturating at
     # `Int32::MAX` instead of overflowing. Input parsers must be total over
     # arbitrary byte streams: a CSI parameter of 10+ digits would otherwise raise
-    # `OverflowError` on the checked `*`/`+` and kill the input fiber.
-    private def self.acc_digit(cur : Int32, d : Int32) : Int32
-      cur > 0x0FFF_FFFF ? Int32::MAX : cur * 10 + d
+    # `OverflowError` on the checked `*`/`+` and kill the input fiber. Shared
+    # with `Tput::Input`'s parameter scanners.
+    #
+    # :nodoc:
+    def self.acc_digit(cur : Int32, d : Int32) : Int32
+      cur > (Int32::MAX - d) // 10 ? Int32::MAX : cur * 10 + d
     end
 
     # Reads a numeric CSI parameter list (`\e[ … <final>`) whose first digit

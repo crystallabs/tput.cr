@@ -301,6 +301,7 @@ class Tput
         if multi
           used = {} of String => Bool
           outbuf = [] of String
+          reset = false
 
           parts.each do |part|
             # TODO having '? || ""' at the end makes for some errors
@@ -315,7 +316,10 @@ class Tput
             # Drop a component whose SGR body is empty (e.g. "normal"/"default" ->
             # bare "\e[m") — emitting it would inject a stray empty parameter like
             # "\e[;31m". Crystal's "" is truthy (unlike JS), so skip explicitly.
-            next if part.empty?
+            if part.empty?
+              reset = true
+              next
+            end
             next if used[part]?
             used[part] = true
             outbuf.push part
@@ -324,6 +328,10 @@ class Tput
           # return outbuf.map{|e| "\e[#{e}m"}.join
           # TODO figure this out. Sequence gets aborted at some point
           # and the rest printed to the screen.
+          # Components that all came to nothing (unknown names, a `default` being
+          # turned off) emit nothing, like each would alone; only an actual
+          # `normal`/`default` leaves the bare reset.
+          return "" if outbuf.empty? && !reset
           return "\e[#{outbuf.join ';'}m"
         end
 
@@ -456,7 +464,7 @@ class Tput
 
           m = param.match /^(-?\d+) (fg|bg)$/
           if m
-            color = m[1].to_i
+            color = m[1].to_i? || return ""
 
             # Any negative color is the "default" sentinel, not just -1; must not
             # fall through to `color < 16` below (would emit a bogus SGR).

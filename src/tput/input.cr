@@ -19,7 +19,8 @@ class Tput
   # kind is meaningful per event — mouse report, paste, in-band resize, or key
   # transition — told apart with the predicates below; remaining fields are `nil`.
   #
-  #   * `char` / `key` / `sequence` — the key transition (and the raw bytes).
+  #   * `char` / `key` / `sequence` — the key transition (and the raw bytes;
+  #                     a mouse, resize or color-scheme report carries none).
   #   * `mouse`       — a parsed mouse/focus report (`#mouse?`).
   #   * `paste`       — bracketed-paste body (`#paste?`).
   #   * `resize`      — in-band resize report (`#resize?`).
@@ -45,15 +46,18 @@ class Tput
 
     # Raw input bytes for this event. A single-character event carries no array
     # — `#listen` passes `nil` and the byte is reconstructed here on demand, so
-    # plain typing allocates nothing unless a consumer reads the sequence.
+    # plain typing allocates nothing unless a consumer reads the sequence. A
+    # mouse, resize or color-scheme report carries none either (it is all in
+    # the parsed field): this is then just `[char]`.
     def sequence : Array(Char)
       @sequence || [@char]
     end
 
     # The raw input sequence *as stored* — `nil` for a single-character event
-    # (plain typing). Unlike `#sequence`, this never materializes a
-    # one-element `[@char]` array, so a consumer that can carry the nilable
-    # form through avoids the per-keypress allocation.
+    # (plain typing) and for a mouse, resize or color-scheme report. Unlike
+    # `#sequence`, this never materializes a one-element `[@char]` array, so a
+    # consumer that can carry the nilable form through avoids the per-keypress
+    # allocation.
     def sequence? : Array(Char)?
       @sequence
     end
@@ -96,6 +100,184 @@ class Tput
     # Whether this is an auto-repeat key event.
     def repeat? : Bool
       !!@key_event.try(&.repeat?)
+    end
+  end
+
+  # The byte source of one `Input#listen` run, which `#stop` can end while the
+  # run is parked in a read.
+  #
+  # For a file-descriptor input the bytes are read through a private duplicate
+  # of the descriptor: closing the duplicate wakes the parked read and leaves
+  # the input itself open. Any other input is read directly, a byte at a time
+  # so that nothing is read ahead of the parser; a read parked in one cannot
+  # be woken and ends when it returns.
+  #
+  # Bytes read but not delivered when a run ends are kept for the next run on
+  # the same input, of whichever `Tput`, so stopping never loses input.
+  #
+  # :nodoc:
+  class ListenInput < IO
+    # Raised by a read made, or woken, after `#stop`.
+    class Stopped < IO::Error
+    end
+
+    # How long a read of the bytes the input itself holds buffered may wait.
+    BUFFERED_WAIT = 1.millisecond
+
+    @@unread = {} of IO => Bytes
+    @@unread.compare_by_identity
+
+    # Puts *bytes* ahead of everything else the next run on *input* reads.
+    def self.unread(input : IO, bytes : Bytes) : Nil
+      return if bytes.empty?
+      if rest = @@unread[input]?
+        both = Bytes.new bytes.size + rest.size
+        bytes.copy_to both
+        rest.copy_to both + bytes.size
+        @@unread[input] = both
+      else
+        @@unread[input] = bytes.dup
+      end
+    end
+
+    # Whether the run was stopped (or has ended).
+    getter? stopped = false
+
+    @dup : IO::FileDescriptor?
+    @buf = Bytes.empty
+    @rem : Bytes
+
+    # Whether the input's own read buffer may still hold bytes (read ahead of
+    # a reply by a query made before the run); those go first.
+    @drain = false
+
+    def initialize(@input : IO)
+      input = @input
+      if input.is_a?(IO::FileDescriptor) && !input.closed?
+        fd = LibC.dup input.fd
+        if fd >= 0
+          dup = IO::FileDescriptor.new fd
+          dup.close_on_exec = true
+          dup.read_buffering = false
+          @dup = dup
+          @buf = Bytes.new 4096
+          @drain = true
+        end
+      end
+      @rem = @@unread.delete(input) || Bytes.empty
+    end
+
+    # Ends the run: a read parked in the input raises `Stopped`, as does any
+    # later one, and the bytes read ahead are kept for the next run.
+    def stop : Nil
+      return if @stopped
+      @stopped = true
+      self.class.unread @input, @rem
+      @rem = Bytes.empty
+      begin
+        @dup.try &.close
+      rescue IO::Error
+      end
+    end
+
+    def read(slice : Bytes) : Int32
+      return 0 if slice.empty?
+      if @rem.empty?
+        if dup = @dup
+          fill dup
+        else
+          check_running
+          n = @input.read slice
+          keep_late slice[0, n]
+          return n
+        end
+      end
+      n = Math.min slice.size, @rem.size
+      @rem[0, n].copy_to slice
+      @rem += n
+      n
+    end
+
+    def peek : Bytes?
+      if @rem.empty?
+        dup = @dup || return
+        fill dup
+      end
+      @rem
+    end
+
+    def skip(bytes_count : Int) : Nil
+      if 0 <= bytes_count <= @rem.size
+        @rem += bytes_count
+      else
+        super
+      end
+    end
+
+    def write(slice : Bytes) : Nil
+      raise IO::Error.new "Can't write to a ListenInput"
+    end
+
+    def read_timeout=(span : Time::Span?)
+      io = @dup || @input
+      if io.responds_to? :"read_timeout="
+        io.read_timeout = span
+      end
+      span
+    end
+
+    private def check_running : Nil
+      raise Stopped.new "Input reading stopped" if @stopped
+    end
+
+    # Bytes a read returned after `#stop` belong to the next run.
+    private def keep_late(bytes : Bytes) : Nil
+      return unless @stopped
+      if rest = @@unread[@input]?
+        both = Bytes.new rest.size + bytes.size
+        rest.copy_to both
+        bytes.copy_to both + rest.size
+        @@unread[@input] = both
+      elsif !bytes.empty?
+        @@unread[@input] = bytes.dup
+      end
+      check_running
+    end
+
+    private def fill(dup : IO::FileDescriptor) : Nil
+      check_running
+      n = 0
+      if @drain
+        n = read_buffered
+        @drain = false if n == 0
+      end
+      if n == 0
+        n = begin
+          dup.read @buf
+        rescue ex : IO::TimeoutError
+          raise ex
+        rescue ex : IO::Error
+          # The duplicate closed under the read by `#stop`.
+          check_running
+          raise ex
+        end
+      end
+      keep_late @buf[0, n]
+      @rem = @buf[0, n]
+    end
+
+    # Reads what the input itself already holds, without waiting for more.
+    private def read_buffered : Int32
+      input = @input.as IO::FileDescriptor
+      saved = input.read_timeout
+      input.read_timeout = BUFFERED_WAIT
+      begin
+        input.read @buf
+      rescue IO::TimeoutError
+        0
+      ensure
+        input.read_timeout = saved
+      end
     end
   end
 
@@ -182,14 +364,17 @@ class Tput
       end
     end
 
-    # Runs *block* with the input's read timeout set to `@read_timeout` (cleared
-    # afterwards) when *timeout* is requested and supported. Shared by
-    # `#next_char`/`#next_byte`.
-    private def with_read_timeout(timeout : Bool, &)
-      input = @input
+    # The IO input is read from: the running `#listen`'s source, else `@input`.
+    private def listen_io : IO
+      @listen_input || @input
+    end
 
+    # Runs *block* with *input*'s read timeout set to *timeout* (`true` for
+    # `@read_timeout`; cleared afterwards) when one is requested and supported.
+    # Shared by `#next_char`/`#next_byte`.
+    private def with_read_timeout(timeout : Bool | Time::Span, input : IO, &)
       if timeout && input.responds_to? :"read_timeout="
-        input.read_timeout = @read_timeout
+        input.read_timeout = timeout.is_a?(Time::Span) ? timeout : @read_timeout
       end
 
       # Clear the timeout in an `ensure`, mirroring `Probe#probe_read_byte`: an
@@ -204,9 +389,12 @@ class Tput
       end
     end
 
-    def next_char(timeout : Bool = false, &)
-      c = with_read_timeout(timeout) do
-        @input.read_char
+    # Reads the next char of input, or `nil` on EOF/timeout, and appends it to
+    # the array the block returns. *timeout* is `true` for the escape timeout
+    # (`#read_timeout`), or a span of its own.
+    def next_char(timeout : Bool | Time::Span = false, io : IO = listen_io, &)
+      c = with_read_timeout(timeout, io) do
+        io.read_char
       rescue IO::TimeoutError
         nil
       end
@@ -221,9 +409,9 @@ class Tput
     # Reads one raw 8-bit byte (`0..255`), or `nil` on EOF/timeout. Bypasses
     # UTF-8 decoding — needed for X10 mouse encoding, whose payload bytes may
     # exceed `0x7F` and would be corrupted by `read_char`.
-    private def next_byte(timeout : Bool = false) : Int32?
-      b = with_read_timeout(timeout) do
-        @input.read_byte
+    private def next_byte(timeout : Bool = false, io : IO = listen_io) : Int32?
+      b = with_read_timeout(timeout, io) do
+        io.read_byte
       rescue IO::TimeoutError
         nil
       end
@@ -231,102 +419,173 @@ class Tput
       b.try &.to_i
     end
 
+    # Reads input until EOF or `#stop_listen`, yielding each parsed event.
+    #
+    # `#stop_listen` ends the loop at once even while it waits for input, and
+    # nothing typed is lost to it: what was read but not yet delivered is the
+    # first thing the next `#listen` on the same input reads.
     def listen(& : InputEvent -> Nil)
       with_raw_input do
+        io = ListenInput.new @input
+        @listen_input = io
         sequence = [] of Char
-        while char = next_char { sequence }
-          key = nil
-          mouse = nil
-          key_event = nil
-          paste = nil
-          resize = nil
-          color_scheme = nil
-          clipboard = nil
-          if char.control?
-            key = Key.read_control(char) { next_char(true) { sequence } }
+        begin
+          while !io.stopped? && (char = next_char(io: io) { sequence })
+            key = nil
+            mouse = nil
+            key_event = nil
+            paste = nil
+            resize = nil
+            color_scheme = nil
+            clipboard = nil
+            if char.control?
+              key = Key.read_control(char) { next_char(true, io) { sequence } }
 
-            case key
-            when Key::Mouse
-              # Mouse report introducer detected; parse the rest. Encoding is
-              # told apart by the char after `\e[` (see `#read_mouse`): `M` X10,
-              # `<` SGR/DEC-locator, `I`/`O` focus, a digit URxvt.
-              mouse = read_mouse(sequence) { next_char(true) { sequence } }
-              key = nil
-            when Key::Enhanced, Key::Keypad
-              # Enhanced keyboard sequence (kitty protocol / modifyOtherKeys),
-              # or an application-keypad key (`\eOM`, `\eOp`, …), given the
-              # `KeyEvent` kitty reports for it, so a keypad key is one shape
-              # either way. Re-parse into a `KeyEvent`, then project back onto
-              # legacy channels: a printable press still arrives as `char`, a
-              # recognizable key still maps to `Key` (the keypad's Enter is
-              # `Key::Enter`). Release/repeat leaves `key` clear so it isn't
-              # mistaken for a press.
-              key_event =
-                if key == Key::Keypad
-                  KeyEvent.from_ss3_keypad sequence.last
+              # A terminal report is never Alt-prefixed, so an ESC run ahead of
+              # one is an Escape key of its own, typed while the report was on
+              # its way: deliver it, leaving the report at the offsets its
+              # parsers expect.
+              if key.in?(Key::Mouse, Key::PasteStart, Key::PasteEnd, Key::Resize, Key::ColorScheme, Key::Osc)
+                while sequence.size > 2 && sequence[1] == '\e'
+                  sequence.delete_at 1
+                  yield InputEvent.new '\e', Key::Escape
+                end
+              end
+
+              case key
+              when Key::Mouse
+                # Mouse report introducer detected; parse the rest. Encoding is
+                # told apart by the char after `\e[` (see `#read_mouse`): `M` X10,
+                # `<` SGR/DEC-locator, `I`/`O` focus, a digit URxvt.
+                mouse = read_mouse(sequence, io) { next_char(true, io) { sequence } }
+                key = nil
+              when Key::Enhanced, Key::Keypad, Key::EscPrefixed
+                # Enhanced keyboard sequence (kitty protocol / modifyOtherKeys),
+                # an application-keypad key (`\eOM`, `\eOp`, …), or an
+                # ESC-prefixed key (`\e1`): the last two are given the
+                # `KeyEvent` kitty reports for them, so a key is one shape
+                # either way. Re-parse into a `KeyEvent`, then project back onto
+                # legacy channels: a printable press still arrives as `char`, a
+                # recognizable key still maps to `Key` (the keypad's Enter is
+                # `Key::Enter`). Release/repeat leaves `key` clear so it isn't
+                # mistaken for a press.
+                key_event =
+                  case key
+                  when Key::Keypad      then KeyEvent.from_ss3_keypad sequence.last
+                  when Key::EscPrefixed then KeyEvent.from_esc_prefixed sequence.last
+                  else                       parse_key_event sequence
+                  end
+                if ev = key_event
+                  key = ev.to_legacy_key
+                  if c = ev.char
+                    char = c
+                  end
                 else
-                  parse_key_event sequence
+                  key = nil
                 end
-              if ev = key_event
-                key = ev.to_legacy_key
-                if c = ev.char
-                  char = c
-                end
-              else
+              when Key::PasteStart
+                # Bracketed paste (DEC 2004): read body verbatim to the `\e[201~`
+                # terminator, deliver as `paste` rather than key input. The body
+                # is read under `#paste_timeout`, not the escape timeout.
+                paste = read_paste { next_char(@paste_timeout, io) { sequence } }
+                key = nil
+              when Key::PasteEnd
+                key = nil # stray end-marker with no matching start; ignore
+              when Key::Resize
+                # In-band resize report (DEC 2048).
+                resize = parse_resize sequence
+                key = nil
+              when Key::ColorScheme
+                # Color-scheme report (DEC 2031): `\e[?997;Ps n`.
+                color_scheme = parse_color_scheme sequence
+                key = nil
+              when Key::Osc
+                # OSC reply (`\e]…`). OSC 52 clipboard read reply surfaces on its
+                # own `clipboard` channel, distinct from a bracketed paste.
+                clipboard = read_osc_clipboard(sequence.last) { next_char(true, io) { sequence } }
                 key = nil
               end
-            when Key::PasteStart
-              # Bracketed paste (DEC 2004): read body verbatim to the `\e[201~`
-              # terminator, deliver as `paste` rather than key input.
-              paste = read_paste { next_char(true) { sequence } }
-              key = nil
-            when Key::PasteEnd
-              key = nil # stray end-marker with no matching start; ignore
-            when Key::Resize
-              # In-band resize report (DEC 2048).
-              resize = parse_resize sequence
-              key = nil
-            when Key::ColorScheme
-              # Color-scheme report (DEC 2031): `\e[?997;Ps n`.
-              color_scheme = parse_color_scheme sequence
-              key = nil
-            when Key::Osc
-              # OSC reply (`\e]…`). OSC 52 clipboard read reply surfaces on its
-              # own `clipboard` channel, distinct from a bracketed paste.
-              clipboard = read_osc_clipboard { next_char(true) { sequence } }
-              key = nil
             end
-          end
 
-          # An escape sequence consumed but producing nothing to deliver must NOT
-          # surface as a phantom Escape key. Two shapes: a parsed-away/malformed
-          # report (`key` cleared to `nil`), or an unrecognized sequence that
-          # `read_control` collapsed to `Key::Escape` but which consumed bytes
-          # (`sequence.size > 1`, vs. a bare Escape which consumes none). A real
-          # bare Escape and any printable key are kept. A terminal `\e\e` (double
-          # Escape, e.g. Alt+Esc) is exempted: it legitimately delivers one
-          # `Key::Escape` rather than being discarded.
-          double_escape = sequence.size == 2 && sequence[1] == '\e'
-          if char == '\e' && mouse.nil? && key_event.nil? &&
-             paste.nil? && resize.nil? && color_scheme.nil? && clipboard.nil? &&
-             (key.nil? || (key == Key::Escape && sequence.size > 1 && !double_escape))
+            # An escape sequence consumed but producing nothing to deliver must NOT
+            # surface as a phantom Escape key. Two shapes: a parsed-away/malformed
+            # report (`key` cleared to `nil`), or an unrecognized sequence that
+            # `read_control` collapsed to `Key::Escape` but which consumed bytes
+            # (`sequence.size > 1`, vs. a bare Escape which consumes none). A real
+            # bare Escape and any printable key are kept. A terminal `\e\e` (double
+            # Escape, e.g. Alt+Esc) is exempted: it legitimately delivers one
+            # `Key::Escape` rather than being discarded.
+            double_escape = sequence.size == 2 && sequence[1] == '\e'
+            if char == '\e' && mouse.nil? && key_event.nil? &&
+               paste.nil? && resize.nil? && color_scheme.nil? && clipboard.nil? &&
+               (key.nil? || (key == Key::Escape && sequence.size > 1 && !double_escape))
+              sequence.clear
+              next
+            end
+
+            # Stopped by the handler of an Escape delivered above: the report
+            # goes to the next run.
+            if io.stopped?
+              unread_sequence sequence
+              break
+            end
+
+            # Single-char event: hand it no array, let it reconstruct `[char]`
+            # lazily. A mouse, resize or color-scheme report is all in its
+            # parsed field and carries none either (a mouse drag is a burst of
+            # them). Other multi-byte sequences are dup'd since the live buffer
+            # is cleared and reused below; a long one (a paste, a clipboard
+            # reply) is handed over whole instead, so it is neither copied nor
+            # kept as the live buffer's capacity.
+            seq = if sequence.size == 1 || mouse || resize || color_scheme
+                    nil
+                  elsif sequence.size > 256
+                    long = sequence
+                    sequence = [] of Char
+                    long
+                  else
+                    sequence.dup
+                  end
+            yield InputEvent.new char, key, seq, mouse, key_event, paste, resize, color_scheme, clipboard
             sequence.clear
-            next
           end
-
-          # Single-char event: hand it no array, let it reconstruct `[char]`
-          # lazily. Multi-byte sequences are dup'd since the live buffer is
-          # cleared and reused below.
-          seq = sequence.size == 1 ? nil : sequence.dup
-          yield InputEvent.new char, key, seq, mouse, key_event, paste, resize, color_scheme, clipboard
-          sequence.clear
+        rescue ListenInput::Stopped
+          # The read `#stop_listen` woke. The part of a sequence already read
+          # goes back ahead of the rest of it.
+          unread_sequence sequence
+        ensure
+          io.stop
+          @listen_input = nil if @listen_input.same? io
         end
       end
     end
 
+    # Ends the running `#listen`, also one waiting for input: it returns
+    # without yielding again. Input it had read but not delivered, and all
+    # input from then on, is left for the next `#listen` on the same input
+    # (or, unread, for a query made in between). A no-op when none is running.
+    #
+    # A `#listen` waiting in an input that is no file descriptor cannot be
+    # woken: it returns when that read does, handing on what it read.
+    def stop_listen : Nil
+      @listen_input.try &.stop
+    end
+
+    # Whether a `#listen` is running (and was not stopped).
+    def listening? : Bool
+      !!@listen_input.try { |io| !io.stopped? }
+    end
+
+    # Hands the chars of a partly read sequence to the next `#listen`.
+    private def unread_sequence(sequence : Array(Char)) : Nil
+      return if sequence.empty?
+      ListenInput.unread @input, sequence.join.to_slice
+    end
+
     # Reads the body of a bracketed paste (`\e[200~ … \e[201~`) verbatim, up to
     # but not including the terminator (consumed). Body is not interpreted.
-    # Yields for each input char.
+    # Yields for each input char; a `nil` (EOF, `#stop_listen`, or the stream
+    # idle for `#paste_timeout`) ends the paste without one.
     private def read_paste(&) : String
       term = "\e[201~"
       body = String::Builder.new
@@ -368,11 +627,9 @@ class Tput
     end
 
     # Accumulates decimal digit *d* into running parameter *cur*, saturating at
-    # `Int32::MAX` instead of overflowing. Input parsers must be total over
-    # arbitrary byte streams: a CSI parameter of 10+ digits would otherwise raise
-    # `OverflowError` on the checked `*`/`+` and kill the input fiber.
+    # `Int32::MAX` (see `Key.acc_digit`).
     private def acc_digit(cur : Int32, d : Int32) : Int32
-      cur > 0x0FFF_FFFF ? Int32::MAX : cur * 10 + d
+      Key.acc_digit cur, d
     end
 
     # Parses the `;`-separated decimal parameters of a captured CSI *sequence*
@@ -407,10 +664,13 @@ class Tput
 
     # Reads an OSC payload up to its terminator (BEL or ST); if it's an OSC 52
     # clipboard reply (`52;<sel>;<base64>`), returns the decoded text, else `nil`.
-    private def read_osc_clipboard(&) : String?
+    #
+    # *first* is the payload's first char (read by `Key.read_control`); the
+    # block yields the following ones.
+    private def read_osc_clipboard(first : Char, &) : String?
       body = String::Builder.new
+      c : Char? = first
       loop do
-        c = yield
         break unless c
         case c
         when '\a' # BEL terminator
@@ -423,6 +683,7 @@ class Tput
         else
           body << c
         end
+        c = yield
       end
       data = body.to_s
       return unless data.starts_with? "52;"
@@ -535,15 +796,15 @@ class Tput
     #                captured in *sequence*.
     #
     # Returns the parsed `Mouse::Event`, or `nil` if the stream ended or malformed.
-    private def read_mouse(sequence, &) : Mouse::Event?
+    private def read_mouse(sequence, io : IO, &) : Mouse::Event?
       case sequence[2]? || '\0'
       when 'M'
         # X10 / normal encoding: three raw 8-bit bytes follow, read via
         # `next_byte` (not UTF-8 `read_char`) so a coordinate past column/row 95
         # (byte >= 0x80) survives intact.
-        cb = next_byte true
-        cx = next_byte true
-        cy = next_byte true
+        cb = next_byte true, io
+        cx = next_byte true, io
+        cy = next_byte true, io
         return unless cb && cx && cy
         sequence << cb.chr << cx.chr << cy.chr
         Mouse.parse_x10 cb, cx, cy

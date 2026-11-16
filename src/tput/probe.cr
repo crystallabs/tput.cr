@@ -114,7 +114,7 @@ class Tput
         # ignored; real replies all begin with ESC.
         next unless b == 0x1b_u8
 
-        case probe_read_byte io, timeout
+        case probe_read_intro io, timeout
         when '['.ord # CSI
           params, final = probe_read_csi io, timeout
           case final
@@ -213,7 +213,7 @@ class Tput
         b = probe_read_byte io, timeout
         return unless b
         next unless b == 0x1b_u8
-        next unless probe_read_byte(io, timeout) == '['.ord
+        next unless probe_read_intro(io, timeout) == '['.ord
         params, final = probe_read_csi io, timeout
         next unless final == 'R'
         ints = probe_ints params
@@ -302,6 +302,17 @@ class Tput
         if io.responds_to? :"read_timeout="
           io.read_timeout = nil
         end
+      end
+    end
+
+    # Reads the byte after an `ESC`, skipping any further `ESC`s so the last of
+    # a run introduces the sequence: a stray `ESC` ahead of a reply (a key
+    # typed during the query) must not swallow the reply's own introducer.
+    # Returns `nil` on timeout or EOF.
+    private def probe_read_intro(io : IO, timeout : Time::Span) : UInt8?
+      loop do
+        b = probe_read_byte(io, timeout) || return
+        return b unless b == 0x1b_u8
       end
     end
 
@@ -446,8 +457,8 @@ class Tput
       return unless comps.size == 3
 
       vals = comps.map do |c|
-        v = c.to_i?(16)
-        return unless v
+        v = c.to_i?(16) || return
+        return if v < 0 # a signed component is no color
         case c.size
         when 1 then (v * 0xff // 0xf).to_u8
         when 2 then v.to_u8

@@ -172,8 +172,10 @@ class Tput
     # `$<delay>` (e.g. `$<5>`, `$<10*>`, `$<5/>`). Unibilium performs parameter
     # substitution but, like ncurses' `tparm`, leaves these markers in the
     # output; honoring them (ncurses' `tputs` job) is left to us. Strips the
-    # markers and, where the terminal lacks hardware flow control, sleeps for
-    # the requested delay before emitting the following bytes.
+    # markers and, where the terminal lacks hardware flow control, flushes
+    # what precedes the marker and sleeps for the requested delay before
+    # emitting the following bytes. While output is diverted (`@ret`), the
+    # markers are stripped and no delay is made.
     #
     # With no padding instructions, behaves like `#_write`. See ncurses'
     # `tinfo/lib_tputs.c`.
@@ -205,7 +207,12 @@ class Tput
         # delay as proportional to the number of affected lines; we keep the
         # base amount rather than scaling it (as in Blessed).
         mandatory = suffix.includes? '/'
-        if (mandatory || !xon) && amount > 0
+        # The delay is time the terminal needs after the bytes ahead of it, so
+        # they are flushed to it first (as ncurses' `delay_output` does). Output
+        # diverted into a caller's buffer (`@ret`) reaches the terminal later,
+        # in one piece: a pause here would only stall the caller.
+        if (mandatory || !xon) && amount > 0 && @ret.nil?
+          flush
           sleep amount.milliseconds
         end
 

@@ -7,3 +7,7 @@ struct Char
     b.string to_s
   end
 end
+
+lib LibC
+  fun dup(fd : Int) : Int
+end

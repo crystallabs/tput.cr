@@ -10,6 +10,9 @@ module Superconf
   option "tput.read_timeout", 400.milliseconds,
     description: "Timeout waiting for terminal query replies (probing and key reads)",
     validate: ->(t : Time::Span) { t > Time::Span.zero }
+  option "tput.paste_timeout", 5.seconds,
+    description: "Silence after which a bracketed paste with no end marker is taken to be over",
+    validate: ->(t : Time::Span) { t > Time::Span.zero }
   option "tput.use_buffer", true,
     description: "Buffer Tput output instead of writing each control sequence immediately"
   option "tput.probe", true,

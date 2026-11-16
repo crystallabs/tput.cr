@@ -310,8 +310,9 @@ class Tput
     # returning -1/0/1. Integer groups are compared left to right; missing
     # trailing groups count as 0, and any non-numeric suffix is ignored.
     private def cmp_versions(a : String, b : String) : Int32
-      pa = a.scan(/\d+/).map &.[0].to_i
-      pb = b.scan(/\d+/).map &.[0].to_i
+      # A digit run too long for an `Int32` (a build hash) counts as the maximum.
+      pa = a.scan(/\d+/).map { |m| m[0].to_i? || Int32::MAX }
+      pb = b.scan(/\d+/).map { |m| m[0].to_i? || Int32::MAX }
       Math.max(pa.size, pb.size).times do |i|
         x = pa[i]? || 0
         y = pb[i]? || 0

@@ -140,6 +140,28 @@ class Tput
       end
     end
 
+    # The event for a key sent with an `ESC` prefix (`\e` + *c*), the legacy
+    # form of a key pressed with Alt held: a press of that key with `Alt`, in
+    # the shape an enhanced keyboard protocol reports it. An uppercase ASCII
+    # letter is its lowercase key with Shift (`\eA` is Alt+Shift+a), a C0
+    # control the key it is the Ctrl form of (`\e\x01` is Ctrl+Alt+a), DEL is
+    # Backspace. `nil` for a C1 control, which is no key.
+    def self.from_esc_prefixed(c : Char) : KeyEvent?
+      cp = c.ord
+      alt = Modifiers::Alt
+      case cp
+      when 9, 13, 27, 127 then new cp, 'u', alt
+      when 0              then new ' '.ord, 'u', alt | Modifiers::Ctrl
+      when 1..26          then new cp + 'a'.ord - 1, 'u', alt | Modifiers::Ctrl
+      when 28..31         then new cp + '\\'.ord - 28, 'u', alt | Modifiers::Ctrl
+      when 0x80..0x9f     then nil
+      when 'A'.ord..'Z'.ord
+        new cp + 'a'.ord - 'A'.ord, 'u', alt | Modifiers::Shift, shifted: cp
+      else
+        new cp, 'u', alt
+      end
+    end
+
     # Whether this is a numeric-keypad key (kitty's `KP_*` codes), Qt's
     # `Qt::KeypadModifier`. Widgets mostly treat it as the key it stands
     # for (`#main_key`): the keypad's Enter as Return, its digits as digits.

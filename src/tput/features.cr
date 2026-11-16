@@ -625,8 +625,8 @@ class Tput
       colors = 2
 
       ENV["TERM"]?.try do |term|
-        if md = /(\d+)colors?$/.match term
-          colors = md[1].to_i
+        if (md = /(\d+)colors?$/.match term) && (n = md[1].to_i?)
+          colors = n
           @sources["number_of_colors"] = %(env TERM="#{term}" (#{colors}-color suffix))
         end
       end
